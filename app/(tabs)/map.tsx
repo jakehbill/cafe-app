@@ -1,16 +1,102 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { useRouter } from 'expo-router';
+import {
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 import { COLORS } from './components/theme';
+import { cafes } from '@/data/cafes';
 
 export default function MapScreen() {
+  const router = useRouter();
+  const isWeb = Platform.OS === 'web';
+
+  const initialRegion = useMemo(() => {
+    const firstCafe = cafes[0];
+
+    return {
+      latitude: firstCafe?.latitude ?? 51.5256,
+      longitude: firstCafe?.longitude ?? -0.0754,
+      latitudeDelta: 0.02,
+      longitudeDelta: 0.02,
+    };
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Map</Text>
-        <Text style={styles.subtitle}>Map screen placeholder.</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Map view</Text>
+        <Text style={styles.subtitle}>
+          Interactive map available in mobile preview
+        </Text>
       </View>
+
+      {isWeb ? (
+        <ScrollView contentContainerStyle={styles.webList}>
+          {cafes.map((cafe) => (
+            <TouchableOpacity
+              key={cafe.id}
+              activeOpacity={0.85}
+              style={styles.webCard}
+              onPress={() => router.push(`/cafe/${cafe.id}`)}
+            >
+              <Text style={styles.webCardTitle}>{cafe.name}</Text>
+              <Text style={styles.webCardSubtitle}>{cafe.neighborhood}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : (
+        <NativeMapView
+          initialRegion={initialRegion}
+          onOpenCafe={(id) => router.push(`/cafe/${id}`)}
+        />
+      )}
     </SafeAreaView>
+  );
+}
+
+function NativeMapView({
+  initialRegion,
+  onOpenCafe,
+}: {
+  initialRegion: {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  };
+  onOpenCafe: (id: string) => void;
+}) {
+  // Important: lazy require keeps web from loading native map code.
+  const Maps = require('react-native-maps');
+  const MapView = Maps.default;
+  const Marker = Maps.Marker;
+  const Callout = Maps.Callout;
+
+  return (
+    <MapView style={styles.map} initialRegion={initialRegion}>
+      {cafes.map((cafe: (typeof cafes)[number]) => (
+        <Marker
+          key={cafe.id}
+          coordinate={{ latitude: cafe.latitude, longitude: cafe.longitude }}
+          title={cafe.name}
+          description={cafe.neighborhood}
+        >
+          <Callout onPress={() => onOpenCafe(cafe.id)}>
+            <View style={styles.callout}>
+              <Text style={styles.calloutTitle}>{cafe.name}</Text>
+              <Text style={styles.calloutSubtitle}>Tap to open cafe</Text>
+            </View>
+          </Callout>
+        </Marker>
+      ))}
+    </MapView>
   );
 }
 
@@ -19,10 +105,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  content: {
+  header: {
     paddingHorizontal: 20,
     paddingTop: 18,
-    gap: 8,
+    paddingBottom: 12,
+    gap: 4,
   },
   title: {
     fontSize: 24,
@@ -34,6 +121,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.muted,
     lineHeight: 20,
+  },
+  map: {
+    flex: 1,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 16,
+  },
+  callout: {
+    minWidth: 160,
+    maxWidth: 220,
+    backgroundColor: '#F7F3EE',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E6DCCB',
+    padding: 10,
+    gap: 2,
+  },
+  calloutTitle: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  calloutSubtitle: {
+    color: COLORS.muted,
+    fontSize: 12,
+  },
+  webList: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    gap: 10,
+  },
+  webCard: {
+    backgroundColor: '#F7F3EE',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E6DCCB',
+    padding: 12,
+    gap: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
+  },
+  webCardTitle: {
+    color: COLORS.text,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  webCardSubtitle: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });
 

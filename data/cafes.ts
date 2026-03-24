@@ -2,6 +2,8 @@ export type Cafe = {
   id: string;
   name: string;
   neighborhood: string;
+  latitude: number;
+  longitude: number;
   coffeeScore: number;
   workScore: number;
   vibeScore: number;
@@ -15,6 +17,8 @@ export const cafes: Cafe[] = [
     id: '1',
     name: 'Moss & Co. Coffee',
     neighborhood: 'Downtown • Elm Street',
+    latitude: 51.5256,
+    longitude: -0.0754,
     coffeeScore: 9.4,
     workScore: 8.7,
     vibeScore: 9.1,
@@ -26,6 +30,8 @@ export const cafes: Cafe[] = [
     id: '2',
     name: 'Hearthline Cafe',
     neighborhood: 'Old Town • Cedar Ave',
+    latitude: 51.5239,
+    longitude: -0.0782,
     coffeeScore: 9.0,
     workScore: 8.9,
     vibeScore: 8.8,
@@ -37,6 +43,8 @@ export const cafes: Cafe[] = [
     id: '3',
     name: 'Juniper Brew Bar',
     neighborhood: 'Riverside • Maple Row',
+    latitude: 51.5271,
+    longitude: -0.0718,
     coffeeScore: 9.6,
     workScore: 8.2,
     vibeScore: 8.9,
@@ -48,6 +56,8 @@ export const cafes: Cafe[] = [
     id: '4',
     name: 'Clay & Steam',
     neighborhood: 'Midtown • Willow Street',
+    latitude: 51.5218,
+    longitude: -0.0739,
     coffeeScore: 8.8,
     workScore: 9.1,
     vibeScore: 9.0,
@@ -59,6 +69,8 @@ export const cafes: Cafe[] = [
     id: '5',
     name: 'Golden Hour Cafe',
     neighborhood: 'West End • Pine Lane',
+    latitude: 51.5245,
+    longitude: -0.0698,
     coffeeScore: 8.9,
     workScore: 8.4,
     vibeScore: 9.3,
