@@ -16,9 +16,18 @@ export type CompactCafeCardProps = {
   /** Optional tags (e.g. from a saved rating); up to `maxTags` shown. */
   tags?: string[];
   maxTags?: number;
+  /** One short line from taste / tags (Home + Search). */
+  recommendationReason?: string;
 };
 
-export function CompactCafeCard({ cafe, onPress, scores, tags, maxTags = 3 }: CompactCafeCardProps) {
+export function CompactCafeCard({
+  cafe,
+  onPress,
+  scores,
+  tags,
+  maxTags = 3,
+  recommendationReason,
+}: CompactCafeCardProps) {
   const coffee = scores?.coffee ?? cafe.coffeeScore;
   const work = scores?.work ?? cafe.workScore;
   const vibe = scores?.vibe ?? cafe.vibeScore;
@@ -41,6 +50,11 @@ export function CompactCafeCard({ cafe, onPress, scores, tags, maxTags = 3 }: Co
         <Text style={styles.name} numberOfLines={2}>
           {cafe.name}
         </Text>
+        {recommendationReason ? (
+          <Text style={styles.recommendationReason} numberOfLines={1}>
+            {recommendationReason}
+          </Text>
+        ) : null}
         <Text style={styles.location} numberOfLines={1}>
           {cafe.neighborhood}
         </Text>
@@ -111,6 +125,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.2,
     lineHeight: 20,
+  },
+  recommendationReason: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.muted,
+    fontWeight: '500',
   },
   location: {
     fontSize: 12,

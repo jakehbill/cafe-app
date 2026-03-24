@@ -14,6 +14,7 @@ import {
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { cafes, type Cafe } from '@/data/cafes';
 import { buildTasteProfileFromState, rankCafesForSearch, type RankKey } from '@/lib/cafeRanking';
+import { getRecommendationReason } from '@/lib/recommendationReason';
 
 import { CompactCafeCard } from './components/CompactCafeCard';
 import { FilterChip } from './components/FilterChip';
@@ -195,6 +196,7 @@ export default function SearchScreen() {
                     key={cafe.id}
                     cafe={cafe}
                     scores={{ coffee, work, vibe }}
+                    recommendationReason={getRecommendationReason(cafe, tasteProfile)}
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
                 );

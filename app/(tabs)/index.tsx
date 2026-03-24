@@ -13,6 +13,7 @@ import { FilterChip } from './components/FilterChip';
 import { cafes, type Cafe } from '../../data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
+import { getRecommendationReason } from '@/lib/recommendationReason';
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -30,6 +31,7 @@ function getVisibleTags(tags: string[]) {
 function HomeCafeCard({
   cafe,
   localRating,
+  recommendationReason,
   onPress,
 }: {
   cafe: Cafe;
@@ -38,6 +40,7 @@ function HomeCafeCard({
     work: number;
     vibe: number;
   };
+  recommendationReason: string;
   onPress: () => void;
 }) {
   const displayScores = localRating
@@ -58,6 +61,9 @@ function HomeCafeCard({
 
       <View style={styles.featuredBody}>
         <Text style={styles.featuredName}>{cafe.name}</Text>
+        <Text style={styles.featuredReason} numberOfLines={1}>
+          {recommendationReason}
+        </Text>
         <Text style={styles.featuredNeighborhood}>{cafe.neighborhood}</Text>
         {localRating ? (
           <View style={styles.ratedBadge}>
@@ -100,11 +106,15 @@ export default function HomeScreen() {
   const router = useRouter();
   const { ratingsByCafeId } = useCafeState();
 
+  const tasteProfile = useMemo(
+    () => buildTasteProfileFromState(ratingsByCafeId, cafes),
+    [ratingsByCafeId]
+  );
+
   /** Same base ordering as Search (no query, no chip) + optional taste personalization. */
   const sortedCafes = useMemo(() => {
-    const tasteProfile = buildTasteProfileFromState(ratingsByCafeId, cafes);
     return rankCafesForHome([...cafes], ratingsByCafeId, tasteProfile);
-  }, [ratingsByCafeId]);
+  }, [ratingsByCafeId, tasteProfile]);
 
   function goToSearchWithRank(rank: (typeof BROWSE_BY)[number]['rank']) {
     router.push({ pathname: '/search', params: { rank } });
@@ -152,6 +162,7 @@ export default function HomeScreen() {
               key={cafe.id}
               cafe={cafe}
               localRating={ratingsByCafeId[cafe.id]}
+              recommendationReason={getRecommendationReason(cafe, tasteProfile)}
               onPress={() => router.push(`/cafe/${cafe.id}`)}
             />
           ))}
@@ -253,6 +264,13 @@ const styles = StyleSheet.create({
     color: '#2E2A27',
     lineHeight: 26,
     letterSpacing: -0.2,
+  },
+  featuredReason: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#6E6254',
+    fontWeight: '500',
+    marginTop: 2,
   },
   featuredNeighborhood: {
     fontSize: 13,

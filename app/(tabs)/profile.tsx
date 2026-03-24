@@ -1,6 +1,7 @@
+import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +14,14 @@ import {
 } from 'react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useCafeState } from '@/contexts/CafeStateContext';
+import {
+  computeActivityPoints,
+  computeProfileBadges,
+  getLevelProgress,
+  POINTS,
+  type ActivityCounts,
+} from '@/lib/profileGamification';
 
 import { COLORS } from './components/theme';
 
@@ -22,9 +31,51 @@ type ProfileCounts = {
   ratings: number;
 };
 
+/**
+ * Same tables / filters as `CafeStateContext.refreshUserCafeData`, but row counts only.
+ * Uses `cafe_id` in select so PostgREST returns a reliable `count` with `head: true`.
+ */
+async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCounts> {
+  const [savedRes, visitedRes, ratingsRes] = await Promise.all([
+    supabase
+      .from('user_saved_cafes')
+      .select('cafe_id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('user_visited_cafes')
+      .select('cafe_id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('user_cafe_ratings')
+      .select('cafe_id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+  ]);
+
+  if (savedRes.error) {
+    console.error('Profile count saved:', savedRes.error);
+  }
+  if (visitedRes.error) {
+    console.error('Profile count visited:', visitedRes.error);
+  }
+  if (ratingsRes.error) {
+    console.error('Profile count ratings:', ratingsRes.error);
+  }
+
+  return {
+    saved: savedRes.count ?? 0,
+    visited: visitedRes.count ?? 0,
+    ratings: ratingsRes.count ?? 0,
+  };
+}
+
+function formatPoints(n: number): string {
+  return n.toLocaleString('en-US');
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { ratingsByCafeId } = useCafeState();
   const email = user?.email ?? '';
 
   const [counts, setCounts] = useState<ProfileCounts | null>(null);
@@ -40,30 +91,9 @@ export default function ProfileScreen() {
 
     setCountsLoading(true);
 
-    const [savedRes, visitedRes, ratingsRes] = await Promise.all([
-      supabase
-        .from('user_saved_cafes')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId),
-      supabase
-        .from('user_visited_cafes')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId),
-      supabase
-        .from('user_cafe_ratings')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId),
-    ]);
+    const next = await fetchProfileCountsFromSupabase(userId);
 
-    if (savedRes.error) console.error('Profile count saved:', savedRes.error);
-    if (visitedRes.error) console.error('Profile count visited:', visitedRes.error);
-    if (ratingsRes.error) console.error('Profile count ratings:', ratingsRes.error);
-
-    setCounts({
-      saved: savedRes.count ?? 0,
-      visited: visitedRes.count ?? 0,
-      ratings: ratingsRes.count ?? 0,
-    });
+    setCounts(next);
     setCountsLoading(false);
   }, [user?.id]);
 
@@ -71,13 +101,33 @@ export default function ProfileScreen() {
     void loadCounts();
   }, [loadCounts]);
 
-  async function handleLogOut() {
-    console.log('LOG OUT pressed');
+  useFocusEffect(
+    useCallback(() => {
+      void loadCounts();
+    }, [loadCounts])
+  );
 
+  const displayCounts = counts ?? { saved: 0, visited: 0, ratings: 0 };
+
+  const activityCounts: ActivityCounts = useMemo(
+    () => ({
+      saved: displayCounts.saved,
+      visited: displayCounts.visited,
+      ratings: displayCounts.ratings,
+    }),
+    [displayCounts.saved, displayCounts.visited, displayCounts.ratings]
+  );
+
+  const totalPoints = useMemo(() => computeActivityPoints(activityCounts), [activityCounts]);
+  const levelProgress = useMemo(() => getLevelProgress(totalPoints), [totalPoints]);
+  const badges = useMemo(
+    () => computeProfileBadges(activityCounts, ratingsByCafeId),
+    [activityCounts, ratingsByCafeId]
+  );
+
+  async function handleLogOut() {
     try {
       const signOutResult = await supabase.auth.signOut();
-      console.log('Supabase signOut response:', signOutResult);
-
       const { error } = signOutResult;
       if (error) {
         console.error('Log out failed (Supabase error):', error);
@@ -85,14 +135,9 @@ export default function ProfileScreen() {
         return;
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      console.log('Session after logout:', {
-        sessionError,
-        hasSession: !!sessionData.session,
-      });
+      const { data: sessionData } = await supabase.auth.getSession();
 
       if (sessionData.session) {
-        console.error('Log out: session still present after signOut');
         Alert.alert('Log out failed', 'Session could not be cleared. Try again.');
         return;
       }
@@ -107,8 +152,6 @@ export default function ProfileScreen() {
     }
   }
 
-  const displayCounts = counts ?? { saved: 0, visited: 0, ratings: 0 };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -119,11 +162,105 @@ export default function ProfileScreen() {
         <View style={styles.headerBlock}>
           <Text style={styles.title}>Profile</Text>
           {email ? (
-            <Text style={styles.email}>{email}</Text>
+            <>
+              <Text style={styles.email}>{email}</Text>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.muted} style={{ marginTop: 4 }} />
+              ) : (
+                <Text style={styles.levelSubtitle}>{levelProgress.currentTitle}</Text>
+              )}
+            </>
           ) : (
-            <Text style={styles.emailMuted}>Not signed in</Text>
+            <>
+              <Text style={styles.emailMuted}>Not signed in</Text>
+              {!countsLoading ? (
+                <Text style={styles.levelSubtitle}>{levelProgress.currentTitle}</Text>
+              ) : null}
+            </>
           )}
         </View>
+
+        {/* Points, level progress, badges — driven by Supabase counts + local rating tags for Quiet badge */}
+        <View style={styles.pointsCard}>
+          <View style={styles.pointsHeaderRow}>
+            <Text style={styles.pointsLabel}>Total points</Text>
+            {countsLoading ? (
+              <ActivityIndicator color={COLORS.roastedBrown} />
+            ) : (
+              <Text style={styles.pointsBig}>{formatPoints(totalPoints)}</Text>
+            )}
+          </View>
+
+          {!countsLoading ? (
+            <>
+              <View style={styles.progressMetaRow}>
+                <Text style={styles.progressMetaText} numberOfLines={1}>
+                  {levelProgress.isMaxLevel
+                    ? 'You’ve reached the top level'
+                    : `${levelProgress.currentTitle} → ${levelProgress.nextTitle}`}
+                </Text>
+                {!levelProgress.isMaxLevel && levelProgress.nextTierMinPoints !== null ? (
+                  <Text style={styles.progressFraction}>
+                    {formatPoints(totalPoints)} / {formatPoints(levelProgress.nextTierMinPoints)}
+                  </Text>
+                ) : null}
+              </View>
+
+              {!levelProgress.isMaxLevel ? (
+                <>
+                  <View style={styles.progressTrack}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { flex: Math.max(0.001, levelProgress.progress01) },
+                      ]}
+                    />
+                    <View style={{ flex: Math.max(0.001, 1 - levelProgress.progress01) }} />
+                  </View>
+                  <Text style={styles.pointsToNext}>
+                    {levelProgress.pointsToNext === 1
+                      ? `1 point to ${levelProgress.nextTitle}`
+                      : `${levelProgress.pointsToNext} points to ${levelProgress.nextTitle}`}
+                  </Text>
+                </>
+              ) : (
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { flex: 1 }]} />
+                </View>
+              )}
+
+              <Text style={styles.pointsHint}>
+                Earn points: {POINTS.perSaved} per save · {POINTS.perVisited} per visit ·{' '}
+                {POINTS.perRating} per rating
+              </Text>
+            </>
+          ) : null}
+        </View>
+
+        <Text style={styles.sectionHeading}>Achievements</Text>
+        <Text style={styles.badgesExplainer}>
+          Badges unlock as you save, visit, rate, and tag quiet spots in your reviews.
+        </Text>
+        <View style={styles.badgeGrid}>
+          {badges.map((b) => (
+            <View
+              key={b.id}
+              style={[styles.badgeCell, !b.unlocked && styles.badgeCellLocked]}
+            >
+              <Text style={[styles.badgeIcon, !b.unlocked && styles.badgeIconLocked]}>
+                {b.icon}
+              </Text>
+              <Text
+                style={[styles.badgeLabel, !b.unlocked && styles.badgeLabelLocked]}
+                numberOfLines={2}
+              >
+                {b.label}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={styles.leaderboardHint}>Leaderboards may come later — for now, this is your journey.</Text>
 
         <Text style={styles.sectionHeading}>Your stats</Text>
         <View style={styles.statsRow}>
@@ -224,8 +361,8 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   headerBlock: {
-    gap: 8,
-    marginBottom: 28,
+    gap: 6,
+    marginBottom: 20,
   },
   title: {
     fontSize: 32,
@@ -238,10 +375,89 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     lineHeight: 22,
   },
+  levelSubtitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.roastedBrown,
+    marginTop: 2,
+  },
   emailMuted: {
     fontSize: 15,
     color: '#B5A89A',
     lineHeight: 22,
+  },
+  pointsCard: {
+    backgroundColor: '#F2EBDD',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E7DDCD',
+    padding: 18,
+    marginBottom: 24,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  pointsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pointsLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.muted,
+  },
+  pointsBig: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: -0.5,
+  },
+  progressMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 4,
+  },
+  progressMetaText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  progressFraction: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.muted,
+  },
+  progressTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#E4D9C8',
+    overflow: 'hidden',
+    flexDirection: 'row',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: COLORS.sage,
+  },
+  pointsToNext: {
+    fontSize: 12,
+    color: COLORS.muted,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  pointsHint: {
+    fontSize: 11,
+    color: COLORS.muted,
+    lineHeight: 16,
+    marginTop: 6,
+    textAlign: 'center',
   },
   sectionHeading: {
     fontSize: 13,
@@ -249,12 +465,68 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  badgesExplainer: {
+    fontSize: 12,
+    color: COLORS.muted,
+    lineHeight: 17,
     marginBottom: 12,
+    marginTop: -4,
+  },
+  badgeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  badgeCell: {
+    width: '30%',
+    flexGrow: 1,
+    minWidth: '28%',
+    maxWidth: '32%',
+    aspectRatio: 1,
+    borderRadius: 14,
+    backgroundColor: '#F7F3EE',
+    borderWidth: 1,
+    borderColor: '#EDE3D5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+    gap: 6,
+  },
+  badgeCellLocked: {
+    opacity: 0.45,
+    backgroundColor: '#EFE8DC',
+  },
+  badgeIcon: {
+    fontSize: 22,
+    color: COLORS.roastedBrown,
+  },
+  badgeIconLocked: {
+    color: COLORS.muted,
+  },
+  badgeLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: COLORS.text,
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  badgeLabelLocked: {
+    color: COLORS.muted,
+  },
+  leaderboardHint: {
+    fontSize: 11,
+    color: '#B5A89A',
+    fontStyle: 'italic',
+    marginBottom: 24,
+    lineHeight: 16,
   },
   statsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 32,
+    marginBottom: 28,
   },
   statCard: {
     flex: 1,
