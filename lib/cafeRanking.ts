@@ -11,7 +11,14 @@ export type RankKey = 'work' | 'coffee' | 'atmosphere' | 'quick' | 'quiet';
 
 // ---------------------------------------------------------------------------
 // Base cafe ranking (search). Personalization is added on top when a profile exists.
-// Tweak via `RANK` and `lib/cafePersonalization.ts` PERSONALIZE_WEIGHTS.
+//
+// finalScore = computeBaseSearchRankScore(...) + personalizationBoost(...) * PERSONALIZE_RANK_SCALE
+//
+// Base = balanced scores + tag coverage (no query/chip), or text + chip + quality when searching.
+// Personalization = visit-rank tiers + saved bump + axis alignment + tags + reference similarity −
+//   subtle low-axis penalty (see `lib/cafePersonalization.ts`).
+//
+// Tweak: `RANK`, `PERSONALIZE_RANK_SCALE` here, and `PERSONALIZE_WEIGHTS` / visit tiers in cafePersonalization.
 // ---------------------------------------------------------------------------
 
 const RANK = {
@@ -40,8 +47,8 @@ const RANK = {
   tagWord: 18,
 } as const;
 
-/** Scale for personalization vs base (keep boost subtle vs text/chip terms) */
-const PERSONALIZE_RANK_SCALE = 1;
+/** Scale applied to the personalization add-on (tune vs base + chip weights) */
+const PERSONALIZE_RANK_SCALE = 1.12;
 
 export function scoresForCafe(cafe: Cafe, ratingsByCafeId: Record<string, CafeRating>) {
   const r = ratingsByCafeId[cafe.id];
@@ -201,8 +208,10 @@ export function rankCafesForHome(
 
 export function buildTasteProfileFromState(
   ratingsByCafeId: Record<string, CafeRating>,
-  allCafes: Cafe[]
+  allCafes: Cafe[],
+  visitedCafeIdsOrdered: string[],
+  savedCafeIds: string[]
 ): UserTasteProfile | null {
   const cafesById = Object.fromEntries(allCafes.map((c) => [c.id, c]));
-  return buildUserTasteProfile(ratingsByCafeId, cafesById);
+  return buildUserTasteProfile(ratingsByCafeId, cafesById, visitedCafeIdsOrdered, savedCafeIds);
 }

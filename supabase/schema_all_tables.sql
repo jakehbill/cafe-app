@@ -35,6 +35,7 @@ create table public.user_visited_cafes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   cafe_id text not null,
+  rank_position integer,
   created_at timestamptz not null default now(),
   constraint user_visited_cafes_user_cafe_unique unique (user_id, cafe_id)
 );
@@ -99,6 +100,11 @@ create policy "visited_insert_own"
 create policy "visited_delete_own"
   on public.user_visited_cafes for delete
   using (auth.uid() = user_id);
+
+create policy "visited_update_own"
+  on public.user_visited_cafes for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- Ratings — own rows only (app uses upsert = insert + update)
 create policy "ratings_select_own"

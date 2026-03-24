@@ -8,6 +8,8 @@ import { COLORS } from './theme';
 export type CompactCafeCardProps = {
   cafe: Cafe;
   onPress: () => void;
+  /** 1-based rank label (e.g. favorite = 1). */
+  rank?: number;
   /**
    * Optional score overrides (e.g. user rating from context).
    * If omitted, uses `cafe.coffeeScore`, `cafe.workScore`, and `cafe.vibeScore`.
@@ -23,6 +25,7 @@ export type CompactCafeCardProps = {
 export function CompactCafeCard({
   cafe,
   onPress,
+  rank,
   scores,
   tags,
   maxTags = 3,
@@ -45,6 +48,11 @@ export function CompactCafeCard({
         pressed && styles.cardPressed,
       ]}
     >
+      {rank != null ? (
+        <View style={styles.rankBadge} accessibilityElementsHidden>
+          <Text style={styles.rankBadgeText}>#{rank}</Text>
+        </View>
+      ) : null}
       <View style={styles.thumbnail} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={2}>
@@ -83,6 +91,17 @@ export function CompactCafeCard({
 }
 
 const styles = StyleSheet.create({
+  rankBadge: {
+    width: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankBadgeText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.roastedBrown,
+    letterSpacing: -0.3,
+  },
   card: {
     flexDirection: 'row',
     alignItems: 'center',

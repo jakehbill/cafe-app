@@ -180,7 +180,7 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Points, level progress, badges — driven by Supabase counts + local rating tags for Quiet badge */}
+        {/* Points + level progress — counts feed badges below after activity */}
         <View style={styles.pointsCard}>
           <View style={styles.pointsHeaderRow}>
             <Text style={styles.pointsLabel}>Total points</Text>
@@ -237,7 +237,85 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        <Text style={styles.sectionHeading}>Achievements</Text>
+        <View style={styles.activitySection}>
+          <Text style={styles.sectionHeading}>Your activity</Text>
+          <Text style={styles.activitySectionIntro}>
+            Visited, ratings, and saved — tap a row to open the full list.
+          </Text>
+
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.visited}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Visited Cafes
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.ratings}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Ratings
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.saved}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Saved Cafes
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.activityList}>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.activityRow}
+              onPress={() => router.push('/my-cafes')}
+            >
+              <View style={styles.activityTextWrap}>
+                <Text style={styles.activityTitle}>Visited Cafes</Text>
+                <Text style={styles.activityHint}>Rank favorites and places you&apos;ve been</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.activityRow}
+              onPress={() => router.push('/ratings')}
+            >
+              <View style={styles.activityTextWrap}>
+                <Text style={styles.activityTitle}>Ratings</Text>
+                <Text style={styles.activityHint}>Cafes you have rated</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.activityRow}
+              onPress={() => router.push('/saved')}
+            >
+              <View style={styles.activityTextWrap}>
+                <Text style={styles.activityTitle}>Saved Cafes</Text>
+                <Text style={styles.activityHint}>Bookmarks you have saved</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text style={[styles.sectionHeading, styles.achievementsHeading]}>Achievements</Text>
         <Text style={styles.badgesExplainer}>
           Unlocked badges appear first. The rest unlock as you save, visit, rate highly, and tag what
           you love.
@@ -262,79 +340,6 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={styles.leaderboardHint}>Leaderboards may come later — for now, this is your journey.</Text>
-
-        <Text style={styles.sectionHeading}>Your stats</Text>
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            {countsLoading ? (
-              <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
-            ) : (
-              <Text style={styles.statNumber}>{displayCounts.saved}</Text>
-            )}
-            <Text style={styles.statLabel} numberOfLines={2}>
-              Saved Cafes
-            </Text>
-          </View>
-          <View style={styles.statCard}>
-            {countsLoading ? (
-              <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
-            ) : (
-              <Text style={styles.statNumber}>{displayCounts.visited}</Text>
-            )}
-            <Text style={styles.statLabel} numberOfLines={2}>
-              Visited Cafes
-            </Text>
-          </View>
-          <View style={styles.statCard}>
-            {countsLoading ? (
-              <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
-            ) : (
-              <Text style={styles.statNumber}>{displayCounts.ratings}</Text>
-            )}
-            <Text style={styles.statLabel} numberOfLines={2}>
-              Ratings
-            </Text>
-          </View>
-        </View>
-
-        <Text style={styles.sectionHeading}>Your activity</Text>
-        <View style={styles.activityList}>
-          <TouchableOpacity
-            activeOpacity={0.88}
-            style={styles.activityRow}
-            onPress={() => router.push('/saved')}
-          >
-            <View style={styles.activityTextWrap}>
-              <Text style={styles.activityTitle}>Saved Cafes</Text>
-              <Text style={styles.activityHint}>Bookmarks you have saved</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.88}
-            style={styles.activityRow}
-            onPress={() => router.push('/my-cafes')}
-          >
-            <View style={styles.activityTextWrap}>
-              <Text style={styles.activityTitle}>Visited Cafes</Text>
-              <Text style={styles.activityHint}>Places you have marked visited</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            activeOpacity={0.88}
-            style={styles.activityRow}
-            onPress={() => router.push('/ratings')}
-          >
-            <View style={styles.activityTextWrap}>
-              <Text style={styles.activityTitle}>Ratings</Text>
-              <Text style={styles.activityHint}>Cafes you have rated</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-        </View>
 
         <View style={styles.logoutBlock}>
           <TouchableOpacity
@@ -468,6 +473,19 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: 10,
   },
+  activitySection: {
+    marginBottom: 28,
+  },
+  activitySectionIntro: {
+    fontSize: 12,
+    color: COLORS.muted,
+    lineHeight: 17,
+    marginBottom: 14,
+    marginTop: -4,
+  },
+  achievementsHeading: {
+    marginTop: 4,
+  },
   badgesExplainer: {
     fontSize: 12,
     color: COLORS.muted,
@@ -527,7 +545,7 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 28,
+    marginBottom: 14,
   },
   statCard: {
     flex: 1,
@@ -565,7 +583,7 @@ const styles = StyleSheet.create({
   },
   activityList: {
     gap: 10,
-    marginBottom: 40,
+    marginBottom: 0,
   },
   activityRow: {
     flexDirection: 'row',

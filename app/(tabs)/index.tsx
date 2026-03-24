@@ -104,11 +104,11 @@ function HomeCafeCard({
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { ratingsByCafeId } = useCafeState();
+  const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
 
   const tasteProfile = useMemo(
-    () => buildTasteProfileFromState(ratingsByCafeId, cafes),
-    [ratingsByCafeId]
+    () => buildTasteProfileFromState(ratingsByCafeId, cafes, visitedCafeIds, savedCafeIds),
+    [ratingsByCafeId, visitedCafeIds, savedCafeIds]
   );
 
   /** Same base ordering as Search (no query, no chip) + optional taste personalization. */

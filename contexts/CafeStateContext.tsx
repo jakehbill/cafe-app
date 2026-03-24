@@ -22,10 +22,13 @@ export type CafeRating = {
 
 type CafeStateContextValue = {
   savedCafeIds: string[];
+  /** Visited cafe ids in display order (favorite → least), from `rank_position` when set. */
   visitedCafeIds: string[];
   ratingsByCafeId: Record<string, CafeRating>;
   toggleSaved: (id: string) => Promise<void>;
   toggleVisited: (id: string) => Promise<void>;
+  /** Persists new order (1-based ranks) for all visited cafes. */
+  reorderVisitedCafes: (orderedCafeIds: string[]) => Promise<void>;
   isSaved: (id: string) => boolean;
   isVisited: (id: string) => boolean;
   setCafeRating: (id: string, ratingData: CafeRating) => Promise<void>;
@@ -46,6 +49,21 @@ function rowsToRatingsMap(rows: { cafe_id: string; coffee: number; work: number;
     };
   }
   return next;
+}
+
+function sortVisitedRows(
+  rows: { cafe_id: string; rank_position: number | null }[]
+): string[] {
+  const sorted = [...rows].sort((a, b) => {
+    const ar = a.rank_position;
+    const br = b.rank_position;
+    if (ar == null && br == null) return a.cafe_id.localeCompare(b.cafe_id);
+    if (ar == null) return 1;
+    if (br == null) return -1;
+    if (ar !== br) return ar - br;
+    return a.cafe_id.localeCompare(b.cafe_id);
+  });
+  return sorted.map((r) => r.cafe_id);
 }
 
 export function CafeStateProvider({ children }: { children: React.ReactNode }) {
@@ -71,7 +89,7 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
 
     const [savedRes, visitedRes, ratingsRes] = await Promise.all([
       supabase.from('user_saved_cafes').select('cafe_id').eq('user_id', userId),
-      supabase.from('user_visited_cafes').select('cafe_id').eq('user_id', userId),
+      supabase.from('user_visited_cafes').select('cafe_id, rank_position').eq('user_id', userId),
       supabase
         .from('user_cafe_ratings')
         .select('cafe_id, coffee, work, vibe, tags, notes')
@@ -87,7 +105,7 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
     if (visitedRes.error) {
       console.error('Failed to load visited cafes', visitedRes.error);
     } else {
-      setVisitedCafeIds((visitedRes.data ?? []).map((row) => row.cafe_id));
+      setVisitedCafeIds(sortVisitedRows(visitedRes.data ?? []));
     }
 
     if (ratingsRes.error) {
@@ -163,12 +181,35 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       } else {
+        const nextRank = visitedRef.current.length + 1;
         const { error } = await supabase.from('user_visited_cafes').insert({
           user_id: userId,
           cafe_id: id,
+          rank_position: nextRank,
         });
         if (error) {
           console.error('Failed to mark visited', error);
+          return;
+        }
+      }
+
+      await refreshUserCafeData();
+    },
+    [userId, refreshUserCafeData]
+  );
+
+  const reorderVisitedCafes = useCallback(
+    async (orderedCafeIds: string[]) => {
+      if (!userId) return;
+
+      for (let i = 0; i < orderedCafeIds.length; i++) {
+        const { error } = await supabase
+          .from('user_visited_cafes')
+          .update({ rank_position: i + 1 })
+          .eq('user_id', userId)
+          .eq('cafe_id', orderedCafeIds[i]);
+        if (error) {
+          console.error('Failed to update visit rank', error);
           return;
         }
       }
@@ -226,12 +267,21 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
       ratingsByCafeId,
       toggleSaved,
       toggleVisited,
+      reorderVisitedCafes,
       isSaved,
       isVisited,
       setCafeRating,
       getCafeRating,
     }),
-    [savedCafeIds, visitedCafeIds, ratingsByCafeId, toggleSaved, toggleVisited, setCafeRating]
+    [
+      savedCafeIds,
+      visitedCafeIds,
+      ratingsByCafeId,
+      toggleSaved,
+      toggleVisited,
+      reorderVisitedCafes,
+      setCafeRating,
+    ]
   );
 
   return <CafeStateContext.Provider value={value}>{children}</CafeStateContext.Provider>;

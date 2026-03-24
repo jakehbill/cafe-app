@@ -2,43 +2,108 @@ import type { Cafe } from '@/data/cafes';
 import type { UserTasteProfile } from '@/lib/cafePersonalization';
 
 /**
- * One human line explaining why we surfaced this cafe. Priority:
- * 1) Score — user clearly favors coffee / work / vibe in past ratings
- * 2) Tag — cafe has a tag you often picked on highly-rated visits (affinity)
- * 3) Fallback — generic copy (no numbers)
+ * One short line per cafe (no numbers). Priority:
+ * A) Top visits / similarity to your ranked picks
+ * B) Clear axis preference from ratings + visits blend
+ * C) Tag match (Quiet / Specialty / Quick) from highly rated visits
+ * D) Stable fallback
  *
- * Tweak: DIMENSION_GAP, MIN_TAG_AFFINITY, MESSAGES, FALLBACKS, tag checks below.
+ * Tweak thresholds and strings in `REASON_*` below.
  */
 
-const DIMENSION_GAP = 0.35;
+const REASON = {
+  /** Ranks 1–3 in your visited list */
+  matchesTopPicks: 'Matches your top picks',
+  /** Cafe scores/tags align with your top visited cluster */
+  similarToRankedHighly: 'Similar to cafes you ranked highly',
 
-/** Min normalized tag affinity (0–1) to show a tag-based line */
-const MIN_TAG_AFFINITY = 0.42;
+  workPreference: 'Matches your favourite work spots',
+  coffeePreference: 'Fits your coffee standards',
+  vibePreference: 'Aligned with your vibe preferences',
 
-const MESSAGES = {
-  work: 'Great match for your work spots',
-  coffee: 'Matches your love for great coffee',
-  vibe: 'Fits your vibe preferences',
+  quiet: 'Quiet spots you tend to like',
+  specialty: 'Specialty coffee you usually go for',
+  quick: 'Fast spots you often choose',
+
+  fallbackA: 'Good all-round pick',
+  fallbackB: 'Popular choice nearby',
 } as const;
 
-const FALLBACKS = ['Popular with similar users', 'Good all-round pick'] as const;
+/** Top N visit ranks that count as “top picks” for copy */
+const TOP_PICK_MAX_RANK = 3;
+
+/** Min gap between strongest and second axis (0–10 scale) to claim a clear preference */
+const DIMENSION_GAP = 0.35;
+
+/** Similarity to reference visit cluster: normalized score dot product */
+const SIMILARITY_DOT_MIN = 0.52;
+
+/** Min reference-visit tag affinity on a matching cafe tag */
+const MIN_REF_TAG_AFFINITY = 0.4;
+
+/** Min affinity for tag-based lines (highly rated + merged) */
+const MIN_TAG_AFFINITY = 0.42;
 
 function normTag(t: string): string {
   return t.trim().toLowerCase();
 }
 
-/** Stable pick so lists don’t shuffle between the two fallbacks */
-function fallbackLine(cafe: Cafe): string {
-  const n = Number.parseInt(cafe.id, 10);
-  const idx = Number.isFinite(n) ? Math.abs(n) % FALLBACKS.length : cafe.id.charCodeAt(0) % FALLBACKS.length;
-  return FALLBACKS[idx];
+/** Prefer tags learned from highly rated cafes; fall back to merged affinity */
+function tagAffinityForReason(profile: UserTasteProfile, key: string): number {
+  return Math.max(profile.highRatingTagAffinity[key] ?? 0, profile.tagAffinity[key] ?? 0);
 }
 
-function scorePreferenceLine(profile: UserTasteProfile): string | null {
+/**
+ * Same idea as ranking’s reference similarity: dot product in 0–1 space, plus overlap
+ * with tags from your top visited listings.
+ */
+function isSimilarToTopVisitedCluster(cafe: Cafe, profile: UserTasteProfile): boolean {
+  if (!profile.referenceScores) {
+    return false;
+  }
+  const r = profile.referenceScores;
+  const rc = r.coffee / 10;
+  const rw = r.work / 10;
+  const rv = r.vibe / 10;
+  const cc = cafe.coffeeScore / 10;
+  const cw = cafe.workScore / 10;
+  const cv = cafe.vibeScore / 10;
+  const dot = rc * cc + rw * cw + rv * cv;
+  if (dot >= SIMILARITY_DOT_MIN) {
+    return true;
+  }
+  for (const t of cafe.tags) {
+    const k = normTag(t);
+    const a = profile.referenceTagAffinity[k];
+    if (a !== undefined && a >= MIN_REF_TAG_AFFINITY) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * A) Ranked visits first: literal top picks, then similarity to the same cluster.
+ */
+function rankedVisitedReason(cafe: Cafe, profile: UserTasteProfile): string | null {
+  const rank = profile.visitedRankByCafeId[cafe.id];
+  if (rank !== undefined && rank <= TOP_PICK_MAX_RANK) {
+    return REASON.matchesTopPicks;
+  }
+  if (isSimilarToTopVisitedCluster(cafe, profile)) {
+    return REASON.similarToRankedHighly;
+  }
+  return null;
+}
+
+/**
+ * B) One dominant axis in blended averages (ratings + reference visits).
+ */
+function ratingPreferenceReason(profile: UserTasteProfile): string | null {
   const rows = [
-    { avg: profile.avgWork, line: MESSAGES.work },
-    { avg: profile.avgCoffee, line: MESSAGES.coffee },
-    { avg: profile.avgVibe, line: MESSAGES.vibe },
+    { avg: profile.avgWork, line: REASON.workPreference },
+    { avg: profile.avgCoffee, line: REASON.coffeePreference },
+    { avg: profile.avgVibe, line: REASON.vibePreference },
   ];
   rows.sort((a, b) => b.avg - a.avg);
   if (rows[0].avg - rows[1].avg < DIMENSION_GAP) {
@@ -48,8 +113,7 @@ function scorePreferenceLine(profile: UserTasteProfile): string | null {
 }
 
 /**
- * Tag lines in display priority (first match wins).
- * Each entry: test cafe tags, affinity key(s) on profile, copy.
+ * C) Tag rules — cafe must carry the tag; user affinity from highly rated visits (and merge).
  */
 const TAG_RULES: ReadonlyArray<{
   cafeHas: (cafe: Cafe) => boolean;
@@ -58,8 +122,8 @@ const TAG_RULES: ReadonlyArray<{
 }> = [
   {
     cafeHas: (cafe) => cafe.tags.some((t) => normTag(t) === 'quiet'),
-    affinity: (p) => p.tagAffinity['quiet'] ?? 0,
-    line: 'Quiet spots you usually enjoy',
+    affinity: (p) => tagAffinityForReason(p, 'quiet'),
+    line: REASON.quiet,
   },
   {
     cafeHas: (cafe) => cafe.tags.some((t) => normTag(t).includes('specialty')),
@@ -68,12 +132,12 @@ const TAG_RULES: ReadonlyArray<{
       for (const t of cafe.tags) {
         const k = normTag(t);
         if (k.includes('specialty')) {
-          best = Math.max(best, p.tagAffinity[k] ?? 0);
+          best = Math.max(best, tagAffinityForReason(p, k));
         }
       }
       return best;
     },
-    line: 'Specialty coffee you tend to like',
+    line: REASON.specialty,
   },
   {
     cafeHas: (cafe) =>
@@ -81,12 +145,13 @@ const TAG_RULES: ReadonlyArray<{
         const n = normTag(t);
         return n === 'quick' || n === 'fast service';
       }),
-    affinity: (p) => Math.max(p.tagAffinity['quick'] ?? 0, p.tagAffinity['fast service'] ?? 0),
-    line: 'Fast spots you often go for',
+    affinity: (p) =>
+      Math.max(tagAffinityForReason(p, 'quick'), tagAffinityForReason(p, 'fast service')),
+    line: REASON.quick,
   },
 ];
 
-function tagLine(cafe: Cafe, profile: UserTasteProfile): string | null {
+function highlyRatedTagReason(cafe: Cafe, profile: UserTasteProfile): string | null {
   for (const rule of TAG_RULES) {
     if (!rule.cafeHas(cafe)) {
       continue;
@@ -98,23 +163,35 @@ function tagLine(cafe: Cafe, profile: UserTasteProfile): string | null {
   return null;
 }
 
+/** D) Stable choice between two fallbacks */
+function fallbackReason(cafe: Cafe): string {
+  const n = Number.parseInt(cafe.id, 10);
+  const idx = Number.isFinite(n) ? Math.abs(n) % 2 : cafe.id.charCodeAt(0) % 2;
+  return idx === 0 ? REASON.fallbackA : REASON.fallbackB;
+}
+
 /**
- * @param profile — from `buildUserTasteProfile` / `buildTasteProfileFromState`; `null` if no ratings.
+ * @param profile — from `buildTasteProfileFromState`; `null` if nothing to personalize from.
  */
 export function getRecommendationReason(cafe: Cafe, profile: UserTasteProfile | null): string {
   if (profile === null) {
-    return fallbackLine(cafe);
+    return fallbackReason(cafe);
   }
 
-  const fromScores = scorePreferenceLine(profile);
-  if (fromScores !== null) {
-    return fromScores;
+  const a = rankedVisitedReason(cafe, profile);
+  if (a !== null) {
+    return a;
   }
 
-  const fromTags = tagLine(cafe, profile);
-  if (fromTags !== null) {
-    return fromTags;
+  const b = ratingPreferenceReason(profile);
+  if (b !== null) {
+    return b;
   }
 
-  return fallbackLine(cafe);
+  const c = highlyRatedTagReason(cafe, profile);
+  if (c !== null) {
+    return c;
+  }
+
+  return fallbackReason(cafe);
 }

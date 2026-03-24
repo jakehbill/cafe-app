@@ -80,7 +80,7 @@ function regionForCafes(cafeList: Cafe[]) {
 export default function SearchScreen() {
   const router = useRouter();
   const { rank: rankParam } = useLocalSearchParams<{ rank?: string | string[] }>();
-  const { ratingsByCafeId } = useCafeState();
+  const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
   const [query, setQuery] = useState('');
   const [selectedChip, setSelectedChip] = useState<RankKey | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -93,8 +93,8 @@ export default function SearchScreen() {
   }, [rankParam]);
 
   const tasteProfile = useMemo(
-    () => buildTasteProfileFromState(ratingsByCafeId, cafes),
-    [ratingsByCafeId]
+    () => buildTasteProfileFromState(ratingsByCafeId, cafes, visitedCafeIds, savedCafeIds),
+    [ratingsByCafeId, visitedCafeIds, savedCafeIds]
   );
 
   const results = useMemo(() => {

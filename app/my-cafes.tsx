@@ -1,6 +1,8 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,8 +19,30 @@ import { COLORS } from './(tabs)/components/theme';
 
 export default function MyCafesScreen() {
   const router = useRouter();
-  const { visitedCafeIds } = useCafeState();
-  const visitedCafes = cafes.filter((cafe) => visitedCafeIds.includes(cafe.id));
+  const { visitedCafeIds, reorderVisitedCafes } = useCafeState();
+  const [reordering, setReordering] = useState(false);
+
+  const visitedCafes = visitedCafeIds
+    .map((id) => cafes.find((c) => c.id === id))
+    .filter((c): c is (typeof cafes)[number] => c != null);
+
+  const move = useCallback(
+    async (fromIndex: number, direction: -1 | 1) => {
+      const toIndex = fromIndex + direction;
+      if (toIndex < 0 || toIndex >= visitedCafeIds.length) return;
+      const next = [...visitedCafeIds];
+      const t = next[fromIndex];
+      next[fromIndex] = next[toIndex];
+      next[toIndex] = t;
+      setReordering(true);
+      try {
+        await reorderVisitedCafes(next);
+      } finally {
+        setReordering(false);
+      }
+    },
+    [visitedCafeIds, reorderVisitedCafes]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
@@ -39,15 +63,61 @@ export default function MyCafesScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.listWrap}>
-            {visitedCafes.map((cafe) => (
-              <CompactCafeCard
-                key={cafe.id}
-                cafe={cafe}
-                onPress={() => router.push(`/cafe/${cafe.id}`)}
-              />
-            ))}
-          </View>
+          <>
+            <Text style={styles.hint}>Rank your visited cafes to improve recommendations</Text>
+            <View style={styles.listWrap}>
+              {visitedCafes.map((cafe, index) => (
+                <View key={cafe.id} style={styles.row}>
+                  <View style={styles.cardWrap}>
+                    <CompactCafeCard
+                      rank={index + 1}
+                      cafe={cafe}
+                      onPress={() => router.push(`/cafe/${cafe.id}`)}
+                    />
+                  </View>
+                  <View style={styles.reorderCol}>
+                    <TouchableOpacity
+                      accessibilityLabel="Move up"
+                      disabled={reordering || index === 0}
+                      style={[styles.reorderBtn, (reordering || index === 0) && styles.reorderBtnDisabled]}
+                      onPress={() => void move(index, -1)}
+                    >
+                      <Ionicons
+                        name="chevron-up"
+                        size={22}
+                        color={reordering || index === 0 ? COLORS.muted : COLORS.roastedBrown}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      accessibilityLabel="Move down"
+                      disabled={reordering || index === visitedCafes.length - 1}
+                      style={[
+                        styles.reorderBtn,
+                        (reordering || index === visitedCafes.length - 1) && styles.reorderBtnDisabled,
+                      ]}
+                      onPress={() => void move(index, 1)}
+                    >
+                      <Ionicons
+                        name="chevron-down"
+                        size={22}
+                        color={
+                          reordering || index === visitedCafes.length - 1
+                            ? COLORS.muted
+                            : COLORS.roastedBrown
+                        }
+                      />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+            {reordering ? (
+              <View style={styles.savingRow}>
+                <ActivityIndicator size="small" color={COLORS.roastedBrown} />
+                <Text style={styles.savingText}>Saving order…</Text>
+              </View>
+            ) : null}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -64,6 +134,13 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 28,
     gap: 12,
+  },
+  hint: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.muted,
+    fontWeight: '500',
+    marginBottom: 2,
   },
   subtitle: {
     fontSize: 14,
@@ -125,5 +202,40 @@ const styles = StyleSheet.create({
   listWrap: {
     gap: 10,
     paddingBottom: 8,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  cardWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  reorderCol: {
+    justifyContent: 'center',
+    gap: 2,
+  },
+  reorderBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    minWidth: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reorderBtnDisabled: {
+    opacity: 0.45,
+  },
+  savingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  savingText: {
+    fontSize: 13,
+    color: COLORS.muted,
+    fontWeight: '600',
   },
 });
