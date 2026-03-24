@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { cafes } from '../../data/cafes';
 
 const COLORS = {
   background: '#F7F3EE',
@@ -19,19 +20,6 @@ const COLORS = {
   image: '#E9E2D6',
   espresso: '#8A6A4F',
   sage: '#A3B18A',
-} as const;
-
-const MOCK_CAFE = {
-  name: 'Moss & Co. Coffee',
-  neighborhood: 'Downtown • Elm Street',
-  scores: {
-    coffee: 9.4,
-    work: 8.7,
-    quick: 8.2,
-  },
-  tags: ['Quiet', 'Specialty Coffee', 'Laptop Friendly'],
-  summary:
-    'Soft light, calm corners, and a balanced espresso that keeps regulars coming back.',
 } as const;
 
 function ScorePill({
@@ -96,8 +84,23 @@ function ActionButton({
 }
 
 export default function CafeDetailScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
+  const cafeId = Array.isArray(id) ? id[0] : id;
+  const cafe = cafes.find((item) => item.id === cafeId);
+
+  if (!cafe) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.notFoundWrap}>
+          <Text style={styles.notFoundTitle}>Cafe not found</Text>
+          <Text style={styles.notFoundText}>
+            We could not find a cafe for this id.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -105,24 +108,24 @@ export default function CafeDetailScreen() {
         <View style={styles.heroImage} />
 
         <View style={styles.header}>
-          <Text style={styles.cafeName}>{MOCK_CAFE.name}</Text>
-          <Text style={styles.neighborhood}>{MOCK_CAFE.neighborhood}</Text>
-          {id ? <Text style={styles.routeHint}>Cafe id: {id}</Text> : null}
+          <Text style={styles.cafeName}>{cafe.name}</Text>
+          <Text style={styles.neighborhood}>{cafe.neighborhood}</Text>
+          {cafeId ? <Text style={styles.routeHint}>Cafe id: {cafeId}</Text> : null}
         </View>
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Scores</Text>
           <View style={styles.scoresGrid}>
-            <ScorePill label="Coffee score" value={MOCK_CAFE.scores.coffee.toFixed(1)} tone="espresso" />
-            <ScorePill label="Work score" value={MOCK_CAFE.scores.work.toFixed(1)} tone="sage" />
-            <ScorePill label="Quick score" value={MOCK_CAFE.scores.quick.toFixed(1)} tone="neutral" />
+            <ScorePill label="Coffee score" value={cafe.coffeeScore.toFixed(1)} tone="espresso" />
+            <ScorePill label="Work score" value={cafe.workScore.toFixed(1)} tone="sage" />
+            <ScorePill label="Vibe score" value={cafe.vibeScore.toFixed(1)} tone="neutral" />
           </View>
         </View>
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Vibe</Text>
           <View style={styles.tagsRow}>
-            {MOCK_CAFE.tags.map((t) => (
+            {cafe.tags.map((t) => (
               <Tag key={t} label={t} />
             ))}
           </View>
@@ -130,7 +133,7 @@ export default function CafeDetailScreen() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Summary</Text>
-          <Text style={styles.summaryText}>{MOCK_CAFE.summary}</Text>
+          <Text style={styles.summaryText}>{cafe.summary}</Text>
         </View>
 
         <View style={styles.actionsWrap}>
@@ -139,7 +142,7 @@ export default function CafeDetailScreen() {
           <ActionButton
             label="Rate this Cafe"
             variant="secondary"
-            onPress={() => router.push('/rate/1')}
+            onPress={() => router.push(`/rate/${cafe.id}`)}
           />
           <ActionButton label="Share" variant="secondary" />
         </View>
@@ -186,6 +189,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.muted,
     lineHeight: 18,
+  },
+  notFoundWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  notFoundTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.text,
+    letterSpacing: -0.2,
+  },
+  notFoundText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.muted,
+    textAlign: 'center',
   },
 
   sectionCard: {

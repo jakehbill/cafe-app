@@ -11,6 +11,7 @@ import {
 import { CafeCard } from './components/CafeCard';
 import { FilterChip } from './components/FilterChip';
 import { SearchBar } from './components/SearchBar';
+import { cafes } from '../../data/cafes';
 
 const FILTER_CHIPS = ['Work', 'Quick', 'Specialty', 'Quiet', 'Social'] as const;
 
@@ -38,7 +39,18 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
 
-          <CafeCard onPress={() => router.push('/cafe/1')} />
+          {cafes.map((cafe) => (
+            <CafeCard
+              key={cafe.id}
+              cafeName={cafe.name}
+              neighborhood={cafe.neighborhood}
+              coffeeScoreValue={cafe.coffeeScore.toFixed(1)}
+              workScoreValue={cafe.workScore.toFixed(1)}
+              tags={cafe.tags}
+              summary={cafe.summary}
+              onPress={() => router.push(`/cafe/${cafe.id}`)}
+            />
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>

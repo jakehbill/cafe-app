@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,11 +13,11 @@ import {
 
 import { COLORS } from '../(tabs)/components/theme';
 
-const QUICK_RATING_GROUPS = [
-  { label: 'Coffee', value: '9.0' },
-  { label: 'Work', value: '8.5' },
-  { label: 'Quick', value: '8.0' },
-  { label: 'Vibe', value: '9.2' },
+const RATING_CATEGORIES = [
+  { key: 'coffee', label: 'How tasty was the coffee?' },
+  { key: 'work', label: 'Was it a good place to work?' },
+  { key: 'quick', label: 'How quick was the ordering process?' },
+  { key: 'vibe', label: 'How was the overall atmosphere?' },
 ] as const;
 
 const TAGS = [
@@ -24,7 +26,9 @@ const TAGS = [
   'Good for Calls',
   'Fast Service',
   'Specialty Coffee',
-  'Social',
+  'Great Seating',
+  'Social Spot',
+  'Busy',
 ] as const;
 
 const MOCK_CAFE = {
@@ -32,51 +36,167 @@ const MOCK_CAFE = {
   neighborhood: 'Downtown • Elm Street',
 } as const;
 
-function RatingPill({ label, value }: { label: string; value: string }) {
+function RatingRow({
+  label,
+  value,
+  onSelect,
+}: {
+  label: string;
+  value: number;
+  onSelect: (rating: number) => void;
+}) {
   return (
-    <TouchableOpacity activeOpacity={0.85} style={styles.ratingPill}>
-      <Text style={styles.ratingLabel}>{label}</Text>
-      <Text style={styles.ratingValue}>{value}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function TagChip({ label }: { label: string }) {
-  return (
-    <TouchableOpacity activeOpacity={0.85} style={styles.tagChip}>
-      <Text style={styles.tagChipText}>{label}</Text>
-    </TouchableOpacity>
+    <View style={styles.ratingRow}>
+      <Text style={styles.ratingRowLabel}>{label}</Text>
+      <View style={styles.ratingOptions}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => {
+          const selected = value === rating;
+          return (
+            <TouchableOpacity
+              key={rating}
+              activeOpacity={0.85}
+              style={[styles.ratingOption, selected && styles.ratingOptionSelected]}
+              onPress={() => onSelect(rating)}
+            >
+              <Text
+                style={[
+                  styles.ratingOptionText,
+                  selected && styles.ratingOptionTextSelected,
+                ]}
+              >
+                {rating}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
 export default function RateCafeScreen() {
+  const router = useRouter();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+
+  // Local state keeps the screen interactive without backend wiring.
+  const [coffeeScore, setCoffeeScore] = useState(0);
+  const [workScore, setWorkScore] = useState(0);
+  const [quickScore, setQuickScore] = useState(0);
+  const [vibeScore, setVibeScore] = useState(0);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [notes, setNotes] = useState('');
+
+  const hasAnyRating =
+    coffeeScore > 0 || workScore > 0 || quickScore > 0 || vibeScore > 0;
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]
+    );
+  }
+
+  function handleSubmit() {
+    const payload = {
+      cafeId: id ?? '1',
+      ratings: {
+        coffee: coffeeScore,
+        work: workScore,
+        quick: quickScore,
+        vibe: vibeScore,
+      },
+      tags: selectedTags,
+      notes: notes.trim(),
+    };
+
+    console.log('Rate cafe payload:', payload);
+    Alert.alert('Thanks!', 'Your rating was submitted.');
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => router.back()}
+            style={styles.backButton}
+          >
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.headerTitle}>Rate this cafe</Text>
+        <Text style={styles.headerSubtitle}>
+          Help others find great places to work
+        </Text>
 
         <View style={styles.previewCard}>
           <View style={styles.previewImage} />
           <View style={styles.previewTextWrap}>
             <Text style={styles.previewName}>{MOCK_CAFE.name}</Text>
             <Text style={styles.previewNeighborhood}>{MOCK_CAFE.neighborhood}</Text>
+            <Text style={styles.previewId}>Cafe #{id ?? '1'}</Text>
           </View>
         </View>
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Quick ratings</Text>
-          <View style={styles.ratingGrid}>
-            {QUICK_RATING_GROUPS.map((rating) => (
-              <RatingPill key={rating.label} label={rating.label} value={rating.value} />
+          <View style={styles.ratingRowsWrap}>
+            {RATING_CATEGORIES.map((category) => (
+              <RatingRow
+                key={category.key}
+                label={category.label}
+                value={
+                  category.key === 'coffee'
+                    ? coffeeScore
+                    : category.key === 'work'
+                      ? workScore
+                      : category.key === 'quick'
+                        ? quickScore
+                        : vibeScore
+                }
+                onSelect={(value) => {
+                  if (category.key === 'coffee') {
+                    setCoffeeScore(value);
+                    return;
+                  }
+                  if (category.key === 'work') {
+                    setWorkScore(value);
+                    return;
+                  }
+                  if (category.key === 'quick') {
+                    setQuickScore(value);
+                    return;
+                  }
+                  setVibeScore(value);
+                }}
+              />
             ))}
           </View>
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Tags</Text>
+          <Text style={styles.sectionTitle}>What stood out?</Text>
           <View style={styles.tagsWrap}>
             {TAGS.map((tag) => (
-              <TagChip key={tag} label={tag} />
+              <TouchableOpacity
+                key={tag}
+                activeOpacity={0.85}
+                style={[
+                  styles.tagChip,
+                  selectedTags.includes(tag) && styles.tagChipSelected,
+                ]}
+                onPress={() => toggleTag(tag)}
+              >
+                <Text
+                  style={[
+                    styles.tagChipText,
+                    selectedTags.includes(tag) && styles.tagChipTextSelected,
+                  ]}
+                >
+                  {tag}
+                </Text>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
@@ -85,14 +205,25 @@ export default function RateCafeScreen() {
           <Text style={styles.sectionTitle}>Notes (optional)</Text>
           <TextInput
             style={styles.notesInput}
-            placeholder="Add a quick note about your visit..."
+            placeholder="Anything to note?"
             placeholderTextColor={COLORS.muted}
             multiline
             textAlignVertical="top"
+            numberOfLines={2}
+            maxLength={180}
+            value={notes}
+            onChangeText={setNotes}
           />
         </View>
 
-        <TouchableOpacity activeOpacity={0.88} style={styles.submitButton}>
+        <TouchableOpacity
+          activeOpacity={0.88}
+          style={[
+            styles.submitButton,
+            !hasAnyRating && styles.submitButtonDisabled,
+          ]}
+          onPress={handleSubmit}
+        >
           <Text style={styles.submitButtonText}>Submit</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -111,6 +242,22 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 14,
   },
+  headerRow: {
+    alignItems: 'flex-start',
+  },
+  backButton: {
+    borderRadius: 999,
+    backgroundColor: COLORS.inputBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  backButtonText: {
+    color: COLORS.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
 
   headerTitle: {
     fontSize: 28,
@@ -118,7 +265,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.2,
     lineHeight: 34,
-    marginTop: 2,
+    marginTop: 4,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.muted,
+    marginTop: -6,
   },
 
   previewCard: {
@@ -152,6 +305,11 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     lineHeight: 18,
   },
+  previewId: {
+    fontSize: 12,
+    color: COLORS.muted,
+    lineHeight: 16,
+  },
 
   sectionCard: {
     borderRadius: 16,
@@ -168,30 +326,56 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  ratingGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  ratingRowsWrap: {
     gap: 10,
   },
-  ratingPill: {
-    flexGrow: 1,
-    minWidth: 140,
-    borderRadius: 14,
-    padding: 10,
+  ratingRow: {
+    gap: 8,
+  },
+  ratingRowLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.text,
+  },
+  ratingOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  ratingOption: {
+    minWidth: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: COLORS.inputBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
   },
-  ratingLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: COLORS.muted,
-    marginBottom: 2,
+  ratingOptionSelected: {
+    backgroundColor: COLORS.roastedBrown,
+    borderColor: 'rgba(138, 106, 79, 0.55)',
   },
-  ratingValue: {
-    fontSize: 16,
-    fontWeight: '800',
+  ratingOptionText: {
     color: COLORS.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  ratingOptionTextSelected: {
+    color: COLORS.background,
+  },
+  notesInput: {
+    minHeight: 68,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    color: COLORS.text,
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   tagsWrap: {
@@ -204,27 +388,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.inputBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
+  },
+  tagChipSelected: {
+    backgroundColor: 'rgba(163, 177, 138, 0.24)',
+    borderColor: 'rgba(163, 177, 138, 0.5)',
   },
   tagChipText: {
     color: COLORS.text,
     fontSize: 12,
     fontWeight: '600',
   },
-
-  notesInput: {
-    minHeight: 94,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: COLORS.inputBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    color: COLORS.text,
-    fontSize: 14,
-    lineHeight: 20,
+  tagChipTextSelected: {
+    color: '#4A5A49',
   },
 
   submitButton: {
@@ -235,6 +413,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(138, 106, 79, 0.55)',
     marginTop: 2,
+  },
+  submitButtonDisabled: {
+    opacity: 0.88,
   },
   submitButtonText: {
     color: COLORS.background,
