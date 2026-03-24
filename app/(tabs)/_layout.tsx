@@ -74,6 +74,12 @@ export default function TabLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="ratings"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
