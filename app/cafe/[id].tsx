@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  Alert,
   Linking,
   SafeAreaView,
   ScrollView,
@@ -114,6 +115,25 @@ export default function CafeDetailScreen() {
         notes: '',
       };
   const displayTags = ratingSource.tags.slice(0, MAX_VISIBLE_TAGS);
+  const mapsUrl = cafe.googleMapsUrl;
+  const hasGoogleMapsUrl =
+    typeof mapsUrl === 'string' && mapsUrl.trim().length > 0;
+
+  async function handleOpenGoogleMaps() {
+    if (!hasGoogleMapsUrl) {
+      Alert.alert('Map link unavailable', 'No Google Maps link is available for this cafe.');
+      return;
+    }
+
+    const canOpen = await Linking.canOpenURL(mapsUrl);
+
+    if (!canOpen) {
+      Alert.alert('Cannot open link', 'This Google Maps link is not supported on your device.');
+      return;
+    }
+
+    await Linking.openURL(mapsUrl);
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -185,7 +205,7 @@ export default function CafeDetailScreen() {
           <ActionButton
             label="Open in Google Maps"
             variant="secondary"
-            onPress={() => Linking.openURL(cafe.googleMapsUrl)}
+            onPress={handleOpenGoogleMaps}
           />
         </View>
       </ScrollView>
