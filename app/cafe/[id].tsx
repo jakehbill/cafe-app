@@ -125,6 +125,11 @@ export default function CafeDetailScreen() {
         <View style={styles.header}>
           <Text style={styles.cafeName}>{cafe.name}</Text>
           <Text style={styles.neighborhood}>{cafe.neighborhood}</Text>
+          {localRating ? (
+            <View style={styles.ratedBadge}>
+              <Text style={styles.ratedBadgeText}>Rated by you</Text>
+            </View>
+          ) : null}
           {cafeId ? <Text style={styles.routeHint}>Cafe id: {cafeId}</Text> : null}
         </View>
 
@@ -234,6 +239,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.muted,
     lineHeight: 18,
+  },
+  ratedBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(163, 177, 138, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(163, 177, 138, 0.45)',
+  },
+  ratedBadgeText: {
+    fontSize: 12,
+    color: '#4A5A49',
+    fontWeight: '600',
   },
   notFoundWrap: {
     flex: 1,

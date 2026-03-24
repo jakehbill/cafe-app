@@ -12,6 +12,7 @@ import {
 import { FilterChip } from './components/FilterChip';
 import { SearchBar } from './components/SearchBar';
 import { cafes, type Cafe } from '../../data/cafes';
+import { useCafeState } from '@/contexts/CafeStateContext';
 
 const FILTER_CHIPS = ['Work', 'Quick', 'Specialty', 'Quiet', 'Social'] as const;
 const MAX_VISIBLE_TAGS = 3;
@@ -22,11 +23,30 @@ function getVisibleTags(tags: string[]) {
 
 function HomeCafeCard({
   cafe,
+  localRating,
   onPress,
 }: {
   cafe: Cafe;
+  localRating?: {
+    coffee: number;
+    work: number;
+    vibe: number;
+  };
   onPress: () => void;
 }) {
+  // Use local user rating if it exists; otherwise fallback to default cafe data.
+  const displayScores = localRating
+    ? {
+        coffee: localRating.coffee,
+        work: localRating.work,
+        vibe: localRating.vibe,
+      }
+    : {
+        coffee: cafe.coffeeScore,
+        work: cafe.workScore,
+        vibe: cafe.vibeScore,
+      };
+
   return (
     <TouchableOpacity activeOpacity={0.92} style={styles.featuredCard} onPress={onPress}>
       <View style={styles.featuredImagePlaceholder} />
@@ -34,19 +54,24 @@ function HomeCafeCard({
       <View style={styles.featuredBody}>
         <Text style={styles.featuredName}>{cafe.name}</Text>
         <Text style={styles.featuredNeighborhood}>{cafe.neighborhood}</Text>
+        {localRating ? (
+          <View style={styles.ratedBadge}>
+            <Text style={styles.ratedBadgeText}>Rated by you</Text>
+          </View>
+        ) : null}
 
         <View style={styles.equalScoresRow}>
           <View style={styles.equalScoreBlock}>
             <Text style={styles.equalScoreLabel}>Coffee</Text>
-            <Text style={styles.equalScoreValue}>{cafe.coffeeScore.toFixed(1)}</Text>
+            <Text style={styles.equalScoreValue}>{displayScores.coffee.toFixed(1)}</Text>
           </View>
           <View style={styles.equalScoreBlock}>
             <Text style={styles.equalScoreLabel}>Work</Text>
-            <Text style={styles.equalScoreValue}>{cafe.workScore.toFixed(1)}</Text>
+            <Text style={styles.equalScoreValue}>{displayScores.work.toFixed(1)}</Text>
           </View>
           <View style={styles.equalScoreBlock}>
             <Text style={styles.equalScoreLabel}>Vibe</Text>
-            <Text style={styles.equalScoreValue}>{cafe.vibeScore.toFixed(1)}</Text>
+            <Text style={styles.equalScoreValue}>{displayScores.vibe.toFixed(1)}</Text>
           </View>
         </View>
 
@@ -68,6 +93,7 @@ function HomeCafeCard({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { ratingsByCafeId } = useCafeState();
   const [selectedFilter, setSelectedFilter] = useState<(typeof FILTER_CHIPS)[number]>('Work');
 
   return (
@@ -108,6 +134,7 @@ export default function HomeScreen() {
             <HomeCafeCard
               key={cafe.id}
               cafe={cafe}
+              localRating={ratingsByCafeId[cafe.id]}
               onPress={() => router.push(`/cafe/${cafe.id}`)}
             />
           ))}
@@ -206,6 +233,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6E6254',
     lineHeight: 18,
+  },
+  ratedBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(163, 177, 138, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(163, 177, 138, 0.45)',
+    marginTop: -4,
+  },
+  ratedBadgeText: {
+    fontSize: 12,
+    color: '#4A5A49',
+    fontWeight: '600',
   },
   equalScoresRow: {
     flexDirection: 'row',
