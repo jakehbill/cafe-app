@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from './theme';
 
 type CafeCardProps = {
@@ -11,6 +11,7 @@ type CafeCardProps = {
   workScoreValue?: string;
   tags?: string[];
   summary?: string;
+  onPress?: () => void;
 };
 
 export function CafeCard({
@@ -22,9 +23,10 @@ export function CafeCard({
   workScoreValue = '8.7',
   tags = ['Specialty', 'Fast Wi‑Fi', 'Quiet corners'],
   summary = 'Cozy light-filled seating with consistently great pour-overs.',
+  onPress,
 }: CafeCardProps) {
   return (
-    <View style={styles.featuredCard}>
+    <TouchableOpacity activeOpacity={0.92} style={styles.featuredCard} onPress={onPress}>
       <View style={styles.imagePlaceholder} />
 
       <View style={styles.cardBody}>
@@ -57,7 +59,7 @@ export function CafeCard({
 
         <Text style={styles.summaryText}>{summary}</Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 

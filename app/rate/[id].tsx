@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native';
 
-import { COLORS } from './(tabs)/components/theme';
+import { COLORS } from '../(tabs)/components/theme';
 
 const QUICK_RATING_GROUPS = [
   { label: 'Coffee', value: '9.0' },

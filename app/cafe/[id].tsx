@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   SafeAreaView,
   ScrollView,
@@ -76,14 +76,17 @@ function Tag({ label }: { label: string }) {
 function ActionButton({
   label,
   variant = 'primary',
+  onPress,
 }: {
   label: string;
   variant?: 'primary' | 'secondary';
+  onPress?: () => void;
 }) {
   return (
     <TouchableOpacity
       activeOpacity={0.85}
       style={[styles.actionButton, variant === 'secondary' && styles.actionButtonSecondary]}
+      onPress={onPress}
     >
       <Text style={[styles.actionButtonText, variant === 'secondary' && styles.actionButtonTextSecondary]}>
         {label}
@@ -94,6 +97,7 @@ function ActionButton({
 
 export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -132,7 +136,11 @@ export default function CafeDetailScreen() {
         <View style={styles.actionsWrap}>
           <ActionButton label="Save" variant="primary" />
           <ActionButton label="Mark Visited" variant="secondary" />
-          <ActionButton label="Rate this Cafe" variant="secondary" />
+          <ActionButton
+            label="Rate this Cafe"
+            variant="secondary"
+            onPress={() => router.push('/rate/1')}
+          />
           <ActionButton label="Share" variant="secondary" />
         </View>
       </ScrollView>

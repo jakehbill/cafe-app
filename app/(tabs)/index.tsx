@@ -1,4 +1,5 @@
 import React from 'react';
+import { useRouter } from 'expo-router';
 import {
   SafeAreaView,
   ScrollView,
@@ -14,6 +15,8 @@ import { SearchBar } from './components/SearchBar';
 const FILTER_CHIPS = ['Work', 'Quick', 'Specialty', 'Quiet', 'Social'] as const;
 
 export default function HomeScreen() {
+  const router = useRouter();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -35,7 +38,7 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
 
-          <CafeCard />
+          <CafeCard onPress={() => router.push('/cafe/1')} />
         </View>
       </ScrollView>
     </SafeAreaView>
