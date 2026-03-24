@@ -12,6 +12,7 @@ import {
 import { FilterChip } from './components/FilterChip';
 import { cafes, type Cafe } from '../../data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -99,31 +100,10 @@ export default function HomeScreen() {
   const router = useRouter();
   const { ratingsByCafeId } = useCafeState();
 
-  function getDisplayScores(cafe: Cafe) {
-    const localRating = ratingsByCafeId[cafe.id];
-
-    if (localRating) {
-      return {
-        coffee: localRating.coffee,
-        work: localRating.work,
-        vibe: localRating.vibe,
-      };
-    }
-
-    return {
-      coffee: cafe.coffeeScore,
-      work: cafe.workScore,
-      vibe: cafe.vibeScore,
-    };
-  }
-
-  /** Curated feed: sort by work score (same idea as former default "Best for Work"). */
+  /** Same base ordering as Search (no query, no chip) + optional taste personalization. */
   const sortedCafes = useMemo(() => {
-    return [...cafes].sort((a, b) => {
-      const scoreA = getDisplayScores(a);
-      const scoreB = getDisplayScores(b);
-      return scoreB.work - scoreA.work;
-    });
+    const tasteProfile = buildTasteProfileFromState(ratingsByCafeId, cafes);
+    return rankCafesForHome([...cafes], ratingsByCafeId, tasteProfile);
   }, [ratingsByCafeId]);
 
   function goToSearchWithRank(rank: (typeof BROWSE_BY)[number]['rank']) {

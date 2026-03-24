@@ -11,9 +11,9 @@ import {
   View,
 } from 'react-native';
 
-import type { CafeRating } from '@/contexts/CafeStateContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { cafes, type Cafe } from '@/data/cafes';
+import { buildTasteProfileFromState, rankCafesForSearch, type RankKey } from '@/lib/cafeRanking';
 
 import { CompactCafeCard } from './components/CompactCafeCard';
 import { FilterChip } from './components/FilterChip';
@@ -27,7 +27,6 @@ const RANK_CHIPS = [
   { id: 'quiet' as const, label: 'Quiet' },
 ];
 
-type RankKey = (typeof RANK_CHIPS)[number]['id'];
 type ViewMode = 'list' | 'map';
 
 function parseRankParam(raw: string | string[] | undefined): RankKey | null {
@@ -38,56 +37,21 @@ function parseRankParam(raw: string | string[] | undefined): RankKey | null {
   return null;
 }
 
-function scoresForCafe(cafe: Cafe, ratingsByCafeId: Record<string, CafeRating>) {
-  const r = ratingsByCafeId[cafe.id];
-  if (r) {
-    return { coffee: r.coffee, work: r.work, vibe: r.vibe };
+function resultsHeadingLabel(selectedChip: RankKey | null): string {
+  if (selectedChip === null) {
+    return 'Top matches';
   }
-  return {
-    coffee: cafe.coffeeScore,
-    work: cafe.workScore,
-    vibe: cafe.vibeScore,
-  };
-}
-
-function avgScore(s: { coffee: number; work: number; vibe: number }) {
-  return (s.coffee + s.work + s.vibe) / 3;
-}
-
-/** Reorder cafes by the selected ranking signal (nothing is removed). */
-function rankCafes(
-  list: Cafe[],
-  key: RankKey,
-  ratingsByCafeId: Record<string, CafeRating>
-): Cafe[] {
-  const copy = [...list];
-  const g = (c: Cafe) => scoresForCafe(c, ratingsByCafeId);
-
-  switch (key) {
+  switch (selectedChip) {
     case 'work':
-      return copy.sort((a, b) => g(b).work - g(a).work);
+      return 'Best matches for work';
     case 'coffee':
-      return copy.sort((a, b) => g(b).coffee - g(a).coffee);
+      return 'Best coffee picks';
     case 'atmosphere':
-      return copy.sort((a, b) => g(b).vibe - g(a).vibe);
-    case 'quick': {
-      return copy.sort((a, b) => {
-        const tagA = a.tags.includes('Quick') ? 1 : 0;
-        const tagB = b.tags.includes('Quick') ? 1 : 0;
-        if (tagB !== tagA) return tagB - tagA;
-        return avgScore(g(b)) - avgScore(g(a));
-      });
-    }
-    case 'quiet': {
-      return copy.sort((a, b) => {
-        const tagA = a.tags.includes('Quiet') ? 1 : 0;
-        const tagB = b.tags.includes('Quiet') ? 1 : 0;
-        if (tagB !== tagA) return tagB - tagA;
-        return avgScore(g(b)) - avgScore(g(a));
-      });
-    }
-    default:
-      return copy;
+      return 'Great atmosphere picks';
+    case 'quiet':
+      return 'Quiet spots';
+    case 'quick':
+      return 'Quick stops';
   }
 }
 
@@ -117,28 +81,28 @@ export default function SearchScreen() {
   const { rank: rankParam } = useLocalSearchParams<{ rank?: string | string[] }>();
   const { ratingsByCafeId } = useCafeState();
   const [query, setQuery] = useState('');
-  const [rankKey, setRankKey] = useState<RankKey>('work');
+  const [selectedChip, setSelectedChip] = useState<RankKey | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   useEffect(() => {
     const parsed = parseRankParam(rankParam);
     if (parsed !== null) {
-      setRankKey(parsed);
+      setSelectedChip(parsed);
     }
   }, [rankParam]);
 
+  const tasteProfile = useMemo(
+    () => buildTasteProfileFromState(ratingsByCafeId, cafes),
+    [ratingsByCafeId]
+  );
+
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const nameFiltered =
-      q.length === 0
-        ? [...cafes]
-        : cafes.filter((cafe) => cafe.name.toLowerCase().includes(q));
-    return rankCafes(nameFiltered, rankKey, ratingsByCafeId);
-  }, [query, rankKey, ratingsByCafeId]);
+    return rankCafesForSearch([...cafes], q, selectedChip, ratingsByCafeId, tasteProfile);
+  }, [query, selectedChip, ratingsByCafeId, tasteProfile]);
 
-  const trimmed = query.trim();
-  const showNoResults = trimmed.length > 0 && results.length === 0;
-  const resultsLabel = trimmed.length > 0 ? 'Top matches' : 'Top picks for you';
+  const showNoResults = results.length === 0;
+  const resultsLabel = resultsHeadingLabel(selectedChip);
 
   const mapRegion = useMemo(() => regionForCafes(results), [results]);
 
@@ -179,8 +143,10 @@ export default function SearchScreen() {
             <FilterChip
               key={chip.id}
               label={chip.label}
-              selected={rankKey === chip.id}
-              onPress={() => setRankKey(chip.id)}
+              selected={selectedChip === chip.id}
+              onPress={() =>
+                setSelectedChip((prev) => (prev === chip.id ? null : chip.id))
+              }
             />
           ))}
         </ScrollView>
