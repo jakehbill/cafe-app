@@ -41,9 +41,11 @@ function RootNavigator() {
     );
   }
 
+  /** Native stack: chevron-only back on iOS (`minimal`); avoids "(tabs)" from the tab group route name. */
   const stackScreenOptions = {
     headerShown: true,
-    headerBackTitleVisible: false,
+    headerBackButtonDisplayMode: 'minimal' as const,
+    headerBackTitle: '',
     headerTintColor: '#8A6A4F',
     headerStyle: { backgroundColor: '#F7F3EE' },
     headerTitleStyle: { fontSize: 17, fontWeight: '700' as const, color: '#2E2A27' },
@@ -55,7 +57,14 @@ function RootNavigator() {
     <Stack screenOptions={stackScreenOptions}>
       {user && !FORCE_SHOW_AUTH_FOR_TESTING ? (
         <>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="(tabs)"
+            options={{
+              headerShown: false,
+              /** Shown as previous screen title if iOS ever falls back from `minimal` mode */
+              title: 'Home',
+            }}
+          />
           <Stack.Screen name="cafe/[id]" options={{ title: 'Cafe' }} />
           <Stack.Screen name="rate/[id]" options={{ title: 'Rate Cafe' }} />
           <Stack.Screen name="saved" options={{ title: 'Saved' }} />

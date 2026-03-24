@@ -9,7 +9,7 @@ import { COLORS } from './(tabs)/components/theme';
 /**
  * Root stack route: `/saved`
  * Shown with a native header + back button when pushed (e.g. from Profile).
- * Content is shared with the Saved tab — see `app/(tabs)/saved.tsx`.
+ * Content is shared with the Saved tab — see `app/(tabs)/bookmarks.tsx`.
  */
 export default function SavedStackScreen() {
   return (

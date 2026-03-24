@@ -6,7 +6,8 @@ import { SavedCafesContent } from '@/components/saved/SavedCafesContent';
 import { COLORS } from './components/theme';
 
 /**
- * Saved tab: same list as `app/saved.tsx` but no stack header (tab bar only).
+ * Bottom tab "Saved" — route URL is `/bookmarks` so it does not clash with
+ * the root stack screen `app/saved.tsx` (`/saved`, e.g. from Profile).
  */
 export default function SavedTabScreen() {
   return (

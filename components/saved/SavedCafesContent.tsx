@@ -35,7 +35,7 @@ type Props = {
 
 /**
  * Shared Saved list UI (single source of truth for data + layout).
- * Used by the Saved tab and the root stack `/saved` screen (e.g. from Profile).
+ * Used by the Saved tab (`/bookmarks`) and the root stack `/saved` screen (e.g. from Profile).
  */
 export function SavedCafesContent({ showPageTitle = true }: Props) {
   const router = useRouter();
