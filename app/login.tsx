@@ -3,8 +3,8 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { AuthScreenShell } from './auth/AuthScreenShell';
-import { COLORS, authStyles } from './auth/_styles';
+import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
+import { COLORS, authStyles } from '@/components/auth/authStyles';
 
 export default function LogInScreen() {
   const [email, setEmail] = useState('');

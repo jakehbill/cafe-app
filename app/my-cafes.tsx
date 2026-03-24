@@ -1,18 +1,19 @@
-import React from 'react';
 import { useRouter } from 'expo-router';
+import React from 'react';
 import {
   ScrollView,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 import { cafes } from '@/data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
-import { CompactCafeCard } from './components/CompactCafeCard';
-import { COLORS } from './components/theme';
+import { CompactCafeCard } from './(tabs)/components/CompactCafeCard';
+import { COLORS } from './(tabs)/components/theme';
 
 export default function MyCafesScreen() {
   const router = useRouter();
@@ -20,10 +21,8 @@ export default function MyCafesScreen() {
   const visitedCafes = cafes.filter((cafe) => visitedCafeIds.includes(cafe.id));
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>My Cafes</Text>
-
         {visitedCafes.length === 0 ? (
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIconWrap}>
@@ -62,15 +61,9 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 12,
     paddingBottom: 28,
     gap: 12,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: COLORS.text,
-    letterSpacing: -0.2,
   },
   subtitle: {
     fontSize: 14,
@@ -134,4 +127,3 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
 });
-

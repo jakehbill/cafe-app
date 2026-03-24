@@ -68,18 +68,6 @@ export default function TabLayout() {
           href: null,
         }}
       />
-      <Tabs.Screen
-        name="my-cafes"
-        options={{
-          href: null,
-        }}
-      />
-      <Tabs.Screen
-        name="ratings"
-        options={{
-          href: null,
-        }}
-      />
     </Tabs>
   );
 }

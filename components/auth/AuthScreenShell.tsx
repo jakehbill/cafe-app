@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { authStyles } from './_styles';
+import { authStyles } from '@/components/auth/authStyles';
 
 type AuthScreenShellProps = {
   title: string;

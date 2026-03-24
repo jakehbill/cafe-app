@@ -3,10 +3,14 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-import { AuthScreenShell } from './AuthScreenShell';
-import { COLORS, authStyles } from './_styles';
+import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
+import { COLORS, authStyles } from '@/components/auth/authStyles';
 
-export default function SignUpScreen() {
+/**
+ * Main auth entry: sign up (`/auth`).
+ * Log in lives at `/login` — no duplicate `app/auth/` folder.
+ */
+export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);

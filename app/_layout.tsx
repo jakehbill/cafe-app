@@ -41,13 +41,26 @@ function RootNavigator() {
     );
   }
 
+  const stackScreenOptions = {
+    headerShown: true,
+    headerBackTitleVisible: false,
+    headerTintColor: '#8A6A4F',
+    headerStyle: { backgroundColor: '#F7F3EE' },
+    headerTitleStyle: { fontSize: 17, fontWeight: '700' as const, color: '#2E2A27' },
+    headerShadowVisible: false,
+    contentStyle: { backgroundColor: '#F7F3EE' },
+  };
+
   return (
-    <Stack>
+    <Stack screenOptions={stackScreenOptions}>
       {user && !FORCE_SHOW_AUTH_FOR_TESTING ? (
         <>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="cafe/[id]" options={{ title: 'Cafe' }} />
-          <Stack.Screen name="rate/[id]" options={{ title: 'Rate this cafe' }} />
+          <Stack.Screen name="rate/[id]" options={{ title: 'Rate Cafe' }} />
+          <Stack.Screen name="saved" options={{ title: 'Saved' }} />
+          <Stack.Screen name="ratings" options={{ title: 'Ratings' }} />
+          <Stack.Screen name="my-cafes" options={{ title: 'Visited' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </>
       ) : (

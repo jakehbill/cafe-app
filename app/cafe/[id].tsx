@@ -1,15 +1,16 @@
-import React from 'react';
+import { useNavigation } from '@react-navigation/native';
+import React, { useLayoutEffect } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Alert,
   Linking,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { cafes } from '../../data/cafes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -75,6 +76,7 @@ function ActionButton({
 export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const {
     toggleSaved,
@@ -86,9 +88,15 @@ export default function CafeDetailScreen() {
   const cafeId = Array.isArray(id) ? id[0] : id;
   const cafe = cafes.find((item) => item.id === cafeId);
 
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: cafe?.name ?? 'Cafe',
+    });
+  }, [cafe?.name, navigation]);
+
   if (!cafe) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         <View style={styles.notFoundWrap}>
           <Text style={styles.notFoundTitle}>Cafe not found</Text>
           <Text style={styles.notFoundText}>
@@ -146,7 +154,7 @@ export default function CafeDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heroWrap}>
           <View style={styles.heroImage} />

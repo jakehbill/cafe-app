@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import React, { useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS } from '../(tabs)/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -72,12 +73,19 @@ function RatingRow({
 
 export default function RateCafeScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const { setCafeRating, getCafeRating } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const targetCafeId = cafeId ?? '1';
   const cafe = cafes.find((item) => item.id === targetCafeId);
   const existingRating = getCafeRating(targetCafeId);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: cafe?.name ? `Rate · ${cafe.name}` : 'Rate Cafe',
+    });
+  }, [cafe?.name, navigation]);
 
   // Local state keeps the screen interactive without backend wiring.
   const [coffeeScore, setCoffeeScore] = useState(existingRating?.coffee ?? 0);
@@ -122,22 +130,9 @@ export default function RateCafeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.headerTitle}>Rate this cafe</Text>
-        <Text style={styles.headerSubtitle}>
-          Help others find great places to work
-        </Text>
+        <Text style={styles.leadText}>Help others find great places to work</Text>
 
         <View style={styles.previewCard}>
           <View style={styles.previewImage} />
@@ -251,36 +246,11 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 14,
   },
-  headerRow: {
-    alignItems: 'flex-start',
-  },
-  backButton: {
-    borderRadius: 999,
-    backgroundColor: COLORS.inputBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  backButtonText: {
-    color: COLORS.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  headerTitle: {
-    fontSize: 28,
-    color: COLORS.text,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-    lineHeight: 34,
-    marginTop: 4,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    lineHeight: 18,
+  leadText: {
+    fontSize: 14,
+    lineHeight: 20,
     color: COLORS.muted,
-    marginTop: -6,
+    marginBottom: 4,
   },
 
   previewCard: {

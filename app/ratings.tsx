@@ -1,21 +1,21 @@
 import { supabase } from '@/lib/supabase';
-import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { cafes, type Cafe } from '@/data/cafes';
 
-import { CompactCafeCard } from './components/CompactCafeCard';
-import { COLORS } from './components/theme';
+import { CompactCafeCard } from './(tabs)/components/CompactCafeCard';
+import { COLORS } from './(tabs)/components/theme';
 
 type RatingRow = {
   cafe_id: string;
@@ -74,19 +74,14 @@ export default function MyRatingsScreen() {
     setLoading(false);
   }, [user?.id]);
 
-  useEffect(() => {
-    void loadRatings();
-  }, [loadRatings]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadRatings();
+    }, [loadRatings])
+  );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.topBar}>
-        <TouchableOpacity activeOpacity={0.85} style={styles.backLink} onPress={() => router.back()}>
-          <Text style={styles.backLinkText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.screenTitle}>My Ratings</Text>
-      </View>
-
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={COLORS.roastedBrown} />
@@ -127,30 +122,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  topBar: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  backLink: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    paddingRight: 12,
-  },
-  backLinkText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.roastedBrown,
-  },
-  screenTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: COLORS.text,
-    letterSpacing: -0.4,
-  },
   scrollContent: {
     paddingHorizontal: 20,
+    paddingTop: 12,
     paddingBottom: 32,
     gap: 10,
   },
