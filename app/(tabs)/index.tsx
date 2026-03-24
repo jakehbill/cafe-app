@@ -9,20 +9,15 @@ import {
   View,
 } from 'react-native';
 
-import { FilterChip } from './components/FilterChip';
 import { cafes, type Cafe } from '../../data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
+import { getNearbyCafes } from '@/lib/cafeNearby';
+import { rankCafesForTrending } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 
 const MAX_VISIBLE_TAGS = 3;
-
-const BROWSE_BY = [
-  { label: 'Best for Work', rank: 'work' as const },
-  { label: 'Great Coffee', rank: 'coffee' as const },
-  { label: 'Great Atmosphere', rank: 'atmosphere' as const },
-  { label: 'Quiet Spots', rank: 'quiet' as const },
-];
 
 function getVisibleTags(tags: string[]) {
   return tags.slice(0, MAX_VISIBLE_TAGS);
@@ -40,7 +35,8 @@ function HomeCafeCard({
     work: number;
     vibe: number;
   };
-  recommendationReason: string;
+  /** Shown under the name when set (personalized “why” line). */
+  recommendationReason?: string | null;
   onPress: () => void;
 }) {
   const displayScores = localRating
@@ -61,9 +57,11 @@ function HomeCafeCard({
 
       <View style={styles.featuredBody}>
         <Text style={styles.featuredName}>{cafe.name}</Text>
-        <Text style={styles.featuredReason} numberOfLines={1}>
-          {recommendationReason}
-        </Text>
+        {recommendationReason ? (
+          <Text style={styles.featuredReason} numberOfLines={1}>
+            {recommendationReason}
+          </Text>
+        ) : null}
         <Text style={styles.featuredNeighborhood}>{cafe.neighborhood}</Text>
         {localRating ? (
           <View style={styles.ratedBadge}>
@@ -105,20 +103,23 @@ function HomeCafeCard({
 export default function HomeScreen() {
   const router = useRouter();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
+  const userLocation = useOptionalUserLocation();
 
   const tasteProfile = useMemo(
     () => buildTasteProfileFromState(ratingsByCafeId, cafes, visitedCafeIds, savedCafeIds),
     [ratingsByCafeId, visitedCafeIds, savedCafeIds]
   );
 
-  /** Same base ordering as Search (no query, no chip) + optional taste personalization. */
-  const sortedCafes = useMemo(() => {
+  /** Personalized: same ordering as Search home mode (`rankCafesForHome`). */
+  const topPicksForYou = useMemo(() => {
     return rankCafesForHome([...cafes], ratingsByCafeId, tasteProfile);
   }, [ratingsByCafeId, tasteProfile]);
 
-  function goToSearchWithRank(rank: (typeof BROWSE_BY)[number]['rank']) {
-    router.push({ pathname: '/search', params: { rank } });
-  }
+  /** Nearby pool (GPS or dataset centroid) → trending scores. No personalization. */
+  const trendingNearby = useMemo(() => {
+    const nearby = getNearbyCafes([...cafes], userLocation);
+    return rankCafesForTrending(nearby);
+  }, [userLocation]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -127,26 +128,14 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.topSection}>
-          <View style={styles.sectionIntro}>
-            <Text style={styles.sectionTitle}>Top picks today</Text>
-            <Text style={styles.sectionSubtitle}>Editor&apos;s pick for remote work</Text>
-          </View>
-
-          <View style={styles.browseBlock}>
-            <Text style={styles.browseTitle}>Browse by</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.browseChipsRow}
+          <View style={styles.homeTopBar}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => router.push('/search')}
+              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
             >
-              {BROWSE_BY.map((item) => (
-                <FilterChip
-                  key={item.rank}
-                  label={item.label}
-                  onPress={() => goToSearchWithRank(item.rank)}
-                />
-              ))}
-            </ScrollView>
+              <Text style={styles.searchAllLink}>Search all cafes</Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
@@ -157,15 +146,36 @@ export default function HomeScreen() {
             <Text style={styles.testAuthButtonText}>Test Auth</Text>
           </TouchableOpacity>
 
-          {sortedCafes.map((cafe) => (
-            <HomeCafeCard
-              key={cafe.id}
-              cafe={cafe}
-              localRating={ratingsByCafeId[cafe.id]}
-              recommendationReason={getRecommendationReason(cafe, tasteProfile)}
-              onPress={() => router.push(`/cafe/${cafe.id}`)}
-            />
-          ))}
+          <View style={styles.homeSection}>
+            <View style={styles.homeSectionHeader}>
+              <Text style={styles.homeSectionTitle}>Top picks for you</Text>
+              <Text style={styles.homeSectionSubtitle}>Based on your taste</Text>
+            </View>
+            {topPicksForYou.map((cafe) => (
+              <HomeCafeCard
+                key={`pick-${cafe.id}`}
+                cafe={cafe}
+                localRating={ratingsByCafeId[cafe.id]}
+                recommendationReason={getRecommendationReason(cafe, tasteProfile)}
+                onPress={() => router.push(`/cafe/${cafe.id}`)}
+              />
+            ))}
+          </View>
+
+          <View style={[styles.homeSection, styles.homeSectionTrending]}>
+            <View style={styles.homeSectionHeader}>
+              <Text style={styles.homeSectionTitle}>Trending nearby</Text>
+              <Text style={styles.homeSectionSubtitle}>Popular right now</Text>
+            </View>
+            {trendingNearby.map((cafe) => (
+              <HomeCafeCard
+                key={`trend-${cafe.id}`}
+                cafe={cafe}
+                localRating={ratingsByCafeId[cafe.id]}
+                onPress={() => router.push(`/cafe/${cafe.id}`)}
+              />
+            ))}
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -179,43 +189,47 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 34,
+    paddingTop: 20,
+    paddingBottom: 36,
   },
   topSection: {
-    gap: 18,
+    gap: 20,
   },
-  sectionIntro: {
-    gap: 2,
-    marginTop: 0,
-    marginBottom: 4,
+  homeTopBar: {
+    alignItems: 'flex-end',
+    marginBottom: -4,
   },
-  sectionTitle: {
-    fontSize: 35,
-    lineHeight: 40,
-    fontWeight: '700',
-    color: '#2E2A27',
-    letterSpacing: -0.6,
-  },
-  sectionSubtitle: {
+  searchAllLink: {
     fontSize: 14,
-    lineHeight: 20,
-    color: '#6E6254',
+    fontWeight: '600',
+    color: '#8A6A4F',
+    letterSpacing: -0.15,
   },
-  browseBlock: {
-    gap: 10,
-    marginTop: -2,
+  homeSection: {
+    gap: 14,
   },
-  browseTitle: {
-    fontSize: 17,
+  homeSectionTrending: {
+    marginTop: 4,
+    paddingTop: 22,
+  },
+  homeSectionHeader: {
+    gap: 5,
+    marginBottom: 6,
+    paddingTop: 2,
+  },
+  homeSectionTitle: {
+    fontSize: 21,
+    lineHeight: 27,
     fontWeight: '700',
     color: '#2E2A27',
-    letterSpacing: -0.2,
+    letterSpacing: -0.4,
   },
-  browseChipsRow: {
-    gap: 8,
-    paddingRight: 12,
-    paddingBottom: 2,
+  homeSectionSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: '#8A8278',
+    letterSpacing: -0.1,
   },
   testAuthButton: {
     alignSelf: 'flex-start',
@@ -225,8 +239,6 @@ const styles = StyleSheet.create({
     borderColor: '#E7DDCD',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    marginTop: -2,
-    marginBottom: 2,
   },
   testAuthButtonText: {
     fontSize: 12,

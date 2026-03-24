@@ -90,7 +90,8 @@ function hasQuietTag(cafe: Cafe): boolean {
   );
 }
 
-function textRelevancePoints(cafe: Cafe, queryLower: string): number {
+/** Exported for Search “Trending nearby” + query reordering (same text signals as main search). */
+export function textRelevancePoints(cafe: Cafe, queryLower: string): number {
   if (!queryLower) {
     return 0;
   }

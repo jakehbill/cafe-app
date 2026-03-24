@@ -10,6 +10,11 @@ export type Cafe = {
   tags: string[];
   summary: string;
   googleMapsUrl: string;
+  /** Optional MVP “community” counts for trending (local seed data; no backend). */
+  communityStats?: {
+    saves: number;
+    visits: number;
+  };
 };
 
 export const cafes: Cafe[] = [
@@ -25,6 +30,7 @@ export const cafes: Cafe[] = [
     tags: ['Quiet', 'Specialty Coffee', 'Laptop Friendly', 'Quick'],
     summary: 'Cozy light-filled seating with consistently great pour-overs.',
     googleMapsUrl: 'https://maps.google.com/?q=Moss+%26+Co.+Coffee',
+    communityStats: { saves: 182, visits: 940 },
   },
   {
     id: '2',
@@ -38,6 +44,7 @@ export const cafes: Cafe[] = [
     tags: ['Fast Service', 'Great Seating', 'Laptop Friendly'],
     summary: 'Warm wood interiors and roomy tables make long work sessions easy.',
     googleMapsUrl: 'https://maps.google.com/?q=Hearthline+Cafe',
+    communityStats: { saves: 156, visits: 812 },
   },
   {
     id: '3',
@@ -51,6 +58,7 @@ export const cafes: Cafe[] = [
     tags: ['Specialty Coffee', 'Busy', 'Easy Grab & Go'],
     summary: 'A specialty-forward bar with fast espresso service and lively energy.',
     googleMapsUrl: 'https://maps.google.com/?q=Juniper+Brew+Bar',
+    communityStats: { saves: 203, visits: 1105 },
   },
   {
     id: '4',
@@ -64,6 +72,7 @@ export const cafes: Cafe[] = [
     tags: ['Quiet', 'Good for Calls', 'Great Seating'],
     summary: 'Minimal, calm atmosphere with dependable Wi-Fi and soft ambient music.',
     googleMapsUrl: 'https://maps.google.com/?q=Clay+%26+Steam',
+    communityStats: { saves: 141, visits: 678 },
   },
   {
     id: '5',
@@ -77,6 +86,7 @@ export const cafes: Cafe[] = [
     tags: ['Social Spot', 'Fast Service', 'Quick'],
     summary: 'Bright and social spot that is perfect for quick coffee meetups.',
     googleMapsUrl: 'https://maps.google.com/?q=Golden+Hour+Cafe',
+    communityStats: { saves: 124, visits: 590 },
   },
 ];
 

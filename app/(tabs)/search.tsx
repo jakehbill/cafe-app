@@ -13,6 +13,8 @@ import {
 
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { cafes, type Cafe } from '@/data/cafes';
+import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
+import { rankTrendingNearbyForSearch } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForSearch, type RankKey } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 
@@ -20,12 +22,16 @@ import { CompactCafeCard } from './components/CompactCafeCard';
 import { FilterChip } from './components/FilterChip';
 import { COLORS } from './components/theme';
 
-const RANK_CHIPS = [
-  { id: 'work' as const, label: 'Best for Work' },
-  { id: 'coffee' as const, label: 'Great Coffee' },
-  { id: 'atmosphere' as const, label: 'Great Atmosphere' },
-  { id: 'quick' as const, label: 'Quick' },
-  { id: 'quiet' as const, label: 'Quiet' },
+/** Search chips: intent filters + non-personalized trending (aligned with Home). */
+type SearchChipId = RankKey | 'trending';
+
+const RANK_CHIPS: { id: SearchChipId; label: string }[] = [
+  { id: 'work', label: 'Best for Work' },
+  { id: 'coffee', label: 'Great Coffee' },
+  { id: 'atmosphere', label: 'Great Atmosphere' },
+  { id: 'quiet', label: 'Quiet' },
+  { id: 'quick', label: 'Quick' },
+  { id: 'trending', label: 'Trending Nearby' },
 ];
 
 type ViewMode = 'list' | 'map';
@@ -38,9 +44,12 @@ function parseRankParam(raw: string | string[] | undefined): RankKey | null {
   return null;
 }
 
-function resultsHeadingLabel(selectedChip: RankKey | null): string {
+function resultsHeadingLabel(selectedChip: SearchChipId | null): string {
   if (selectedChip === null) {
     return 'Top matches';
+  }
+  if (selectedChip === 'trending') {
+    return 'Trending nearby';
   }
   switch (selectedChip) {
     case 'work':
@@ -81,8 +90,9 @@ export default function SearchScreen() {
   const router = useRouter();
   const { rank: rankParam } = useLocalSearchParams<{ rank?: string | string[] }>();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
+  const userLocation = useOptionalUserLocation();
   const [query, setQuery] = useState('');
-  const [selectedChip, setSelectedChip] = useState<RankKey | null>(null);
+  const [selectedChip, setSelectedChip] = useState<SearchChipId | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   useEffect(() => {
@@ -99,8 +109,11 @@ export default function SearchScreen() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
+    if (selectedChip === 'trending') {
+      return rankTrendingNearbyForSearch([...cafes], q, userLocation);
+    }
     return rankCafesForSearch([...cafes], q, selectedChip, ratingsByCafeId, tasteProfile);
-  }, [query, selectedChip, ratingsByCafeId, tasteProfile]);
+  }, [query, selectedChip, ratingsByCafeId, tasteProfile, userLocation]);
 
   const showNoResults = results.length === 0;
   const resultsLabel = resultsHeadingLabel(selectedChip);
@@ -196,7 +209,11 @@ export default function SearchScreen() {
                     key={cafe.id}
                     cafe={cafe}
                     scores={{ coffee, work, vibe }}
-                    recommendationReason={getRecommendationReason(cafe, tasteProfile)}
+                    recommendationReason={
+                      selectedChip === 'trending'
+                        ? undefined
+                        : getRecommendationReason(cafe, tasteProfile)
+                    }
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
                 );
