@@ -9,6 +9,8 @@ type CafeCardProps = {
   coffeeScoreValue?: string;
   workScoreLabel?: string;
   workScoreValue?: string;
+  vibeScoreLabel?: string;
+  vibeScoreValue?: string;
   tags?: string[];
   summary?: string;
   onPress?: () => void;
@@ -21,6 +23,8 @@ export function CafeCard({
   coffeeScoreValue = '9.4',
   workScoreLabel = 'Work score',
   workScoreValue = '8.7',
+  vibeScoreLabel = 'Vibe',
+  vibeScoreValue,
   tags = ['Specialty', 'Fast Wi‑Fi', 'Quiet corners'],
   summary = 'Cozy light-filled seating with consistently great pour-overs.',
   onPress,
@@ -30,34 +34,47 @@ export function CafeCard({
       <View style={styles.imagePlaceholder} />
 
       <View style={styles.cardBody}>
-        <Text style={styles.cafeName}>{cafeName}</Text>
-        <Text style={styles.neighborhoodText}>{neighborhood}</Text>
+        <View style={styles.headerBlock}>
+          <Text style={styles.cafeName}>{cafeName}</Text>
+          <Text style={styles.neighborhoodText}>{neighborhood}</Text>
+        </View>
 
         <View style={styles.scoresRow}>
-          <View style={[styles.scorePill, styles.scorePillCoffee]}>
-            <Text style={[styles.scoreLabel, styles.scoreLabelCoffee]}>
-              {coffeeScoreLabel}
-            </Text>
+          <View style={styles.scoreItem}>
+            <Text style={[styles.scoreLabel, styles.scoreLabelCoffee]}>{coffeeScoreLabel}</Text>
             <Text style={styles.scoreValue}>{coffeeScoreValue}</Text>
           </View>
 
-          <View style={[styles.scorePill, styles.scorePillWork]}>
-            <Text style={[styles.scoreLabel, styles.scoreLabelWork]}>
-              {workScoreLabel}
-            </Text>
+          <View style={styles.scoreDot} />
+
+          <View style={styles.scoreItem}>
+            <Text style={[styles.scoreLabel, styles.scoreLabelWork]}>{workScoreLabel}</Text>
             <Text style={styles.scoreValue}>{workScoreValue}</Text>
           </View>
+
+          {vibeScoreValue ? (
+            <>
+              <View style={styles.scoreDot} />
+              <View style={styles.scoreItem}>
+                <Text style={[styles.scoreLabel, styles.scoreLabelVibe]}>{vibeScoreLabel}</Text>
+                <Text style={styles.scoreValueSubtle}>{vibeScoreValue}</Text>
+              </View>
+            </>
+          ) : null}
         </View>
 
         <View style={styles.tagsRow}>
-          {tags.slice(0, 3).map((tag) => (
+          {tags.slice(0, 5).map((tag) => (
             <View key={tag} style={styles.tag}>
               <Text style={styles.tagText}>{tag}</Text>
             </View>
           ))}
         </View>
 
-        <Text style={styles.summaryText}>{summary}</Text>
+        <View style={styles.summaryDivider} />
+        <Text numberOfLines={2} style={styles.summaryText}>
+          {summary}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -66,25 +83,37 @@ export function CafeCard({
 const styles = StyleSheet.create({
   featuredCard: {
     marginTop: 6,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: COLORS.background,
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: '#EEE4D6',
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 3,
   },
   imagePlaceholder: {
-    height: 150,
+    width: '100%',
+    aspectRatio: 3 / 2,
     backgroundColor: COLORS.imagePlaceholder,
   },
   cardBody: {
-    padding: 14,
-    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 18,
+    gap: 14,
+  },
+  headerBlock: {
+    gap: 4,
   },
   cafeName: {
-    fontSize: 18,
+    fontSize: 21,
     fontWeight: '700',
     color: COLORS.text,
-    lineHeight: 22,
+    lineHeight: 26,
+    letterSpacing: -0.2,
   },
   neighborhoodText: {
     fontSize: 13,
@@ -94,39 +123,47 @@ const styles = StyleSheet.create({
 
   scoresRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
     gap: 10,
   },
-  scorePill: {
-    flex: 1,
-    borderRadius: 14,
-    padding: 10,
-    backgroundColor: COLORS.chipBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+  scoreItem: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
   },
-  scorePillCoffee: {
-    backgroundColor: COLORS.coffeePillBackground,
-    borderColor: COLORS.coffeePillBorder,
-  },
-  scorePillWork: {
-    backgroundColor: COLORS.workPillBackground,
-    borderColor: COLORS.workPillBorder,
+  scoreDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#C9BEAF',
+    marginBottom: 6,
   },
   scoreLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 2,
+    fontSize: 12,
+    fontWeight: '500',
   },
   scoreLabelCoffee: {
-    color: COLORS.roastedBrown,
+    color: COLORS.text,
   },
   scoreLabelWork: {
-    color: '#5B6E58',
+    color: COLORS.text,
+  },
+  scoreLabelVibe: {
+    color: '#7E7265',
   },
   scoreValue: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 34,
+    fontWeight: '700',
     color: COLORS.text,
+    lineHeight: 36,
+    letterSpacing: -0.8,
+  },
+  scoreValueSubtle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#7E7265',
+    lineHeight: 28,
+    letterSpacing: -0.4,
   },
 
   tagsRow: {
@@ -137,22 +174,27 @@ const styles = StyleSheet.create({
   },
   tag: {
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: COLORS.tagBackground,
+    backgroundColor: '#F8F5F0',
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: '#ECE2D3',
   },
   tagText: {
-    color: COLORS.text,
+    color: '#5E5348',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  summaryDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFE7DB',
+    marginTop: 2,
   },
 
   summaryText: {
-    color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 18,
+    color: '#4F4740',
+    fontSize: 14,
+    lineHeight: 22,
   },
 });
 
