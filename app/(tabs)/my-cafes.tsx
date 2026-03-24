@@ -1,11 +1,20 @@
 import React from 'react';
-import { ScrollView, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import {
+  ScrollView,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { cafes } from '@/data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
 import { COLORS } from './components/theme';
 
 export default function MyCafesScreen() {
+  const router = useRouter();
   const { visitedCafeIds } = useCafeState();
   const visitedCafes = cafes.filter((cafe) => visitedCafeIds.includes(cafe.id));
 
@@ -16,8 +25,18 @@ export default function MyCafesScreen() {
 
         {visitedCafes.length === 0 ? (
           <View style={styles.emptyWrap}>
+            <View style={styles.emptyIconWrap}>
+              <Text style={styles.emptyIcon}>✓</Text>
+            </View>
             <Text style={styles.emptyTitle}>You haven&apos;t visited any cafes yet</Text>
-            <Text style={styles.subtitle}>Mark a cafe as visited from the detail screen.</Text>
+            <Text style={styles.subtitle}>Mark cafes as visited to keep track</Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.ctaButton}
+              onPress={() => router.push('/')}
+            >
+              <Text style={styles.ctaButtonText}>Explore cafes</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.listWrap}>
@@ -60,13 +79,34 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyWrap: {
-    marginTop: 10,
-    backgroundColor: '#F2EBDD',
+    marginTop: 20,
+    backgroundColor: '#F7F3EE',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E7DDCD',
-    padding: 16,
-    gap: 6,
+    borderColor: '#EDE3D5',
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+    gap: 10,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
+  },
+  emptyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(163, 177, 138, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(163, 177, 138, 0.45)',
+  },
+  emptyIcon: {
+    fontSize: 20,
+    color: '#5B6E58',
   },
   emptyTitle: {
     fontSize: 18,
@@ -74,6 +114,21 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.2,
     lineHeight: 22,
+    textAlign: 'center',
+  },
+  ctaButton: {
+    marginTop: 4,
+    borderRadius: 999,
+    backgroundColor: '#8A6A4F',
+    borderWidth: 1,
+    borderColor: 'rgba(138, 106, 79, 0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  ctaButtonText: {
+    color: '#F7F3EE',
+    fontSize: 13,
+    fontWeight: '700',
   },
   listWrap: {
     gap: 10,
