@@ -1,6 +1,7 @@
 import React from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  Linking,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -25,29 +26,13 @@ const COLORS = {
 function ScorePill({
   label,
   value,
-  tone = 'neutral',
 }: {
   label: string;
   value: string;
-  tone?: 'espresso' | 'sage' | 'neutral';
 }) {
-  const toneStyle =
-    tone === 'espresso'
-      ? styles.scorePillEspresso
-      : tone === 'sage'
-        ? styles.scorePillSage
-        : styles.scorePillNeutral;
-
-  const labelStyle =
-    tone === 'espresso'
-      ? styles.scoreLabelEspresso
-      : tone === 'sage'
-        ? styles.scoreLabelSage
-        : styles.scoreLabelNeutral;
-
   return (
-    <View style={[styles.scorePill, toneStyle]}>
-      <Text style={[styles.scoreLabel, labelStyle]}>{label}</Text>
+    <View style={styles.scorePill}>
+      <Text style={styles.scoreLabel}>{label}</Text>
       <Text style={styles.scoreValue}>{value}</Text>
     </View>
   );
@@ -105,7 +90,9 @@ export default function CafeDetailScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.heroImage} />
+        <View style={styles.heroWrap}>
+          <View style={styles.heroImage} />
+        </View>
 
         <View style={styles.header}>
           <Text style={styles.cafeName}>{cafe.name}</Text>
@@ -116,9 +103,9 @@ export default function CafeDetailScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Scores</Text>
           <View style={styles.scoresGrid}>
-            <ScorePill label="Coffee score" value={cafe.coffeeScore.toFixed(1)} tone="espresso" />
-            <ScorePill label="Work score" value={cafe.workScore.toFixed(1)} tone="sage" />
-            <ScorePill label="Vibe score" value={cafe.vibeScore.toFixed(1)} tone="neutral" />
+            <ScorePill label="Coffee" value={Math.round(cafe.coffeeScore * 10).toString()} />
+            <ScorePill label="Work" value={Math.round(cafe.workScore * 10).toString()} />
+            <ScorePill label="Vibe" value={Math.round(cafe.vibeScore * 10).toString()} />
           </View>
         </View>
 
@@ -133,7 +120,9 @@ export default function CafeDetailScreen() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Summary</Text>
-          <Text style={styles.summaryText}>{cafe.summary}</Text>
+          <Text numberOfLines={3} style={styles.summaryText}>
+            {cafe.summary}
+          </Text>
         </View>
 
         <View style={styles.actionsWrap}>
@@ -144,7 +133,11 @@ export default function CafeDetailScreen() {
             variant="secondary"
             onPress={() => router.push(`/rate/${cafe.id}`)}
           />
-          <ActionButton label="Share" variant="secondary" />
+          <ActionButton
+            label="Open in Google Maps"
+            variant="secondary"
+            onPress={() => Linking.openURL(cafe.googleMapsUrl)}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -157,31 +150,39 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    paddingBottom: 28,
+    paddingBottom: 36,
   },
-
+  heroWrap: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
   heroImage: {
-    height: 280,
+    width: '100%',
+    aspectRatio: 3 / 2,
     backgroundColor: COLORS.image,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3,
   },
 
   header: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
-    gap: 6,
+    paddingTop: 18,
+    paddingBottom: 6,
+    gap: 5,
   },
   cafeName: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     color: COLORS.text,
-    letterSpacing: -0.2,
-    lineHeight: 34,
+    letterSpacing: -0.5,
+    lineHeight: 38,
   },
   neighborhood: {
-    fontSize: 14,
+    fontSize: 15,
     color: COLORS.muted,
     lineHeight: 20,
   },
@@ -211,14 +212,19 @@ const styles = StyleSheet.create({
   },
 
   sectionCard: {
-    marginTop: 14,
+    marginTop: 16,
     marginHorizontal: 20,
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.background,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 14,
-    gap: 10,
+    borderColor: '#ECE2D4',
+    padding: 16,
+    gap: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 1,
   },
   sectionTitle: {
     fontSize: 13,
@@ -229,46 +235,30 @@ const styles = StyleSheet.create({
 
   scoresGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   scorePill: {
-    flexGrow: 1,
-    minWidth: 140,
-    borderRadius: 14,
-    padding: 10,
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     borderWidth: 1,
-  },
-  scorePillNeutral: {
-    backgroundColor: COLORS.input,
-    borderColor: COLORS.border,
-  },
-  scorePillEspresso: {
-    backgroundColor: 'rgba(138, 106, 79, 0.12)',
-    borderColor: 'rgba(138, 106, 79, 0.35)',
-  },
-  scorePillSage: {
-    backgroundColor: 'rgba(163, 177, 138, 0.18)',
-    borderColor: 'rgba(163, 177, 138, 0.45)',
+    borderColor: '#E8DECE',
+    backgroundColor: '#F2EBDD',
+    alignItems: 'center',
+    gap: 2,
   },
   scoreLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  scoreLabelNeutral: {
-    color: COLORS.muted,
-  },
-  scoreLabelEspresso: {
-    color: COLORS.espresso,
-  },
-  scoreLabelSage: {
-    color: '#5B6E58',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5F5346',
   },
   scoreValue: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '700',
     color: COLORS.text,
+    lineHeight: 30,
+    letterSpacing: -0.3,
   },
 
   tagsRow: {
@@ -279,26 +269,26 @@ const styles = StyleSheet.create({
   },
   tag: {
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: COLORS.background,
+    backgroundColor: '#F8F5F0',
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#ECE2D3',
   },
   tagText: {
-    color: COLORS.text,
+    color: '#5E5348',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 
   summaryText: {
-    color: COLORS.muted,
+    color: '#4F4740',
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
   },
 
   actionsWrap: {
-    marginTop: 16,
+    marginTop: 20,
     paddingHorizontal: 20,
     gap: 10,
   },
@@ -311,8 +301,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(138, 106, 79, 0.55)',
   },
   actionButtonSecondary: {
-    backgroundColor: COLORS.input,
-    borderColor: COLORS.border,
+    backgroundColor: '#F2EBDD',
+    borderColor: '#E7DDCD',
   },
   actionButtonText: {
     color: COLORS.background,
