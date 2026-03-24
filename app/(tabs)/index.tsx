@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   SafeAreaView,
@@ -15,6 +15,7 @@ import { cafes, type Cafe } from '../../data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
 const FILTER_CHIPS = ['Work', 'Quick', 'Specialty', 'Quiet', 'Social'] as const;
+const SORT_OPTIONS = ['Best for Work', 'Best Coffee', 'Best Vibe'] as const;
 const MAX_VISIBLE_TAGS = 3;
 
 function getVisibleTags(tags: string[]) {
@@ -95,6 +96,42 @@ export default function HomeScreen() {
   const router = useRouter();
   const { ratingsByCafeId } = useCafeState();
   const [selectedFilter, setSelectedFilter] = useState<(typeof FILTER_CHIPS)[number]>('Work');
+  const [selectedSort, setSelectedSort] = useState<(typeof SORT_OPTIONS)[number]>('Best for Work');
+
+  function getDisplayScores(cafe: Cafe) {
+    const localRating = ratingsByCafeId[cafe.id];
+
+    if (localRating) {
+      return {
+        coffee: localRating.coffee,
+        work: localRating.work,
+        vibe: localRating.vibe,
+      };
+    }
+
+    return {
+      coffee: cafe.coffeeScore,
+      work: cafe.workScore,
+      vibe: cafe.vibeScore,
+    };
+  }
+
+  const sortedCafes = useMemo(() => {
+    return [...cafes].sort((a, b) => {
+      const scoreA = getDisplayScores(a);
+      const scoreB = getDisplayScores(b);
+
+      if (selectedSort === 'Best for Work') {
+        return scoreB.work - scoreA.work;
+      }
+
+      if (selectedSort === 'Best Coffee') {
+        return scoreB.coffee - scoreA.coffee;
+      }
+
+      return scoreB.vibe - scoreA.vibe;
+    });
+  }, [selectedSort, ratingsByCafeId]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -130,7 +167,25 @@ export default function HomeScreen() {
             <Text style={styles.sectionSubtitle}>Editor&apos;s pick for remote work</Text>
           </View>
 
-          {cafes.map((cafe) => (
+          <View style={styles.sortRow}>
+            {SORT_OPTIONS.map((option) => {
+              const selected = selectedSort === option;
+              return (
+                <TouchableOpacity
+                  key={option}
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedSort(option)}
+                  style={[styles.sortChip, selected && styles.sortChipSelected]}
+                >
+                  <Text style={[styles.sortChipText, selected && styles.sortChipTextSelected]}>
+                    {option}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {sortedCafes.map((cafe) => (
             <HomeCafeCard
               key={cafe.id}
               cafe={cafe}
@@ -196,6 +251,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#6E6254',
+  },
+  sortRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: -2,
+    marginBottom: 2,
+  },
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#EFE9DF',
+    borderWidth: 1,
+    borderColor: '#E8DECE',
+  },
+  sortChipSelected: {
+    backgroundColor: '#8A6A4F',
+    borderColor: 'rgba(138, 106, 79, 0.6)',
+  },
+  sortChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4E4338',
+  },
+  sortChipTextSelected: {
+    color: '#F7F3EE',
   },
 
   featuredCard: {
