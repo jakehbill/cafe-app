@@ -12,11 +12,12 @@ import {
 } from 'react-native';
 
 import { COLORS } from '../(tabs)/components/theme';
+import { useCafeState } from '@/contexts/CafeStateContext';
+import { cafes } from '@/data/cafes';
 
 const RATING_CATEGORIES = [
   { key: 'coffee', label: 'How tasty was the coffee?' },
   { key: 'work', label: 'Was it a good place to work?' },
-  { key: 'quick', label: 'How quick was the ordering process?' },
   { key: 'vibe', label: 'How was the overall atmosphere?' },
 ] as const;
 
@@ -30,11 +31,6 @@ const TAGS = [
   'Social Spot',
   'Busy',
 ] as const;
-
-const MOCK_CAFE = {
-  name: 'Moss & Co. Coffee',
-  neighborhood: 'Downtown • Elm Street',
-} as const;
 
 function RatingRow({
   label,
@@ -76,18 +72,23 @@ function RatingRow({
 
 export default function RateCafeScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { setCafeRating, getCafeRating } = useCafeState();
+  const cafeId = Array.isArray(id) ? id[0] : id;
+  const targetCafeId = cafeId ?? '1';
+  const cafe = cafes.find((item) => item.id === targetCafeId);
+  const existingRating = getCafeRating(targetCafeId);
 
   // Local state keeps the screen interactive without backend wiring.
-  const [coffeeScore, setCoffeeScore] = useState(0);
-  const [workScore, setWorkScore] = useState(0);
-  const [quickScore, setQuickScore] = useState(0);
-  const [vibeScore, setVibeScore] = useState(0);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
+  const [coffeeScore, setCoffeeScore] = useState(existingRating?.coffee ?? 0);
+  const [workScore, setWorkScore] = useState(existingRating?.work ?? 0);
+  const [vibeScore, setVibeScore] = useState(existingRating?.vibe ?? 0);
+  const [selectedTags, setSelectedTags] = useState<string[]>(existingRating?.tags ?? []);
+  const [notes, setNotes] = useState(existingRating?.notes ?? '');
+  const [submitted, setSubmitted] = useState(false);
 
   const hasAnyRating =
-    coffeeScore > 0 || workScore > 0 || quickScore > 0 || vibeScore > 0;
+    coffeeScore > 0 || workScore > 0 || vibeScore > 0;
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
@@ -96,20 +97,24 @@ export default function RateCafeScreen() {
   }
 
   function handleSubmit() {
-    const payload = {
-      cafeId: id ?? '1',
-      ratings: {
-        coffee: coffeeScore,
-        work: workScore,
-        quick: quickScore,
-        vibe: vibeScore,
-      },
+    const ratingData = {
+      coffee: coffeeScore,
+      work: workScore,
+      vibe: vibeScore,
       tags: selectedTags,
       notes: notes.trim(),
     };
 
-    console.log('Rate cafe payload:', payload);
-    Alert.alert('Thanks!', 'Your rating was submitted.');
+    setCafeRating(targetCafeId, ratingData);
+    setSubmitted(true);
+
+    console.log('Rate cafe payload:', {
+      cafeId: targetCafeId,
+      ...ratingData,
+    });
+    Alert.alert('Thanks!', 'Your rating was submitted.', [
+      { text: 'OK', onPress: () => router.replace(`/cafe/${targetCafeId}`) },
+    ]);
   }
 
   return (
@@ -133,9 +138,11 @@ export default function RateCafeScreen() {
         <View style={styles.previewCard}>
           <View style={styles.previewImage} />
           <View style={styles.previewTextWrap}>
-            <Text style={styles.previewName}>{MOCK_CAFE.name}</Text>
-            <Text style={styles.previewNeighborhood}>{MOCK_CAFE.neighborhood}</Text>
-            <Text style={styles.previewId}>Cafe #{id ?? '1'}</Text>
+            <Text style={styles.previewName}>{cafe?.name ?? 'Cafe'}</Text>
+            <Text style={styles.previewNeighborhood}>
+              {cafe?.neighborhood ?? 'Neighborhood'}
+            </Text>
+            <Text style={styles.previewId}>Cafe #{targetCafeId}</Text>
           </View>
         </View>
 
@@ -151,9 +158,7 @@ export default function RateCafeScreen() {
                     ? coffeeScore
                     : category.key === 'work'
                       ? workScore
-                      : category.key === 'quick'
-                        ? quickScore
-                        : vibeScore
+                      : vibeScore
                 }
                 onSelect={(value) => {
                   if (category.key === 'coffee') {
@@ -162,10 +167,6 @@ export default function RateCafeScreen() {
                   }
                   if (category.key === 'work') {
                     setWorkScore(value);
-                    return;
-                  }
-                  if (category.key === 'quick') {
-                    setQuickScore(value);
                     return;
                   }
                   setVibeScore(value);
@@ -220,11 +221,15 @@ export default function RateCafeScreen() {
           activeOpacity={0.88}
           style={[
             styles.submitButton,
-            !hasAnyRating && styles.submitButtonDisabled,
+            (!hasAnyRating || submitted) && styles.submitButtonDisabled,
+            submitted && styles.submitButtonSuccess,
           ]}
           onPress={handleSubmit}
+          disabled={!hasAnyRating || submitted}
         >
-          <Text style={styles.submitButtonText}>Submit</Text>
+          <Text style={styles.submitButtonText}>
+            {submitted ? 'Submitted' : 'Submit'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -416,6 +421,10 @@ const styles = StyleSheet.create({
   },
   submitButtonDisabled: {
     opacity: 0.88,
+  },
+  submitButtonSuccess: {
+    backgroundColor: 'rgba(163, 177, 138, 0.45)',
+    borderColor: 'rgba(163, 177, 138, 0.8)',
   },
   submitButtonText: {
     color: COLORS.background,

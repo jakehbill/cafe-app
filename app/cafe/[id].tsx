@@ -23,6 +23,7 @@ const COLORS = {
   espresso: '#8A6A4F',
   sage: '#A3B18A',
 } as const;
+const MAX_VISIBLE_TAGS = 3;
 
 function ScorePill({
   label,
@@ -72,7 +73,13 @@ function ActionButton({
 export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
-  const { toggleSaved, toggleVisited, isSaved, isVisited } = useCafeState();
+  const {
+    toggleSaved,
+    toggleVisited,
+    isSaved,
+    isVisited,
+    getCafeRating,
+  } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const cafe = cafes.find((item) => item.id === cafeId);
 
@@ -88,6 +95,25 @@ export default function CafeDetailScreen() {
       </SafeAreaView>
     );
   }
+
+  const localRating = getCafeRating(cafe.id);
+  // Prioritize user-submitted local ratings when available, otherwise fallback to mock data.
+  const ratingSource = localRating
+    ? {
+        coffee: localRating.coffee,
+        work: localRating.work,
+        vibe: localRating.vibe,
+        tags: localRating.tags,
+        notes: localRating.notes,
+      }
+    : {
+        coffee: cafe.coffeeScore,
+        work: cafe.workScore,
+        vibe: cafe.vibeScore,
+        tags: cafe.tags,
+        notes: '',
+      };
+  const displayTags = ratingSource.tags.slice(0, MAX_VISIBLE_TAGS);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -105,16 +131,16 @@ export default function CafeDetailScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Scores</Text>
           <View style={styles.scoresGrid}>
-            <ScorePill label="Coffee" value={Math.round(cafe.coffeeScore * 10).toString()} />
-            <ScorePill label="Work" value={Math.round(cafe.workScore * 10).toString()} />
-            <ScorePill label="Vibe" value={Math.round(cafe.vibeScore * 10).toString()} />
+            <ScorePill label="Coffee" value={ratingSource.coffee.toFixed(1)} />
+            <ScorePill label="Work" value={ratingSource.work.toFixed(1)} />
+            <ScorePill label="Vibe" value={ratingSource.vibe.toFixed(1)} />
           </View>
         </View>
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Vibe</Text>
           <View style={styles.tagsRow}>
-            {cafe.tags.map((t) => (
+            {displayTags.map((t) => (
               <Tag key={t} label={t} />
             ))}
           </View>
@@ -126,6 +152,14 @@ export default function CafeDetailScreen() {
             {cafe.summary}
           </Text>
         </View>
+        {ratingSource.notes ? (
+          <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Notes</Text>
+            <Text numberOfLines={3} style={styles.summaryText}>
+              {ratingSource.notes}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.actionsWrap}>
           <ActionButton

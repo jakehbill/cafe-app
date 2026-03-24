@@ -14,6 +14,11 @@ import { SearchBar } from './components/SearchBar';
 import { cafes, type Cafe } from '../../data/cafes';
 
 const FILTER_CHIPS = ['Work', 'Quick', 'Specialty', 'Quiet', 'Social'] as const;
+const MAX_VISIBLE_TAGS = 3;
+
+function getVisibleTags(tags: string[]) {
+  return tags.slice(0, MAX_VISIBLE_TAGS);
+}
 
 function HomeCafeCard({
   cafe,
@@ -33,20 +38,20 @@ function HomeCafeCard({
         <View style={styles.equalScoresRow}>
           <View style={styles.equalScoreBlock}>
             <Text style={styles.equalScoreLabel}>Coffee</Text>
-            <Text style={styles.equalScoreValue}>{Math.round(cafe.coffeeScore * 10)}</Text>
+            <Text style={styles.equalScoreValue}>{cafe.coffeeScore.toFixed(1)}</Text>
           </View>
           <View style={styles.equalScoreBlock}>
             <Text style={styles.equalScoreLabel}>Work</Text>
-            <Text style={styles.equalScoreValue}>{Math.round(cafe.workScore * 10)}</Text>
+            <Text style={styles.equalScoreValue}>{cafe.workScore.toFixed(1)}</Text>
           </View>
           <View style={styles.equalScoreBlock}>
             <Text style={styles.equalScoreLabel}>Vibe</Text>
-            <Text style={styles.equalScoreValue}>{Math.round(cafe.vibeScore * 10)}</Text>
+            <Text style={styles.equalScoreValue}>{cafe.vibeScore.toFixed(1)}</Text>
           </View>
         </View>
 
         <View style={styles.featuredTagsRow}>
-          {cafe.tags.slice(0, 5).map((tag) => (
+          {getVisibleTags(cafe.tags).map((tag) => (
             <View key={tag} style={styles.featuredTag}>
               <Text style={styles.featuredTagText}>{tag}</Text>
             </View>
