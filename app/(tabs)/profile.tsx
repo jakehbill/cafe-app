@@ -239,7 +239,8 @@ export default function ProfileScreen() {
 
         <Text style={styles.sectionHeading}>Achievements</Text>
         <Text style={styles.badgesExplainer}>
-          Badges unlock as you save, visit, rate, and tag quiet spots in your reviews.
+          Unlocked badges appear first. The rest unlock as you save, visit, rate highly, and tag what
+          you love.
         </Text>
         <View style={styles.badgeGrid}>
           {badges.map((b) => (

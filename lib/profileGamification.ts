@@ -90,8 +90,37 @@ export type ProfileBadge = {
   unlocked: boolean;
 };
 
-/** How many ratings must include a “Quiet” tag to earn the badge */
-const QUIET_BADGE_MIN_RATINGS = 3;
+/**
+ * Tune badge difficulty here (all use existing Supabase-backed counts + `ratingsByCafeId`).
+ */
+export const BADGE_THRESHOLDS = {
+  /** Work / coffee / vibe must be ≥ this (1–10) to count toward taste badges */
+  highDimensionScore: 8,
+  /** How many such ratings unlock Work Mode / Coffee Standards / Vibe Curator */
+  minHighDimensionRatings: 5,
+  /** Visited count for “Regular” */
+  visitRegular: 5,
+  /** Visited count for “Explorer” (badge name; separate from level title) */
+  visitExplorer: 10,
+  /** Total ratings for “Local Scout” */
+  ratingsLocalScout: 10,
+  /** Ratings where user picked a Quiet-related tag */
+  quietTagSelections: 3,
+} as const;
+
+function countRatingsAtOrAbove(
+  ratingsByCafeId: Record<string, CafeRating>,
+  dimension: 'work' | 'coffee' | 'vibe',
+  minScore: number
+): number {
+  let n = 0;
+  for (const r of Object.values(ratingsByCafeId)) {
+    if (r[dimension] >= minScore) {
+      n += 1;
+    }
+  }
+  return n;
+}
 
 function quietTaggedRatingCount(ratingsByCafeId: Record<string, CafeRating>): number {
   let n = 0;
@@ -103,46 +132,79 @@ function quietTaggedRatingCount(ratingsByCafeId: Record<string, CafeRating>): nu
   return n;
 }
 
-/**
- * Badge rules (tweak thresholds / copy here).
- * Unlocked when the condition is true using the same counts as points + rating tags from context.
- */
+/** Foundation → Activity → Taste → Advanced → Optional (stable catalog order). */
 export function computeProfileBadges(
   counts: ActivityCounts,
   ratingsByCafeId: Record<string, CafeRating>
 ): ProfileBadge[] {
+  const hi = BADGE_THRESHOLDS.highDimensionScore;
+  const highWork = countRatingsAtOrAbove(ratingsByCafeId, 'work', hi);
+  const highCoffee = countRatingsAtOrAbove(ratingsByCafeId, 'coffee', hi);
+  const highVibe = countRatingsAtOrAbove(ratingsByCafeId, 'vibe', hi);
   const quietN = quietTaggedRatingCount(ratingsByCafeId);
+  const minHi = BADGE_THRESHOLDS.minHighDimensionRatings;
 
-  return [
+  const catalog: ProfileBadge[] = [
     {
-      id: 'first-save',
-      label: 'First Save',
-      icon: '☆',
+      id: 'first-sip',
+      label: 'First Sip',
+      icon: '○',
       unlocked: counts.saved >= 1,
     },
     {
-      id: 'first-review',
-      label: 'First Review',
-      icon: '✎',
+      id: 'first-impression',
+      label: 'First Impression',
+      icon: '◐',
       unlocked: counts.ratings >= 1,
     },
     {
-      id: 'visit-5',
-      label: '5 Cafes Visited',
+      id: 'regular',
+      label: 'Regular',
       icon: '◎',
-      unlocked: counts.visited >= 5,
+      unlocked: counts.visited >= BADGE_THRESHOLDS.visitRegular,
     },
     {
-      id: 'rate-10',
-      label: '10 Ratings',
+      id: 'explorer-visit',
+      label: 'Explorer',
+      icon: '△',
+      unlocked: counts.visited >= BADGE_THRESHOLDS.visitExplorer,
+    },
+    {
+      id: 'work-mode',
+      label: 'Work Mode',
+      icon: '▪',
+      unlocked: highWork >= minHi,
+    },
+    {
+      id: 'coffee-standards',
+      label: 'Coffee Standards',
+      icon: '●',
+      unlocked: highCoffee >= minHi,
+    },
+    {
+      id: 'vibe-curator',
+      label: 'Vibe Curator',
+      icon: '◆',
+      unlocked: highVibe >= minHi,
+    },
+    {
+      id: 'local-scout',
+      label: 'Local Scout',
       icon: '★',
-      unlocked: counts.ratings >= 10,
+      unlocked: counts.ratings >= BADGE_THRESHOLDS.ratingsLocalScout,
     },
     {
       id: 'quiet-finder',
-      label: 'Quiet Spot Finder',
+      label: 'Quiet Finder',
       icon: '◇',
-      unlocked: quietN >= QUIET_BADGE_MIN_RATINGS,
+      unlocked: quietN >= BADGE_THRESHOLDS.quietTagSelections,
     },
   ];
+
+  return [...catalog].sort((a, b) => {
+    if (a.unlocked === b.unlocked) {
+      return catalog.indexOf(a) - catalog.indexOf(b);
+    }
+    return a.unlocked ? -1 : 1;
+  });
 }
