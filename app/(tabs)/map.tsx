@@ -16,6 +16,16 @@ import { cafes } from '@/data/cafes';
 export default function MapScreen() {
   const router = useRouter();
   const isWeb = Platform.OS === 'web';
+  let MapView: any;
+  let Marker: any;
+  let Callout: any;
+
+  if (!isWeb) {
+    const Maps = require('react-native-maps');
+    MapView = Maps.default;
+    Marker = Maps.Marker;
+    Callout = Maps.Callout;
+  }
 
   const initialRegion = useMemo(() => {
     const firstCafe = cafes[0];
@@ -51,52 +61,26 @@ export default function MapScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
-      ) : (
-        <NativeMapView
-          initialRegion={initialRegion}
-          onOpenCafe={(id) => router.push(`/cafe/${id}`)}
-        />
-      )}
+      ) : MapView && Marker && Callout ? (
+        <MapView style={styles.map} initialRegion={initialRegion}>
+          {cafes.map((cafe) => (
+            <Marker
+              key={cafe.id}
+              coordinate={{ latitude: cafe.latitude, longitude: cafe.longitude }}
+              title={cafe.name}
+              description={cafe.neighborhood}
+            >
+              <Callout onPress={() => router.push(`/cafe/${cafe.id}`)}>
+                <View style={styles.callout}>
+                  <Text style={styles.calloutTitle}>{cafe.name}</Text>
+                  <Text style={styles.calloutSubtitle}>Tap to open cafe</Text>
+                </View>
+              </Callout>
+            </Marker>
+          ))}
+        </MapView>
+      ) : null}
     </SafeAreaView>
-  );
-}
-
-function NativeMapView({
-  initialRegion,
-  onOpenCafe,
-}: {
-  initialRegion: {
-    latitude: number;
-    longitude: number;
-    latitudeDelta: number;
-    longitudeDelta: number;
-  };
-  onOpenCafe: (id: string) => void;
-}) {
-  // Important: lazy require keeps web from loading native map code.
-  const Maps = require('react-native-maps');
-  const MapView = Maps.default;
-  const Marker = Maps.Marker;
-  const Callout = Maps.Callout;
-
-  return (
-    <MapView style={styles.map} initialRegion={initialRegion}>
-      {cafes.map((cafe: (typeof cafes)[number]) => (
-        <Marker
-          key={cafe.id}
-          coordinate={{ latitude: cafe.latitude, longitude: cafe.longitude }}
-          title={cafe.name}
-          description={cafe.neighborhood}
-        >
-          <Callout onPress={() => onOpenCafe(cafe.id)}>
-            <View style={styles.callout}>
-              <Text style={styles.calloutTitle}>{cafe.name}</Text>
-              <Text style={styles.calloutSubtitle}>Tap to open cafe</Text>
-            </View>
-          </Callout>
-        </Marker>
-      ))}
-    </MapView>
   );
 }
 

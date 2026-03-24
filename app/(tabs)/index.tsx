@@ -167,6 +167,14 @@ export default function HomeScreen() {
             <Text style={styles.sectionSubtitle}>Editor&apos;s pick for remote work</Text>
           </View>
 
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.testAuthButton}
+            onPress={() => router.push('/auth')}
+          >
+            <Text style={styles.testAuthButtonText}>Test Auth</Text>
+          </TouchableOpacity>
+
           <View style={styles.sortRow}>
             {SORT_OPTIONS.map((option) => {
               const selected = selectedSort === option;
@@ -251,6 +259,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#6E6254',
+  },
+  testAuthButton: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: '#F2EBDD',
+    borderWidth: 1,
+    borderColor: '#E7DDCD',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: -2,
+    marginBottom: 2,
+  },
+  testAuthButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2E2A27',
   },
   sortRow: {
     flexDirection: 'row',
