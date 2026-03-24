@@ -96,7 +96,7 @@ export default function RateCafeScreen() {
     );
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const ratingData = {
       coffee: coffeeScore,
       work: workScore,
@@ -105,16 +105,20 @@ export default function RateCafeScreen() {
       notes: notes.trim(),
     };
 
-    setCafeRating(targetCafeId, ratingData);
-    setSubmitted(true);
-
     console.log('Rate cafe payload:', {
       cafeId: targetCafeId,
       ...ratingData,
     });
-    Alert.alert('Thanks!', 'Your rating was submitted.', [
-      { text: 'OK', onPress: () => router.replace(`/cafe/${targetCafeId}`) },
-    ]);
+
+    try {
+      await setCafeRating(targetCafeId, ratingData);
+      setSubmitted(true);
+      Alert.alert('Thanks!', 'Your rating was submitted.', [
+        { text: 'OK', onPress: () => router.replace(`/cafe/${targetCafeId}`) },
+      ]);
+    } catch {
+      Alert.alert('Could not save', 'Your rating could not be saved. Check your connection and try again.');
+    }
   }
 
   return (

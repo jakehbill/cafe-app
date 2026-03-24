@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import {
   ScrollView,
@@ -8,15 +8,35 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { cafes } from '@/data/cafes';
+
+import { cafes, type Cafe } from '@/data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
+import { CompactCafeCard } from './components/CompactCafeCard';
 import { COLORS } from './components/theme';
+
+/** Map Supabase `cafe_id` values to full cafe objects from the local catalog (same ids). */
+function cafesFromSavedIds(savedIds: string[], catalog: Cafe[]): Cafe[] {
+  const byId = new Map(catalog.map((c) => [c.id, c]));
+  const result: Cafe[] = [];
+  for (const rawId of savedIds) {
+    const id = String(rawId);
+    const cafe = byId.get(id);
+    if (cafe) {
+      result.push(cafe);
+    }
+  }
+  return result;
+}
 
 export default function SavedScreen() {
   const router = useRouter();
-  const { savedCafeIds } = useCafeState();
-  const savedCafes = cafes.filter((cafe) => savedCafeIds.includes(cafe.id));
+  const { savedCafeIds, ratingsByCafeId } = useCafeState();
+
+  const savedCafes = useMemo(
+    () => cafesFromSavedIds(savedCafeIds, cafes),
+    [savedCafeIds]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -40,15 +60,21 @@ export default function SavedScreen() {
           </View>
         ) : (
           <View style={styles.listWrap}>
-            {savedCafes.map((cafe) => (
-              <View key={cafe.id} style={styles.card}>
-                <Text style={styles.cardName}>{cafe.name}</Text>
-                <Text style={styles.cardNeighborhood}>{cafe.neighborhood}</Text>
-                <Text numberOfLines={2} style={styles.cardSummary}>
-                  {cafe.summary}
-                </Text>
-              </View>
-            ))}
+            {savedCafes.map((cafe) => {
+              const localRating = ratingsByCafeId[cafe.id];
+              const coffee = localRating ? localRating.coffee : cafe.coffeeScore;
+              const work = localRating ? localRating.work : cafe.workScore;
+              const vibe = localRating ? localRating.vibe : cafe.vibeScore;
+
+              return (
+                <CompactCafeCard
+                  key={cafe.id}
+                  cafe={cafe}
+                  scores={{ coffee, work, vibe }}
+                  onPress={() => router.push(`/cafe/${cafe.id}`)}
+                />
+              );
+            })}
           </View>
         )}
       </ScrollView>
@@ -131,35 +157,6 @@ const styles = StyleSheet.create({
   },
   listWrap: {
     gap: 10,
-  },
-  card: {
-    backgroundColor: '#F7F3EE',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EDE3D5',
-    padding: 14,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
-  },
-  cardName: {
-    color: COLORS.text,
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  cardNeighborhood: {
-    color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  cardSummary: {
-    color: '#4F4740',
-    fontSize: 13,
-    lineHeight: 19,
+    paddingBottom: 8,
   },
 });
-

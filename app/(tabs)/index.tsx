@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useRouter } from 'expo-router';
 import {
   SafeAreaView,
@@ -10,13 +10,17 @@ import {
 } from 'react-native';
 
 import { FilterChip } from './components/FilterChip';
-import { SearchBar } from './components/SearchBar';
 import { cafes, type Cafe } from '../../data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
-const FILTER_CHIPS = ['Work', 'Quick', 'Specialty', 'Quiet', 'Social'] as const;
-const SORT_OPTIONS = ['Best for Work', 'Best Coffee', 'Best Vibe'] as const;
 const MAX_VISIBLE_TAGS = 3;
+
+const BROWSE_BY = [
+  { label: 'Best for Work', rank: 'work' as const },
+  { label: 'Great Coffee', rank: 'coffee' as const },
+  { label: 'Great Atmosphere', rank: 'atmosphere' as const },
+  { label: 'Quiet Spots', rank: 'quiet' as const },
+];
 
 function getVisibleTags(tags: string[]) {
   return tags.slice(0, MAX_VISIBLE_TAGS);
@@ -35,7 +39,6 @@ function HomeCafeCard({
   };
   onPress: () => void;
 }) {
-  // Use local user rating if it exists; otherwise fallback to default cafe data.
   const displayScores = localRating
     ? {
         coffee: localRating.coffee,
@@ -95,8 +98,6 @@ function HomeCafeCard({
 export default function HomeScreen() {
   const router = useRouter();
   const { ratingsByCafeId } = useCafeState();
-  const [selectedFilter, setSelectedFilter] = useState<(typeof FILTER_CHIPS)[number]>('Work');
-  const [selectedSort, setSelectedSort] = useState<(typeof SORT_OPTIONS)[number]>('Best for Work');
 
   function getDisplayScores(cafe: Cafe) {
     const localRating = ratingsByCafeId[cafe.id];
@@ -116,22 +117,18 @@ export default function HomeScreen() {
     };
   }
 
+  /** Curated feed: sort by work score (same idea as former default "Best for Work"). */
   const sortedCafes = useMemo(() => {
     return [...cafes].sort((a, b) => {
       const scoreA = getDisplayScores(a);
       const scoreB = getDisplayScores(b);
-
-      if (selectedSort === 'Best for Work') {
-        return scoreB.work - scoreA.work;
-      }
-
-      if (selectedSort === 'Best Coffee') {
-        return scoreB.coffee - scoreA.coffee;
-      }
-
-      return scoreB.vibe - scoreA.vibe;
+      return scoreB.work - scoreA.work;
     });
-  }, [selectedSort, ratingsByCafeId]);
+  }, [ratingsByCafeId]);
+
+  function goToSearchWithRank(rank: (typeof BROWSE_BY)[number]['rank']) {
+    router.push({ pathname: '/search', params: { rank } });
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -140,31 +137,26 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.topSection}>
-          <View style={styles.headerBlock}>
-            <Text style={styles.headerText}>Find your perfect cafe</Text>
-            <Text style={styles.headerSubtext}>Work, coffee, or just a great spot</Text>
+          <View style={styles.sectionIntro}>
+            <Text style={styles.sectionTitle}>Top picks today</Text>
+            <Text style={styles.sectionSubtitle}>Editor&apos;s pick for remote work</Text>
           </View>
 
-          <SearchBar placeholder="Search cafes..." />
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipsRow}
-          >
-            {FILTER_CHIPS.map((label) => (
-              <FilterChip
-                key={label}
-                label={label}
-                selected={selectedFilter === label}
-                onPress={() => setSelectedFilter(label)}
-              />
-            ))}
-          </ScrollView>
-
-          <View style={styles.sectionIntro}>
-            <Text style={styles.sectionTitle}>Featured Today</Text>
-            <Text style={styles.sectionSubtitle}>Editor&apos;s pick for remote work</Text>
+          <View style={styles.browseBlock}>
+            <Text style={styles.browseTitle}>Browse by</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.browseChipsRow}
+            >
+              {BROWSE_BY.map((item) => (
+                <FilterChip
+                  key={item.rank}
+                  label={item.label}
+                  onPress={() => goToSearchWithRank(item.rank)}
+                />
+              ))}
+            </ScrollView>
           </View>
 
           <TouchableOpacity
@@ -174,24 +166,6 @@ export default function HomeScreen() {
           >
             <Text style={styles.testAuthButtonText}>Test Auth</Text>
           </TouchableOpacity>
-
-          <View style={styles.sortRow}>
-            {SORT_OPTIONS.map((option) => {
-              const selected = selectedSort === option;
-              return (
-                <TouchableOpacity
-                  key={option}
-                  activeOpacity={0.85}
-                  onPress={() => setSelectedSort(option)}
-                  style={[styles.sortChip, selected && styles.sortChipSelected]}
-                >
-                  <Text style={[styles.sortChipText, selected && styles.sortChipTextSelected]}>
-                    {option}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
 
           {sortedCafes.map((cafe) => (
             <HomeCafeCard
@@ -220,32 +194,9 @@ const styles = StyleSheet.create({
   topSection: {
     gap: 18,
   },
-  headerBlock: {
-    gap: 6,
-    marginTop: 2,
-  },
-
-  headerText: {
-    fontSize: 36,
-    color: '#2E2A27',
-    fontWeight: '700',
-    letterSpacing: -0.6,
-    lineHeight: 40,
-  },
-  headerSubtext: {
-    fontSize: 15,
-    lineHeight: 20,
-    color: '#6F6355',
-  },
-
-  chipsRow: {
-    paddingTop: 4,
-    gap: 10,
-    paddingRight: 12,
-  },
   sectionIntro: {
     gap: 2,
-    marginTop: 4,
+    marginTop: 0,
     marginBottom: 4,
   },
   sectionTitle: {
@@ -259,6 +210,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#6E6254',
+  },
+  browseBlock: {
+    gap: 10,
+    marginTop: -2,
+  },
+  browseTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#2E2A27',
+    letterSpacing: -0.2,
+  },
+  browseChipsRow: {
+    gap: 8,
+    paddingRight: 12,
+    paddingBottom: 2,
   },
   testAuthButton: {
     alignSelf: 'flex-start',
@@ -275,33 +241,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#2E2A27',
-  },
-  sortRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: -2,
-    marginBottom: 2,
-  },
-  sortChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#EFE9DF',
-    borderWidth: 1,
-    borderColor: '#E8DECE',
-  },
-  sortChipSelected: {
-    backgroundColor: '#8A6A4F',
-    borderColor: 'rgba(138, 106, 79, 0.6)',
-  },
-  sortChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4E4338',
-  },
-  sortChipTextSelected: {
-    color: '#F7F3EE',
   },
 
   featuredCard: {

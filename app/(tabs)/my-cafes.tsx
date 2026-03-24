@@ -11,6 +11,7 @@ import {
 import { cafes } from '@/data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
+import { CompactCafeCard } from './components/CompactCafeCard';
 import { COLORS } from './components/theme';
 
 export default function MyCafesScreen() {
@@ -41,13 +42,11 @@ export default function MyCafesScreen() {
         ) : (
           <View style={styles.listWrap}>
             {visitedCafes.map((cafe) => (
-              <View key={cafe.id} style={styles.card}>
-                <Text style={styles.cardName}>{cafe.name}</Text>
-                <Text style={styles.cardNeighborhood}>{cafe.neighborhood}</Text>
-                <Text numberOfLines={2} style={styles.cardSummary}>
-                  {cafe.summary}
-                </Text>
-              </View>
+              <CompactCafeCard
+                key={cafe.id}
+                cafe={cafe}
+                onPress={() => router.push(`/cafe/${cafe.id}`)}
+              />
             ))}
           </View>
         )}
@@ -132,35 +131,7 @@ const styles = StyleSheet.create({
   },
   listWrap: {
     gap: 10,
-  },
-  card: {
-    backgroundColor: '#F7F3EE',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EDE3D5',
-    padding: 14,
-    gap: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
-  },
-  cardName: {
-    color: COLORS.text,
-    fontSize: 18,
-    fontWeight: '700',
-    lineHeight: 22,
-  },
-  cardNeighborhood: {
-    color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  cardSummary: {
-    color: '#4F4740',
-    fontSize: 13,
-    lineHeight: 19,
+    paddingBottom: 8,
   },
 });
 

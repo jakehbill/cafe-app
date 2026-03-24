@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { cafes } from '../../data/cafes';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
 const COLORS = {
@@ -74,6 +75,7 @@ function ActionButton({
 export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
+  const { user } = useAuth();
   const {
     toggleSaved,
     toggleVisited,
@@ -135,6 +137,14 @@ export default function CafeDetailScreen() {
     await Linking.openURL(mapsUrl);
   }
 
+  const saveCafeId = cafe.id;
+  async function handleSavePress() {
+    console.log('SAVE pressed');
+    console.log('current cafe id:', saveCafeId);
+    console.log('current logged-in user id:', user?.id ?? '(none)');
+    await toggleSaved(saveCafeId);
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -190,7 +200,7 @@ export default function CafeDetailScreen() {
           <ActionButton
             label={isSaved(cafe.id) ? 'Saved' : 'Save'}
             variant="primary"
-            onPress={() => toggleSaved(cafe.id)}
+            onPress={() => void handleSavePress()}
           />
           <ActionButton
             label={isVisited(cafe.id) ? 'Visited' : 'Mark Visited'}

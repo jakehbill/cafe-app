@@ -36,11 +36,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="map"
+        name="search"
         options={{
-          title: 'Map',
+          title: 'Search',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="map-outline" size={size ?? 24} color={color} />
+            <Ionicons name="search-outline" size={size ?? 24} color={color} />
           ),
         }}
       />
@@ -54,21 +54,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="my-cafes"
-        options={{
-          title: 'My Cafes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="cafe-outline" size={size ?? 24} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size ?? 24} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="map"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="my-cafes"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

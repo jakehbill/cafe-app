@@ -3,9 +3,13 @@ import { router } from 'expo-router';
 import React from 'react';
 import { Alert, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { useCafeState } from '@/contexts/CafeStateContext';
+
 import { COLORS } from './components/theme';
 
 export default function ProfileScreen() {
+  const { visitedCafeIds } = useCafeState();
+  const visitedCount = visitedCafeIds.length;
   async function handleLogOut() {
     console.log('LOG OUT pressed');
 
@@ -50,6 +54,19 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           activeOpacity={0.9}
+          style={styles.visitedRow}
+          onPress={() => router.push('/my-cafes')}
+        >
+          <View style={styles.visitedRowText}>
+            <Text style={styles.visitedTitle}>Visited Cafes</Text>
+            <Text style={styles.visitedHint}>See cafes you have marked as visited</Text>
+          </View>
+          <Text style={styles.visitedCount}>{visitedCount}</Text>
+          <Text style={styles.visitedChevron}>›</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.9}
           style={styles.logOutButton}
           onPress={() => void handleLogOut()}
         >
@@ -78,6 +95,44 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
+    color: COLORS.muted,
+    lineHeight: 20,
+  },
+  visitedRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    backgroundColor: '#F2EBDD',
+    borderWidth: 1,
+    borderColor: '#E7DDCD',
+  },
+  visitedRowText: {
+    flex: 1,
+    gap: 3,
+  },
+  visitedTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.text,
+  },
+  visitedHint: {
+    fontSize: 12,
+    color: COLORS.muted,
+    lineHeight: 16,
+  },
+  visitedCount: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.roastedBrown,
+    minWidth: 28,
+    textAlign: 'right',
+  },
+  visitedChevron: {
+    fontSize: 22,
     color: COLORS.muted,
     lineHeight: 20,
   },
