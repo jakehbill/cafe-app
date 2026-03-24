@@ -13,19 +13,28 @@ export type CompactCafeCardProps = {
    * If omitted, uses `cafe.coffeeScore`, `cafe.workScore`, and `cafe.vibeScore`.
    */
   scores?: { coffee: number; work: number; vibe: number };
+  /** Optional tags (e.g. from a saved rating); up to `maxTags` shown. */
+  tags?: string[];
+  maxTags?: number;
 };
 
-export function CompactCafeCard({ cafe, onPress, scores }: CompactCafeCardProps) {
+export function CompactCafeCard({ cafe, onPress, scores, tags, maxTags = 3 }: CompactCafeCardProps) {
   const coffee = scores?.coffee ?? cafe.coffeeScore;
   const work = scores?.work ?? cafe.workScore;
   const vibe = scores?.vibe ?? cafe.vibeScore;
+  const showTags = tags && tags.length > 0;
+  const tagSlice = showTags ? tags!.slice(0, maxTags) : [];
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Open ${cafe.name}`}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [
+        styles.card,
+        showTags && styles.cardWithTags,
+        pressed && styles.cardPressed,
+      ]}
     >
       <View style={styles.thumbnail} />
       <View style={styles.body}>
@@ -45,6 +54,15 @@ export function CompactCafeCard({ cafe, onPress, scores }: CompactCafeCardProps)
           <Text style={styles.scoreWord}>Vibe </Text>
           <Text style={styles.scoreNum}>{vibe.toFixed(1)}</Text>
         </Text>
+        {showTags ? (
+          <View style={styles.tagsRow}>
+            {tagSlice.map((tag) => (
+              <View key={tag} style={styles.tagChip}>
+                <Text style={styles.tagChipText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -66,6 +84,9 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
+  },
+  cardWithTags: {
+    alignItems: 'flex-start',
   },
   cardPressed: {
     opacity: 0.92,
@@ -113,5 +134,24 @@ const styles = StyleSheet.create({
   scorePipe: {
     color: '#C9BEAF',
     fontWeight: '500',
+  },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 6,
+  },
+  tagChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#F0E8DC',
+    borderWidth: 1,
+    borderColor: '#E4D9C8',
+  },
+  tagChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#5E5348',
   },
 });
