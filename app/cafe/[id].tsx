@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { cafes } from '../../data/cafes';
+import { useCafeState } from '@/contexts/CafeStateContext';
 
 const COLORS = {
   background: '#F7F3EE',
@@ -71,6 +72,7 @@ function ActionButton({
 export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
+  const { toggleSaved, toggleVisited, isSaved, isVisited } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const cafe = cafes.find((item) => item.id === cafeId);
 
@@ -126,8 +128,16 @@ export default function CafeDetailScreen() {
         </View>
 
         <View style={styles.actionsWrap}>
-          <ActionButton label="Save" variant="primary" />
-          <ActionButton label="Mark Visited" variant="secondary" />
+          <ActionButton
+            label={isSaved(cafe.id) ? 'Saved' : 'Save'}
+            variant="primary"
+            onPress={() => toggleSaved(cafe.id)}
+          />
+          <ActionButton
+            label={isVisited(cafe.id) ? 'Visited' : 'Mark Visited'}
+            variant="secondary"
+            onPress={() => toggleVisited(cafe.id)}
+          />
           <ActionButton
             label="Rate this Cafe"
             variant="secondary"
