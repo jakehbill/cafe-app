@@ -11,6 +11,11 @@ import {
   View,
 } from 'react-native';
 
+/**
+ * Web: do not wrap the form in TouchableWithoutFeedback — it often steals pointer events so
+ * TextInputs and buttons never receive clicks/focus (RN Web). Native keeps tap-to-dismiss.
+ */
+
 import { authStyles } from '@/components/auth/authStyles';
 
 type AuthScreenShellProps = {
@@ -22,37 +27,48 @@ type AuthScreenShellProps = {
 };
 
 export function AuthScreenShell({ title, subtitle, children, footer, onBackPress }: AuthScreenShellProps) {
+  const scroll = (
+    <ScrollView
+      contentContainerStyle={authStyles.scrollContent}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={authStyles.content}>
+        <View style={authStyles.backRow}>
+          {onBackPress ? (
+            <TouchableOpacity onPress={onBackPress} accessibilityRole="button" accessibilityLabel="Back">
+              <Text style={authStyles.backArrow}>←</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={[authStyles.backArrow, authStyles.backArrowHidden]}>←</Text>
+          )}
+        </View>
+
+        <View style={authStyles.headerWrap}>
+          <Text style={authStyles.title}>{title}</Text>
+          <Text style={authStyles.subtitle}>{subtitle}</Text>
+        </View>
+
+        {children}
+
+        {footer}
+      </View>
+    </ScrollView>
+  );
+
   return (
     <SafeAreaView style={authStyles.safeArea}>
-      <KeyboardAvoidingView style={authStyles.keyboardAvoidingView} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <ScrollView
-            contentContainerStyle={authStyles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={authStyles.content}>
-              <View style={authStyles.backRow}>
-                {onBackPress ? (
-                  <TouchableOpacity onPress={onBackPress} accessibilityRole="button" accessibilityLabel="Back">
-                    <Text style={authStyles.backArrow}>←</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={[authStyles.backArrow, authStyles.backArrowHidden]}>←</Text>
-                )}
-              </View>
-
-              <View style={authStyles.headerWrap}>
-                <Text style={authStyles.title}>{title}</Text>
-                <Text style={authStyles.subtitle}>{subtitle}</Text>
-              </View>
-
-              {children}
-
-              {footer}
-            </View>
-          </ScrollView>
-        </TouchableWithoutFeedback>
+      <KeyboardAvoidingView
+        style={authStyles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'web' ? undefined : 'height'}
+      >
+        {Platform.OS === 'web' ? (
+          scroll
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            {scroll}
+          </TouchableWithoutFeedback>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

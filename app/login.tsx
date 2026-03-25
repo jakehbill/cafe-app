@@ -1,10 +1,19 @@
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { COLORS, authStyles } from '@/components/auth/authStyles';
+
+function authDebug(label: string, payload: Record<string, unknown>) {
+  if (!__DEV__) return;
+  try {
+    console.log(`[WEB AUTH DEBUG] ${label}\n${JSON.stringify(payload, null, 2)}`);
+  } catch {
+    console.log(`[WEB AUTH DEBUG] ${label}`, payload);
+  }
+}
 
 export default function LogInScreen() {
   const [email, setEmail] = useState('');
@@ -12,9 +21,14 @@ export default function LogInScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleLogIn() {
-    console.log('LOG IN pressed');
     const trimmedEmail = email.trim();
-    console.log('email:', trimmedEmail);
+    authDebug('handleLogIn fired', {
+      platform: Platform.OS,
+      method: 'emailPassword',
+      currentEmail: trimmedEmail,
+      passwordLength: password.length,
+      loadingBefore: loading,
+    });
 
     setLoading(true);
     try {
@@ -23,36 +37,39 @@ export default function LogInScreen() {
         password,
       });
 
-      console.log('Supabase signInWithPassword response:', {
-        error,
-        user: data?.user ? { id: data.user.id, email: data.user.email } : null,
+      authDebug('signInWithPassword response', {
+        errorMessage: error?.message ?? null,
+        errorCode: (error as { code?: string } | null)?.code ?? null,
+        userId: data?.user?.id ?? null,
+        userEmail: data?.user?.email ?? null,
         hasSession: !!data?.session,
         expiresAt: data?.session?.expires_at ?? null,
       });
 
       if (error) {
-        console.error('Log in failed (Supabase error):', error);
+        console.error('[WEB AUTH DEBUG] Supabase auth error:', error.message);
         Alert.alert('Log in failed', error.message);
         return;
       }
 
       const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      console.log('Session after login:', {
-        sessionError,
+      authDebug('getSession after login (persistence check)', {
+        sessionError: sessionError?.message ?? null,
         hasSession: !!sessionData.session,
-        userEmail: sessionData.session?.user?.email,
-        expiresAt: sessionData.session?.expires_at,
+        userEmail: sessionData.session?.user?.email ?? null,
+        expiresAt: sessionData.session?.expires_at ?? null,
       });
 
       if (!sessionData.session) {
-        console.error('Login succeeded but no session in storage');
+        console.error('[WEB AUTH DEBUG] Login OK but no session in storage — session not persisting?');
         Alert.alert('Log in failed', 'No session was created. Try again.');
         return;
       }
 
+      authDebug('navigating after login', { to: '/' });
       router.replace('/');
     } catch (e) {
-      console.error('Log in failed (unexpected):', e);
+      console.error('[WEB AUTH DEBUG] handleLogIn threw:', e);
       Alert.alert(
         'Log in failed',
         e instanceof Error ? e.message : 'Something went wrong'
