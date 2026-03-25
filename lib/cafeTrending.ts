@@ -1,5 +1,6 @@
 import type { Cafe } from '@/data/cafes';
 
+import { supabase } from '@/lib/supabase';
 import { textRelevancePoints } from '@/lib/cafeRanking';
 import { getNearbyCafes, type UserCoords } from '@/lib/cafeNearby';
 
@@ -19,6 +20,54 @@ export const TRENDING_WEIGHTS = {
   /** Per visit (communityStats.visits or stable fallback) */
   visits: 0.065,
 } as const;
+
+/**
+ * Server-powered trending nearby list (RPC).
+ *
+ * Calls Supabase function `get_trending_nearby(user_lat, user_lng, radius_miles)`.
+ * Returns the raw RPC rows (shape depends on your SQL function).
+ */
+export async function fetchTrendingNearby(params: {
+  userLat: number;
+  userLng: number;
+  radiusMiles?: number;
+}) {
+  const { userLat, userLng, radiusMiles = 0.5 } = params;
+
+  const res = await supabase.rpc('get_trending_nearby', {
+    user_lat: userLat,
+    user_lng: userLng,
+    radius_miles: radiusMiles,
+  });
+
+  if (res.error) {
+    console.error('fetchTrendingNearby RPC failed:', res.error);
+    throw res.error;
+  }
+
+  return res.data ?? [];
+}
+
+/**
+ * Fallback: fetch the globally trending cafes (no location).
+ *
+ * Reads from the `cafe_trending` view, ordered by `trending_score` (highest first),
+ * returning the top 10 rows. If anything goes wrong, returns an empty list.
+ */
+export async function fetchTrendingGlobal() {
+  const res = await supabase
+    .from('cafe_trending')
+    .select('*')
+    .order('trending_score', { ascending: false })
+    .limit(10);
+
+  if (res.error) {
+    console.error('fetchTrendingGlobal failed:', res.error);
+    return [];
+  }
+
+  return res.data ?? [];
+}
 
 function meanListingScore(cafe: Cafe): number {
   return (cafe.coffeeScore + cafe.workScore + cafe.vibeScore) / 3;

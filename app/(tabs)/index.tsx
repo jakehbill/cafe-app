@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,10 +13,14 @@ import {
 import { cafes, type Cafe } from '../../data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
-import { getNearbyCafes } from '@/lib/cafeNearby';
-import { rankCafesForTrending } from '@/lib/cafeTrending';
+import {
+  fetchTrendingGlobal,
+  fetchTrendingNearby,
+  rankCafesForTrending,
+} from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
+import { supabase } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -110,15 +115,117 @@ export default function HomeScreen() {
     [ratingsByCafeId, visitedCafeIds, savedCafeIds]
   );
 
-  /** Personalized: same ordering as Search home mode (`rankCafesForHome`). */
-  const topPicksForYou = useMemo(() => {
-    return rankCafesForHome([...cafes], ratingsByCafeId, tasteProfile);
-  }, [ratingsByCafeId, tasteProfile]);
+  /**
+   * Top picks for you:
+   * - Primary: fetch Top 10 cafe ids from `cafe_overall_ranking` (overall_score desc).
+   * - Then map ids → local cafe objects for a stable UI shape (`Cafe` type).
+   * - Fallback: local ranking if the fetch fails or returns nothing.
+   */
+  const [topPickIds, setTopPickIds] = useState<string[] | null>(null);
+  const [topPicksLoading, setTopPicksLoading] = useState(false);
 
-  /** Nearby pool (GPS or dataset centroid) → trending scores. No personalization. */
-  const trendingNearby = useMemo(() => {
-    const nearby = getNearbyCafes([...cafes], userLocation);
-    return rankCafesForTrending(nearby);
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTopPicks() {
+      setTopPicksLoading(true);
+      try {
+        const res = await supabase
+          .from('cafe_overall_ranking')
+          .select('cafe_id')
+          .order('overall_score', { ascending: false })
+          .limit(10);
+
+        if (cancelled) return;
+
+        if (res.error) {
+          console.error('Home top picks fetch failed:', res.error);
+          setTopPickIds(null);
+          return;
+        }
+
+        const ids = (res.data ?? [])
+          .map((r) => r.cafe_id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+        setTopPickIds(ids.length > 0 ? ids : null);
+      } catch (e) {
+        if (!cancelled) {
+          console.error('Home top picks fetch failed (unexpected):', e);
+          setTopPickIds(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setTopPicksLoading(false);
+        }
+      }
+    }
+
+    void loadTopPicks();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const topPicksForYou = useMemo(() => {
+    if (topPickIds && topPickIds.length > 0) {
+      const byId = Object.fromEntries(cafes.map((c) => [c.id, c] as const));
+      const picked = topPickIds.map((id) => byId[id]).filter((c): c is Cafe => c != null);
+      if (picked.length > 0) {
+        return picked;
+      }
+    }
+    return rankCafesForHome([...cafes], ratingsByCafeId, tasteProfile);
+  }, [topPickIds, ratingsByCafeId, tasteProfile]);
+
+  /**
+   * Trending section:
+   * - If we have location, ask the backend for trending *nearby*.
+   * - If not, fall back to the global trending view.
+   */
+  const [trendingNearby, setTrendingNearby] = useState<Cafe[]>(() =>
+    rankCafesForTrending([...cafes])
+  );
+  // Trending section now renders from the ranked `trending` data source (nearby → global fallback).
+  const trending = trendingNearby;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTrending() {
+      try {
+        const lat = userLocation?.latitude;
+        const lng = userLocation?.longitude;
+
+        // Location-aware first; otherwise global fallback.
+        const rows =
+          typeof lat === 'number' && typeof lng === 'number'
+            ? await fetchTrendingNearby({ userLat: lat, userLng: lng, radiusMiles: 0.5 })
+            : await fetchTrendingGlobal();
+
+        if (cancelled) return;
+
+        const byId = Object.fromEntries(cafes.map((c) => [c.id, c] as const));
+        const ids = (rows ?? [])
+          .map((r: any) => (typeof r?.cafe_id === 'string' ? r.cafe_id : r?.id))
+          .filter((id: any): id is string => typeof id === 'string' && id.length > 0);
+
+        const next = ids.map((id: string) => byId[id]).filter((c: Cafe | undefined): c is Cafe => c != null);
+
+        // If the backend returns no matching ids, keep a stable local fallback.
+        setTrendingNearby(next.length > 0 ? next : rankCafesForTrending([...cafes]));
+      } catch (e) {
+        if (!cancelled) {
+          console.error('Home trending fetch failed:', e);
+          setTrendingNearby(rankCafesForTrending([...cafes]));
+        }
+      }
+    }
+
+    void loadTrending();
+    return () => {
+      cancelled = true;
+    };
   }, [userLocation]);
 
   return (
@@ -151,6 +258,12 @@ export default function HomeScreen() {
               <Text style={styles.homeSectionTitle}>Top picks for you</Text>
               <Text style={styles.homeSectionSubtitle}>Based on your taste</Text>
             </View>
+            {topPicksLoading ? (
+              <View style={styles.sectionLoadingRow}>
+                <ActivityIndicator size="small" color="#8A6A4F" />
+                <Text style={styles.sectionLoadingText}>Loading picks…</Text>
+              </View>
+            ) : null}
             {topPicksForYou.map((cafe) => (
               <HomeCafeCard
                 key={`pick-${cafe.id}`}
@@ -167,7 +280,7 @@ export default function HomeScreen() {
               <Text style={styles.homeSectionTitle}>Trending nearby</Text>
               <Text style={styles.homeSectionSubtitle}>Popular right now</Text>
             </View>
-            {trendingNearby.map((cafe) => (
+            {trending.map((cafe) => (
               <HomeCafeCard
                 key={`trend-${cafe.id}`}
                 cafe={cafe}
@@ -216,6 +329,19 @@ const styles = StyleSheet.create({
     gap: 5,
     marginBottom: 6,
     paddingTop: 2,
+  },
+  sectionLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingTop: 2,
+    paddingBottom: 2,
+  },
+  sectionLoadingText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#8A8278',
+    fontWeight: '600',
   },
   homeSectionTitle: {
     fontSize: 21,
