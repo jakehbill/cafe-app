@@ -28,6 +28,12 @@ export default function MyCafesScreen() {
     let cancelled = false;
     void (async () => {
       const list = await fetchCafesByIdsOrdered(visitedCafeIds);
+      if (__DEV__) {
+        console.log('[DEBUG MyCafes visited]', {
+          visitedIdCount: visitedCafeIds.length,
+          resolvedCafeCount: list.length,
+        });
+      }
       if (!cancelled) setVisitedCafes(list);
     })();
     return () => {

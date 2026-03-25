@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
 
@@ -53,7 +53,11 @@ export function CompactCafeCard({
           <Text style={styles.rankBadgeText}>#{rank}</Text>
         </View>
       ) : null}
-      <View style={styles.thumbnail} />
+      {cafe.imageUrl ? (
+        <Image source={{ uri: cafe.imageUrl }} style={styles.thumbnail} resizeMode="cover" />
+      ) : (
+        <View style={styles.thumbnail} />
+      )}
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={2}>
           {cafe.name}

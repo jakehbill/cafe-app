@@ -14,6 +14,8 @@ export type Cafe = {
   tags: string[];
   summary: string;
   googleMapsUrl: string;
+  /** When set from Supabase `image_url` / `photo_url` / etc. */
+  imageUrl?: string;
   /** Optional community counts when exposed by the backend (e.g. for trending). */
   communityStats?: {
     saves: number;

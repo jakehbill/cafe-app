@@ -47,6 +47,12 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
     let cancelled = false;
     void (async () => {
       const list = await fetchCafesByIdsOrdered(savedCafeIds);
+      if (__DEV__) {
+        console.log('[DEBUG SavedCafesContent]', {
+          savedIdCount: savedCafeIds.length,
+          resolvedCafeCount: list.length,
+        });
+      }
       if (!cancelled) setSavedCafes(list);
     })();
     return () => {

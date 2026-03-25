@@ -6,6 +6,7 @@ import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   Linking,
   ScrollView,
   StyleSheet,
@@ -244,7 +245,11 @@ export default function CafeDetailScreen() {
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.heroWrap}>
-          <View style={styles.heroImage} />
+          {cafe.imageUrl ? (
+            <Image source={{ uri: cafe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.heroImage} />
+          )}
         </View>
 
         <View style={styles.header}>

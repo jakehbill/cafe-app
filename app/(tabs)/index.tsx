@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
+  Image,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -26,6 +27,18 @@ const MAX_VISIBLE_TAGS = 3;
 
 function getVisibleTags(tags: string[]) {
   return tags.slice(0, MAX_VISIBLE_TAGS);
+}
+
+/** Ranking views may use `cafe_id` (text/uuid) or numeric `id` — normalize so `byId` lookup matches `cafes`. */
+function cafeIdFromViewRow(r: unknown): string | null {
+  const row = r as Record<string, unknown>;
+  const v =
+    typeof row.cafe_id === 'string'
+      ? row.cafe_id
+      : row.cafe_uuid ?? row.id ?? row.cafe_id;
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s.length > 0 ? s : null;
 }
 
 function HomeCafeCard({
@@ -61,7 +74,15 @@ function HomeCafeCard({
 
   return (
     <TouchableOpacity activeOpacity={0.92} style={styles.featuredCard} onPress={onPress}>
-      <View style={styles.featuredImagePlaceholder} />
+      {cafe.imageUrl ? (
+        <Image
+          source={{ uri: cafe.imageUrl }}
+          style={styles.featuredImagePlaceholder}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={styles.featuredImagePlaceholder} />
+      )}
 
       <View style={styles.featuredBody}>
         <Text style={styles.featuredName}>{cafe.name}</Text>
@@ -126,7 +147,8 @@ export default function HomeScreen() {
 
   /**
    * Top picks for you:
-   * - Fetch top cafes from the `cafe_ranking` view (overall_score desc, limit 10).
+   * - Prefer `cafe_ranking`, else `cafe_overall_ranking`.
+   * - `.order()` must use the real column name from each view (`cafe_ranking` uses `score` here).
    * - Map ids → rows from Supabase `cafes` (via catalog) for the `Cafe` UI shape.
    * - Fallback: client ranking over the catalog if the fetch fails or returns nothing.
    */
@@ -139,23 +161,67 @@ export default function HomeScreen() {
     async function loadTopPicks() {
       setTopPicksLoading(true);
       try {
-        const res = await supabase
+        let res = await supabase
           .from('cafe_ranking')
           .select('*')
-          .order('overall_score', { ascending: false })
+          // PostgREST returns 400 if this string is not an exposed column on the view.
+          .order('score', { ascending: false })
           .limit(10);
+
+        if (res.error) {
+          res = await supabase
+            .from('cafe_overall_ranking')
+            .select('*')
+            .order('overall_score', { ascending: false })
+            .limit(10);
+        }
 
         if (cancelled) return;
 
         if (res.error) {
           console.error('Home top picks fetch failed:', res.error);
+          if (__DEV__) {
+            const payload = {
+              error: { message: res.error.message, code: res.error.code },
+            };
+            try {
+              console.log(
+                `[DEBUG Home cafe_ranking / cafe_overall_ranking]\n${JSON.stringify(payload, null, 2)}`
+              );
+            } catch {
+              console.log('[DEBUG Home cafe_ranking / cafe_overall_ranking]', payload);
+            }
+          }
           setTopPickIds(null);
           return;
         }
 
         const ids = (res.data ?? [])
-          .map((r: any) => (typeof r?.cafe_id === 'string' ? r.cafe_id : r?.id))
-          .filter((id): id is string => typeof id === 'string' && id.length > 0);
+          .map((r) => cafeIdFromViewRow(r))
+          .filter((id): id is string => id != null);
+
+        if (__DEV__) {
+          const sample = (res.data ?? [])[0];
+          const payload = {
+            error: null,
+            rawRowCount: (res.data ?? []).length,
+            firstRawRow: sample ?? null,
+            firstViewRowKeys: sample != null ? Object.keys(sample as object) : [],
+            resolvedIdStrings: ids.length,
+            resolvedIdsSample: ids.slice(0, 5),
+            diagnosis:
+              (res.data ?? []).length > 0 && ids.length === 0
+                ? 'ID_EXTRACTION_FAIL: view has rows but cafeIdFromViewRow returned none'
+                : null,
+          };
+          try {
+            console.log(
+              `[DEBUG Home topPicks: cafe_ranking query]\n${JSON.stringify(payload, null, 2)}`
+            );
+          } catch {
+            console.log('[DEBUG Home topPicks: cafe_ranking query]', payload);
+          }
+        }
 
         setTopPickIds(ids.length > 0 ? ids : null);
       } catch (e) {
@@ -185,6 +251,31 @@ export default function HomeScreen() {
     }
     return rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile);
   }, [topPickIds, byId, cafeCatalog, ratingsByCafeId, tasteProfile]);
+
+  useEffect(() => {
+    if (!__DEV__ || !topPickIds?.length) return;
+    const missing = topPickIds.filter((id) => !byId[id]);
+    const payload = {
+      rankingViewIdCount: topPickIds.length,
+      catalogByIdKeyCount: Object.keys(byId).length,
+      joinedCardCount: topPickIds.filter((id) => byId[id]).length,
+      missingInCatalogSample: missing.slice(0, 10),
+      catalogIdSample: Object.keys(byId).slice(0, 10),
+      likelyIssue:
+        topPickIds.length > 0 && missing.length === topPickIds.length
+          ? 'ID_MISMATCH: every ranking id missing from catalog (format or wrong table join)'
+          : missing.length > 0
+            ? 'PARTIAL_ID_MISMATCH: some ranking ids not in catalog'
+            : null,
+    };
+    try {
+      console.log(
+        `[DEBUG Home topPicks: view ids ↔ catalog byId]\n${JSON.stringify(payload, null, 2)}`
+      );
+    } catch {
+      console.log('[DEBUG Home topPicks: view ids ↔ catalog byId]', payload);
+    }
+  }, [topPickIds, byId]);
 
   /**
    * Load the user’s saved cafes so cards can reflect saved state immediately.
@@ -245,6 +336,21 @@ export default function HomeScreen() {
   const trending = trendingNearby;
 
   useEffect(() => {
+    if (!__DEV__) return;
+    const payload = {
+      cafeCatalogCount: cafeCatalog.length,
+      topPickIdsFromView: topPickIds?.length ?? 0,
+      topPicksForYouCardCount: topPicksForYou.length,
+      trendingCardCount: trending.length,
+    };
+    try {
+      console.log(`[DEBUG Home UI: final section counts]\n${JSON.stringify(payload, null, 2)}`);
+    } catch {
+      console.log('[DEBUG Home UI: final section counts]', payload);
+    }
+  }, [cafeCatalog.length, topPickIds, topPicksForYou.length, trending.length]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadTrending() {
@@ -255,10 +361,35 @@ export default function HomeScreen() {
         if (cancelled) return;
 
         const ids = (rows ?? [])
-          .map((r: any) => (typeof r?.cafe_id === 'string' ? r.cafe_id : r?.id))
-          .filter((id: any): id is string => typeof id === 'string' && id.length > 0);
+          .map((r) => cafeIdFromViewRow(r))
+          .filter((id): id is string => id != null);
 
         const next = ids.map((id: string) => byId[id]).filter((c: Cafe | undefined): c is Cafe => c != null);
+
+        if (__DEV__) {
+          const missingTrend = ids.filter((id) => !byId[id]);
+          const payload = {
+            rawViewRowCount: (rows ?? []).length,
+            resolvedIdStrings: ids.length,
+            idsSample: ids.slice(0, 5),
+            joinedCardCount: next.length,
+            missingInCatalogSample: missingTrend.slice(0, 10),
+            catalogCountAtJoin: cafeCatalog.length,
+            diagnosis:
+              (rows ?? []).length > 0 && ids.length === 0
+                ? 'ID_EXTRACTION_FAIL from trending view rows'
+                : ids.length > 0 && next.length === 0
+                  ? 'ID_MISMATCH: trending ids not in catalog byId'
+                  : null,
+          };
+          try {
+            console.log(
+              `[DEBUG Home trending: cafe_trending ↔ catalog]\n${JSON.stringify(payload, null, 2)}`
+            );
+          } catch {
+            console.log('[DEBUG Home trending: cafe_trending ↔ catalog]', payload);
+          }
+        }
 
         // If views return ids not yet in catalog, fall back to a catalog-only trending sort.
         setTrendingNearby(next.length > 0 ? next : rankCafesForTrending([...cafeCatalog]));
