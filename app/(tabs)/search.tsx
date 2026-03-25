@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { cafes, type Cafe } from '@/data/cafes';
+import type { Cafe } from '@/data/cafes';
+import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
 import { rankTrendingNearbyForSearch } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForSearch, type RankKey } from '@/lib/cafeRanking';
@@ -91,6 +92,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const { rank: rankParam } = useLocalSearchParams<{ rank?: string | string[] }>();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
+  const { cafes: cafeCatalog } = useCafeCatalog();
   const userLocation = useOptionalUserLocation();
   const [query, setQuery] = useState('');
   const [selectedChip, setSelectedChip] = useState<SearchChipId | null>(null);
@@ -104,17 +106,17 @@ export default function SearchScreen() {
   }, [rankParam]);
 
   const tasteProfile = useMemo(
-    () => buildTasteProfileFromState(ratingsByCafeId, cafes, visitedCafeIds, savedCafeIds),
-    [ratingsByCafeId, visitedCafeIds, savedCafeIds]
+    () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
+    [ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds]
   );
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (selectedChip === 'trending') {
-      return rankTrendingNearbyForSearch([...cafes], q, userLocation);
+      return rankTrendingNearbyForSearch([...cafeCatalog], q, userLocation);
     }
-    return rankCafesForSearch([...cafes], q, selectedChip, ratingsByCafeId, tasteProfile);
-  }, [query, selectedChip, ratingsByCafeId, tasteProfile, userLocation]);
+    return rankCafesForSearch([...cafeCatalog], q, selectedChip, ratingsByCafeId, tasteProfile);
+  }, [query, selectedChip, ratingsByCafeId, tasteProfile, userLocation, cafeCatalog]);
 
   const showNoResults = results.length === 0;
   const resultsLabel = resultsHeadingLabel(selectedChip);

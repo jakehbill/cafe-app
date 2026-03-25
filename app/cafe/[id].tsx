@@ -1,7 +1,10 @@
+import { useCafeState } from '@/contexts/CafeStateContext';
+import { saveCafe, supabase, unsaveCafe } from '@/lib/supabase';
 import { useNavigation } from '@react-navigation/native';
-import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Linking,
   ScrollView,
@@ -11,10 +14,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { cafes } from '../../data/cafes';
-import { useAuth } from '@/contexts/AuthContext';
-import { useCafeState } from '@/contexts/CafeStateContext';
-import { saveCafe, supabase, unsaveCafe } from '@/lib/supabase';
+import type { Cafe } from '../../data/cafes';
+import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 
 const COLORS = {
   background: '#F7F3EE',
@@ -78,22 +79,97 @@ export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
   const navigation = useNavigation();
-  const { user } = useAuth();
   const {
-    toggleSaved,
     toggleVisited,
     isSaved,
     isVisited,
     getCafeRating,
   } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
-  const cafe = cafes.find((item) => item.id === cafeId);
+  const [cafe, setCafe] = useState<Cafe | null>(null);
+  const [cafeLoading, setCafeLoading] = useState(true);
+
+  useEffect(() => {
+    if (!cafeId) {
+      setCafe(null);
+      setCafeLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setCafeLoading(true);
+    void (async () => {
+      const row = await fetchCafeByIdFromSupabase(String(cafeId));
+      if (!cancelled) {
+        setCafe(row);
+        setCafeLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cafeId]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       title: cafe?.name ?? 'Cafe',
     });
   }, [cafe?.name, navigation]);
+
+  const routeCafeId = cafeId ? String(cafeId) : '';
+
+  const [isSavedLocal, setIsSavedLocal] = useState(() => (routeCafeId ? isSaved(routeCafeId) : false));
+  const [avgScores, setAvgScores] = useState<{ coffee: number; work: number; vibe: number } | null>(
+    null
+  );
+
+  useEffect(() => {
+    setIsSavedLocal(routeCafeId ? isSaved(routeCafeId) : false);
+  }, [routeCafeId, isSaved]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAverages() {
+      const numericCafeId = Number.parseInt(routeCafeId, 10);
+      if (!Number.isFinite(numericCafeId)) return;
+
+      const res = await supabase
+        .from('ratings')
+        .select('coffee:coffee_rating.avg(), work:work_rating.avg(), vibe:vibe_rating.avg()')
+        .eq('cafe_id', numericCafeId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (res.error) {
+        console.error('Failed to load average ratings:', res.error);
+        return;
+      }
+
+      const coffee = res.data?.coffee;
+      const work = res.data?.work;
+      const vibe = res.data?.vibe;
+      if (typeof coffee === 'number' && typeof work === 'number' && typeof vibe === 'number') {
+        setAvgScores({ coffee, work, vibe });
+      } else {
+        setAvgScores(null);
+      }
+    }
+
+    void loadAverages();
+    return () => {
+      cancelled = true;
+    };
+  }, [routeCafeId]);
+
+  if (cafeLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+        <View style={styles.notFoundWrap}>
+          <ActivityIndicator size="large" color={COLORS.espresso} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!cafe) {
     return (
@@ -109,7 +185,7 @@ export default function CafeDetailScreen() {
   }
 
   const localRating = getCafeRating(cafe.id);
-  // Prioritize user-submitted local ratings when available, otherwise fallback to mock data.
+  // Prefer the user’s saved rating; otherwise use listing scores from Supabase `cafes`.
   const ratingSource = localRating
     ? {
         coffee: localRating.coffee,
@@ -146,57 +222,10 @@ export default function CafeDetailScreen() {
     await Linking.openURL(mapsUrl);
   }
 
-  const cafeKey = cafe.id;
-  // Local UI state for the Save button (updates instantly after a successful DB write).
-  const [isSavedLocal, setIsSavedLocal] = useState(() => isSaved(cafeKey));
-  const [avgScores, setAvgScores] = useState<{ coffee: number; work: number; vibe: number } | null>(
-    null
-  );
-
-  useEffect(() => {
-    setIsSavedLocal(isSaved(cafeKey));
-  }, [cafeKey, isSaved]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAverages() {
-      const numericCafeId = Number.parseInt(cafeKey, 10);
-      if (!Number.isFinite(numericCafeId)) return;
-
-      // Aggregated scores from Supabase (`ratings` table averages) — not the current user's rating.
-      const res = await supabase
-        .from('ratings')
-        .select('coffee:coffee_rating.avg(), work:work_rating.avg(), vibe:vibe_rating.avg()')
-        .eq('cafe_id', numericCafeId)
-        .maybeSingle();
-
-      if (cancelled) return;
-      if (res.error) {
-        console.error('Failed to load average ratings:', res.error);
-        return;
-      }
-
-      const coffee = res.data?.coffee;
-      const work = res.data?.work;
-      const vibe = res.data?.vibe;
-      if (typeof coffee === 'number' && typeof work === 'number' && typeof vibe === 'number') {
-        setAvgScores({ coffee, work, vibe });
-      } else {
-        setAvgScores(null);
-      }
-    }
-
-    void loadAverages();
-    return () => {
-      cancelled = true;
-    };
-  }, [cafeKey]);
-
   async function handleSavePress() {
-    const numericCafeId = Number.parseInt(cafeKey, 10);
+    const numericCafeId = Number.parseInt(routeCafeId, 10);
     if (!Number.isFinite(numericCafeId)) {
-      console.warn('Save: cafe.id is not a number:', cafeKey);
+      console.warn('Save: cafe.id is not a number:', routeCafeId);
       return;
     }
 

@@ -14,7 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { cafes } from '@/data/cafes';
+import type { Cafe } from '@/data/cafes';
+import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { getUserRating, rateCafe } from '@/lib/supabase';
 
 const RATING_CATEGORIES = [
@@ -79,7 +80,19 @@ export default function RateCafeScreen() {
   const { setCafeRating, getCafeRating } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const targetCafeId = cafeId ?? '1';
-  const cafe = cafes.find((item) => item.id === targetCafeId);
+  const [cafe, setCafe] = useState<Cafe | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const row = await fetchCafeByIdFromSupabase(String(targetCafeId));
+      if (!cancelled) setCafe(row);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetCafeId]);
+
   const existingRating = getCafeRating(targetCafeId);
 
   useLayoutEffect(() => {

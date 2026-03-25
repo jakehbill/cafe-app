@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   ScrollView,
@@ -8,13 +8,14 @@ import {
   View,
 } from 'react-native';
 
-import { cafes, type Cafe } from '@/data/cafes';
+import type { Cafe } from '@/data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { COLORS } from '@/components/theme';
 
-/** Map Supabase `cafe_id` values to full cafe objects from the local catalog (same ids). */
+/** Map Supabase `cafe_id` values to full cafe rows from `public.cafes` (same ids). */
 export function cafesFromSavedIds(savedIds: string[], catalog: Cafe[]): Cafe[] {
   const byId = new Map(catalog.map((c) => [c.id, c]));
   const result: Cafe[] = [];
@@ -40,11 +41,18 @@ type Props = {
 export function SavedCafesContent({ showPageTitle = true }: Props) {
   const router = useRouter();
   const { savedCafeIds, ratingsByCafeId } = useCafeState();
+  const [savedCafes, setSavedCafes] = useState<Cafe[]>([]);
 
-  const savedCafes = useMemo(
-    () => cafesFromSavedIds(savedCafeIds, cafes),
-    [savedCafeIds]
-  );
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const list = await fetchCafesByIdsOrdered(savedCafeIds);
+      if (!cancelled) setSavedCafes(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [savedCafeIds]);
 
   return (
     <ScrollView contentContainerStyle={styles.content}>

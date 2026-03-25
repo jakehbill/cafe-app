@@ -10,8 +10,9 @@ import {
   View,
 } from 'react-native';
 
-import { cafes, type Cafe } from '../../data/cafes';
+import type { Cafe } from '../../data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
 import {
   fetchTrendingGlobal,
@@ -116,17 +117,18 @@ export default function HomeScreen() {
   const router = useRouter();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
   const userLocation = useOptionalUserLocation();
+  const { cafes: cafeCatalog, byId } = useCafeCatalog();
 
   const tasteProfile = useMemo(
-    () => buildTasteProfileFromState(ratingsByCafeId, cafes, visitedCafeIds, savedCafeIds),
-    [ratingsByCafeId, visitedCafeIds, savedCafeIds]
+    () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
+    [ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds]
   );
 
   /**
    * Top picks for you:
    * - Fetch top cafes from the `cafe_ranking` view (overall_score desc, limit 10).
-   * - Then map ids → local cafe objects for a stable UI shape (`Cafe` type).
-   * - Fallback: local ranking if the fetch fails or returns nothing.
+   * - Map ids → rows from Supabase `cafes` (via catalog) for the `Cafe` UI shape.
+   * - Fallback: client ranking over the catalog if the fetch fails or returns nothing.
    */
   const [topPickIds, setTopPickIds] = useState<string[] | null>(null);
   const [topPicksLoading, setTopPicksLoading] = useState(false);
@@ -176,14 +178,13 @@ export default function HomeScreen() {
 
   const topPicksForYou = useMemo(() => {
     if (topPickIds && topPickIds.length > 0) {
-      const byId = Object.fromEntries(cafes.map((c) => [c.id, c] as const));
       const picked = topPickIds.map((id) => byId[id]).filter((c): c is Cafe => c != null);
       if (picked.length > 0) {
         return picked;
       }
     }
-    return rankCafesForHome([...cafes], ratingsByCafeId, tasteProfile);
-  }, [topPickIds, ratingsByCafeId, tasteProfile]);
+    return rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile);
+  }, [topPickIds, byId, cafeCatalog, ratingsByCafeId, tasteProfile]);
 
   /**
    * Load the user’s saved cafes so cards can reflect saved state immediately.
@@ -237,11 +238,9 @@ export default function HomeScreen() {
   /**
    * Trending section:
    * - Uses the `cafe_trending` view (already ranked by `trending_score`).
-   * - We map ids → local cafes so the UI props stay the same.
+   * - Maps ids → Supabase `cafes` rows for display.
    */
-  const [trendingNearby, setTrendingNearby] = useState<Cafe[]>(() =>
-    rankCafesForTrending([...cafes])
-  );
+  const [trendingNearby, setTrendingNearby] = useState<Cafe[]>([]);
   // Trending section now renders from the ranked `trending` data source (nearby → global fallback).
   const trending = trendingNearby;
 
@@ -255,19 +254,18 @@ export default function HomeScreen() {
 
         if (cancelled) return;
 
-        const byId = Object.fromEntries(cafes.map((c) => [c.id, c] as const));
         const ids = (rows ?? [])
           .map((r: any) => (typeof r?.cafe_id === 'string' ? r.cafe_id : r?.id))
           .filter((id: any): id is string => typeof id === 'string' && id.length > 0);
 
         const next = ids.map((id: string) => byId[id]).filter((c: Cafe | undefined): c is Cafe => c != null);
 
-        // If the backend returns no matching ids, keep a stable local fallback.
-        setTrendingNearby(next.length > 0 ? next : rankCafesForTrending([...cafes]));
+        // If views return ids not yet in catalog, fall back to a catalog-only trending sort.
+        setTrendingNearby(next.length > 0 ? next : rankCafesForTrending([...cafeCatalog]));
       } catch (e) {
         if (!cancelled) {
           console.error('Home trending fetch failed:', e);
-          setTrendingNearby(rankCafesForTrending([...cafes]));
+          setTrendingNearby(rankCafesForTrending([...cafeCatalog]));
         }
       }
     }
@@ -276,7 +274,7 @@ export default function HomeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [userLocation]);
+  }, [userLocation, byId, cafeCatalog]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

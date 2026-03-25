@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,8 +11,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { cafes } from '@/data/cafes';
+import type { Cafe } from '@/data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { COLORS } from '@/components/theme';
@@ -21,10 +22,18 @@ export default function MyCafesScreen() {
   const router = useRouter();
   const { visitedCafeIds, reorderVisitedCafes } = useCafeState();
   const [reordering, setReordering] = useState(false);
+  const [visitedCafes, setVisitedCafes] = useState<Cafe[]>([]);
 
-  const visitedCafes = visitedCafeIds
-    .map((id) => cafes.find((c) => c.id === id))
-    .filter((c): c is (typeof cafes)[number] => c != null);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const list = await fetchCafesByIdsOrdered(visitedCafeIds);
+      if (!cancelled) setVisitedCafes(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visitedCafeIds]);
 
   const move = useCallback(
     async (fromIndex: number, direction: -1 | 1) => {

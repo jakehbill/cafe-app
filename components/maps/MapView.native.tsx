@@ -4,8 +4,8 @@ import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import MapView, { Callout, Marker } from 'react-native-maps';
 
-import { cafes } from '@/data/cafes';
 import { COLORS } from '@/components/theme';
+import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 
 /**
  * Native-only map implementation (iOS/Android).
@@ -13,6 +13,7 @@ import { COLORS } from '@/components/theme';
  */
 export default function MapViewNative() {
   const router = useRouter();
+  const { cafes } = useCafeCatalog();
 
   const initialRegion = useMemo(() => {
     const firstCafe = cafes[0];
@@ -22,7 +23,7 @@ export default function MapViewNative() {
       latitudeDelta: 0.02,
       longitudeDelta: 0.02,
     };
-  }, []);
+  }, [cafes]);
 
   return (
     <SafeAreaView style={styles.safeArea}>

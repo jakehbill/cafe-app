@@ -6,13 +6,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { cafes, type Cafe } from '@/data/cafes';
+import type { Cafe } from '@/data/cafes';
+import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { COLORS } from '@/components/theme';
@@ -59,7 +59,9 @@ export default function MyRatingsScreen() {
     }
 
     const rows = (data ?? []) as RatingRow[];
-    const byId = new Map(cafes.map((c) => [c.id, c]));
+    const ids = rows.map((r) => String(r.cafe_id));
+    const catalog = await fetchCafesByIdsOrdered(ids);
+    const byId = new Map(catalog.map((c) => [c.id, c]));
 
     const next: RatedItem[] = [];
     for (const row of rows) {
