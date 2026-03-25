@@ -32,6 +32,7 @@ function HomeCafeCard({
   cafe,
   localRating,
   recommendationReason,
+  isSaved,
   onPress,
 }: {
   cafe: Cafe;
@@ -42,6 +43,8 @@ function HomeCafeCard({
   };
   /** Shown under the name when set (personalized “why” line). */
   recommendationReason?: string | null;
+  /** Used to show the correct saved state on first render. */
+  isSaved?: boolean;
   onPress: () => void;
 }) {
   const displayScores = localRating
@@ -68,6 +71,11 @@ function HomeCafeCard({
           </Text>
         ) : null}
         <Text style={styles.featuredNeighborhood}>{cafe.neighborhood}</Text>
+        {isSaved ? (
+          <View style={styles.ratedBadge}>
+            <Text style={styles.ratedBadgeText}>Saved</Text>
+          </View>
+        ) : null}
         {localRating ? (
           <View style={styles.ratedBadge}>
             <Text style={styles.ratedBadgeText}>Rated by you</Text>
@@ -179,6 +187,55 @@ export default function HomeScreen() {
   }, [topPickIds, ratingsByCafeId, tasteProfile]);
 
   /**
+   * Load the user’s saved cafes so cards can reflect saved state immediately.
+   * We only select `cafe_id` and store it as a Set for fast lookups.
+   */
+  const [savedCafeIdSet, setSavedCafeIdSet] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadSaved() {
+      try {
+        const { data: userRes, error: userErr } = await supabase.auth.getUser();
+        if (userErr) {
+          console.error('Home saved cafes: auth getUser failed:', userErr);
+          return;
+        }
+
+        const userId = userRes.user?.id;
+        if (!userId) {
+          // Not signed in — leave the Set empty and keep the UI calm.
+          if (!cancelled) setSavedCafeIdSet(new Set());
+          return;
+        }
+
+        const res = await supabase.from('saves').select('cafe_id').eq('user_id', userId);
+        if (res.error) {
+          console.error('Home saved cafes: fetch failed:', res.error);
+          return;
+        }
+
+        const next = new Set(
+          (res.data ?? [])
+            .map((r: any) => r?.cafe_id)
+            .filter((v: any) => v !== null && v !== undefined)
+            .map((v: any) => String(v))
+        );
+
+        if (!cancelled) setSavedCafeIdSet(next);
+      } catch (e) {
+        console.error('Home saved cafes: fetch failed (unexpected):', e);
+      }
+    }
+
+    void loadSaved();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /**
    * Trending section:
    * - If we have location, ask the backend for trending *nearby*.
    * - If not, fall back to the global trending view.
@@ -270,6 +327,7 @@ export default function HomeScreen() {
                 cafe={cafe}
                 localRating={ratingsByCafeId[cafe.id]}
                 recommendationReason={getRecommendationReason(cafe, tasteProfile)}
+                isSaved={savedCafeIdSet.has(cafe.id)}
                 onPress={() => router.push(`/cafe/${cafe.id}`)}
               />
             ))}
@@ -285,6 +343,7 @@ export default function HomeScreen() {
                 key={`trend-${cafe.id}`}
                 cafe={cafe}
                 localRating={ratingsByCafeId[cafe.id]}
+                isSaved={savedCafeIdSet.has(cafe.id)}
                 onPress={() => router.push(`/cafe/${cafe.id}`)}
               />
             ))}

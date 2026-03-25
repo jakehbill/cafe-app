@@ -14,8 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { cafes, type Cafe } from '@/data/cafes';
 
-import { CompactCafeCard } from './(tabs)/components/CompactCafeCard';
-import { COLORS } from './(tabs)/components/theme';
+import { CompactCafeCard } from '@/components/CompactCafeCard';
+import { COLORS } from '@/components/theme';
 
 type RatingRow = {
   cafe_id: string;

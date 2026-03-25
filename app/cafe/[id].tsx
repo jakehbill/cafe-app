@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import React, { useLayoutEffect } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Alert,
@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { cafes } from '../../data/cafes';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { saveCafe, supabase, unsaveCafe } from '@/lib/supabase';
 
 const COLORS = {
   background: '#F7F3EE',
@@ -145,12 +146,69 @@ export default function CafeDetailScreen() {
     await Linking.openURL(mapsUrl);
   }
 
-  const saveCafeId = cafe.id;
+  const cafeKey = cafe.id;
+  // Local UI state for the Save button (updates instantly after a successful DB write).
+  const [isSavedLocal, setIsSavedLocal] = useState(() => isSaved(cafeKey));
+  const [avgScores, setAvgScores] = useState<{ coffee: number; work: number; vibe: number } | null>(
+    null
+  );
+
+  useEffect(() => {
+    setIsSavedLocal(isSaved(cafeKey));
+  }, [cafeKey, isSaved]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAverages() {
+      const numericCafeId = Number.parseInt(cafeKey, 10);
+      if (!Number.isFinite(numericCafeId)) return;
+
+      // Aggregated scores from Supabase (`ratings` table averages) — not the current user's rating.
+      const res = await supabase
+        .from('ratings')
+        .select('coffee:coffee_rating.avg(), work:work_rating.avg(), vibe:vibe_rating.avg()')
+        .eq('cafe_id', numericCafeId)
+        .maybeSingle();
+
+      if (cancelled) return;
+      if (res.error) {
+        console.error('Failed to load average ratings:', res.error);
+        return;
+      }
+
+      const coffee = res.data?.coffee;
+      const work = res.data?.work;
+      const vibe = res.data?.vibe;
+      if (typeof coffee === 'number' && typeof work === 'number' && typeof vibe === 'number') {
+        setAvgScores({ coffee, work, vibe });
+      } else {
+        setAvgScores(null);
+      }
+    }
+
+    void loadAverages();
+    return () => {
+      cancelled = true;
+    };
+  }, [cafeKey]);
+
   async function handleSavePress() {
-    console.log('SAVE pressed');
-    console.log('current cafe id:', saveCafeId);
-    console.log('current logged-in user id:', user?.id ?? '(none)');
-    await toggleSaved(saveCafeId);
+    const numericCafeId = Number.parseInt(cafeKey, 10);
+    if (!Number.isFinite(numericCafeId)) {
+      console.warn('Save: cafe.id is not a number:', cafeKey);
+      return;
+    }
+
+    // Toggle save/unsave using the `saves` table helpers.
+    const result = isSavedLocal ? await unsaveCafe(numericCafeId) : await saveCafe(numericCafeId);
+    if (!result.ok) {
+      console.warn('Save toggle failed:', result.error);
+      // Not logged in (or another error) — fail gracefully without crashing.
+      return;
+    }
+
+    setIsSavedLocal((prev) => !prev);
   }
 
   return (
@@ -178,6 +236,15 @@ export default function CafeDetailScreen() {
             <ScorePill label="Work" value={ratingSource.work.toFixed(1)} />
             <ScorePill label="Vibe" value={ratingSource.vibe.toFixed(1)} />
           </View>
+          {avgScores ? (
+            <View style={styles.avgWrap}>
+              <Text style={styles.avgLabel}>Average from ratings</Text>
+              <Text style={styles.avgLine}>
+                Coffee: {avgScores.coffee.toFixed(1)} · Work: {avgScores.work.toFixed(1)} · Vibe:{' '}
+                {avgScores.vibe.toFixed(1)}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.sectionCard}>
@@ -206,7 +273,7 @@ export default function CafeDetailScreen() {
 
         <View style={styles.actionsWrap}>
           <ActionButton
-            label={isSaved(cafe.id) ? 'Saved' : 'Save'}
+            label={isSavedLocal ? 'Saved' : 'Save'}
             variant="primary"
             onPress={() => void handleSavePress()}
           />
@@ -360,6 +427,25 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     lineHeight: 30,
     letterSpacing: -0.3,
+  },
+  avgWrap: {
+    marginTop: 2,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#EFE7DB',
+    gap: 4,
+  },
+  avgLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.muted,
+    letterSpacing: 0.2,
+  },
+  avgLine: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.text,
+    fontWeight: '600',
   },
 
   tagsRow: {

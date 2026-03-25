@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SavedCafesContent } from '@/components/saved/SavedCafesContent';
 
-import { COLORS } from './(tabs)/components/theme';
+import { COLORS } from '@/components/theme';
 
 /**
  * Root stack route: `/saved`

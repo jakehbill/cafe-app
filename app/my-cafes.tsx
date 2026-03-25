@@ -14,8 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { cafes } from '@/data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
-import { CompactCafeCard } from './(tabs)/components/CompactCafeCard';
-import { COLORS } from './(tabs)/components/theme';
+import { CompactCafeCard } from '@/components/CompactCafeCard';
+import { COLORS } from '@/components/theme';
 
 export default function MyCafesScreen() {
   const router = useRouter();

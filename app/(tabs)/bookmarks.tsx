@@ -3,7 +3,7 @@ import { SafeAreaView, StyleSheet } from 'react-native';
 
 import { SavedCafesContent } from '@/components/saved/SavedCafesContent';
 
-import { COLORS } from './components/theme';
+import { COLORS } from '@/components/theme';
 
 /**
  * Bottom tab "Saved" — route URL is `/bookmarks` so it does not clash with

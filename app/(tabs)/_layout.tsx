@@ -4,7 +4,7 @@ import React from 'react';
 import { HapticTab } from '@/components/haptic-tab';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { COLORS } from './components/theme';
+import { COLORS } from '@/components/theme';
 
 export default function TabLayout() {
   return (

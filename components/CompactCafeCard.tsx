@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
 
-import { COLORS } from './theme';
+import { COLORS } from '@/components/theme';
 
 export type CompactCafeCardProps = {
   cafe: Cafe;
@@ -194,3 +194,4 @@ const styles = StyleSheet.create({
     color: '#5E5348',
   },
 });
+

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { COLORS } from './theme';
+
+import { COLORS } from '@/components/theme';
 
 type FilterChipProps = {
   label: string;

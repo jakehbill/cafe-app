@@ -12,9 +12,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { COLORS } from '../(tabs)/components/theme';
+import { COLORS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { cafes } from '@/data/cafes';
+import { getUserRating, rateCafe } from '@/lib/supabase';
 
 const RATING_CATEGORIES = [
   { key: 'coffee', label: 'How tasty was the coffee?' },
@@ -95,6 +96,33 @@ export default function RateCafeScreen() {
   const [notes, setNotes] = useState(existingRating?.notes ?? '');
   const [submitted, setSubmitted] = useState(false);
 
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function loadPreviousRating() {
+      // Load a previously-saved overall rating from Supabase (if one exists) to pre-fill the UI.
+      const numericCafeId = Number.parseInt(targetCafeId, 10);
+      if (!Number.isFinite(numericCafeId)) return;
+
+      const prev = await getUserRating(numericCafeId);
+      if (cancelled || prev === null) return;
+
+      // Only prefill when the user hasn't started rating yet and no per-dimension rating is present.
+      if (coffeeScore !== 0 || workScore !== 0 || vibeScore !== 0) return;
+      if (existingRating) return;
+
+      const v = Math.min(10, Math.max(1, Math.round(prev)));
+      setCoffeeScore(v);
+      setWorkScore(v);
+      setVibeScore(v);
+    }
+
+    void loadPreviousRating();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetCafeId, existingRating, coffeeScore, workScore, vibeScore]);
+
   const hasAnyRating =
     coffeeScore > 0 || workScore > 0 || vibeScore > 0;
 
@@ -113,12 +141,31 @@ export default function RateCafeScreen() {
       notes: notes.trim(),
     };
 
+    // Final 0–10 rating saved to Supabase `ratings` table (simple average of the scores you set).
+    const parts = [coffeeScore, workScore, vibeScore].filter((v) => v > 0);
+    const ratingValue = parts.length > 0 ? parts.reduce((sum, v) => sum + v, 0) / parts.length : 0;
+
     console.log('Rate cafe payload:', {
       cafeId: targetCafeId,
       ...ratingData,
+      ratingValue,
     });
 
     try {
+      const numericCafeId = Number.parseInt(targetCafeId, 10);
+      if (Number.isFinite(numericCafeId)) {
+        // Save to Supabase so this rating persists across devices.
+        const res = await rateCafe(numericCafeId, {
+          coffee: coffeeScore,
+          work: workScore,
+          vibe: vibeScore,
+          overall: ratingValue,
+        });
+        if (!res.ok) {
+          throw new Error(res.error);
+        }
+      }
+
       await setCafeRating(targetCafeId, ratingData);
       setSubmitted(true);
       Alert.alert('Thanks!', 'Your rating was submitted.', [

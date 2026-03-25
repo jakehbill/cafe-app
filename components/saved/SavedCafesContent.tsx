@@ -11,8 +11,8 @@ import {
 import { cafes, type Cafe } from '@/data/cafes';
 import { useCafeState } from '@/contexts/CafeStateContext';
 
-import { CompactCafeCard } from '@/app/(tabs)/components/CompactCafeCard';
-import { COLORS } from '@/app/(tabs)/components/theme';
+import { CompactCafeCard } from '@/components/CompactCafeCard';
+import { COLORS } from '@/components/theme';
 
 /** Map Supabase `cafe_id` values to full cafe objects from the local catalog (same ids). */
 export function cafesFromSavedIds(savedIds: string[], catalog: Cafe[]): Cafe[] {

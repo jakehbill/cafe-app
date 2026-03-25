@@ -23,7 +23,7 @@ import {
   type ActivityCounts,
 } from '@/lib/profileGamification';
 
-import { COLORS } from './components/theme';
+import { COLORS } from '@/components/theme';
 
 type ProfileCounts = {
   saved: number;

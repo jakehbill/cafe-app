@@ -18,9 +18,10 @@ import { rankTrendingNearbyForSearch } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForSearch, type RankKey } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 
-import { CompactCafeCard } from './components/CompactCafeCard';
-import { FilterChip } from './components/FilterChip';
-import { COLORS } from './components/theme';
+import { CompactCafeCard } from '@/components/CompactCafeCard';
+import { FilterChip } from '@/components/FilterChip';
+import SearchResultsMap from '@/components/maps/SearchResultsMap';
+import { COLORS } from '@/components/theme';
 
 /** Search chips: intent filters + non-personalized trending (aligned with Home). */
 type SearchChipId = RankKey | 'trending';
@@ -121,16 +122,6 @@ export default function SearchScreen() {
   const mapRegion = useMemo(() => regionForCafes(results), [results]);
 
   const isWeb = Platform.OS === 'web';
-  let MapView: typeof import('react-native-maps').default | undefined;
-  let Marker: typeof import('react-native-maps').Marker | undefined;
-  let Callout: typeof import('react-native-maps').Callout | undefined;
-
-  if (!isWeb) {
-    const Maps = require('react-native-maps');
-    MapView = Maps.default;
-    Marker = Maps.Marker;
-    Callout = Maps.Callout;
-  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -244,29 +235,13 @@ export default function SearchScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          ) : MapView && Marker && Callout ? (
-            <MapView
-              key={results.map((c) => c.id).join('-')}
-              style={styles.map}
+          ) : (
+            <SearchResultsMap
+              results={results}
               initialRegion={mapRegion}
-            >
-              {results.map((cafe) => (
-                <Marker
-                  key={cafe.id}
-                  coordinate={{ latitude: cafe.latitude, longitude: cafe.longitude }}
-                  title={cafe.name}
-                  description={cafe.neighborhood}
-                >
-                  <Callout onPress={() => router.push(`/cafe/${cafe.id}`)}>
-                    <View style={styles.callout}>
-                      <Text style={styles.calloutTitle}>{cafe.name}</Text>
-                      <Text style={styles.calloutSubtitle}>Tap to open cafe</Text>
-                    </View>
-                  </Callout>
-                </Marker>
-              ))}
-            </MapView>
-          ) : null}
+              onPressCafe={(cafeId: string) => router.push(`/cafe/${cafeId}`)}
+            />
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -355,31 +330,6 @@ const styles = StyleSheet.create({
   mapArea: {
     flex: 1,
     minHeight: 200,
-  },
-  map: {
-    flex: 1,
-    marginHorizontal: 12,
-    marginBottom: 12,
-    borderRadius: 16,
-  },
-  callout: {
-    minWidth: 160,
-    maxWidth: 220,
-    backgroundColor: '#F7F3EE',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E6DCCB',
-    padding: 10,
-    gap: 2,
-  },
-  calloutTitle: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  calloutSubtitle: {
-    color: COLORS.muted,
-    fontSize: 12,
   },
   webList: {
     paddingHorizontal: 20,
