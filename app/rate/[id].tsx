@@ -3,6 +3,8 @@ import React, { useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Alert,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,6 +25,15 @@ const RATING_CATEGORIES = [
   { key: 'work', label: 'Was it a good place to work?' },
   { key: 'vibe', label: 'How was the overall atmosphere?' },
 ] as const;
+
+function rateDebug(label: string, payload: Record<string, unknown>) {
+  if (!__DEV__) return;
+  try {
+    console.log(`[RATE DEBUG] ${label}\n${JSON.stringify(payload, null, 2)}`);
+  } catch {
+    console.log(`[RATE DEBUG] ${label}`, payload);
+  }
+}
 
 const TAGS = [
   'Quiet',
@@ -51,10 +62,13 @@ function RatingRow({
         {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => {
           const selected = value === rating;
           return (
-            <TouchableOpacity
+            <Pressable
               key={rating}
-              activeOpacity={0.85}
-              style={[styles.ratingOption, selected && styles.ratingOptionSelected]}
+              style={({ pressed }) => [
+                styles.ratingOption,
+                selected && styles.ratingOptionSelected,
+                pressed && styles.ratingOptionPressed,
+              ]}
               onPress={() => onSelect(rating)}
             >
               <Text
@@ -65,7 +79,7 @@ function RatingRow({
               >
                 {rating}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           );
         })}
       </View>
@@ -139,6 +153,22 @@ export default function RateCafeScreen() {
   const hasAnyRating =
     coffeeScore > 0 || workScore > 0 || vibeScore > 0;
 
+  const submitDisabled = !hasAnyRating || submitted;
+
+  React.useEffect(() => {
+    if (!__DEV__) return;
+    rateDebug('submit button state', {
+      platform: Platform.OS,
+      hasAnyRating,
+      submitted,
+      submitDisabled,
+      coffeeScore,
+      workScore,
+      vibeScore,
+      targetCafeId,
+    });
+  }, [hasAnyRating, submitted, submitDisabled, coffeeScore, workScore, vibeScore, targetCafeId]);
+
   function toggleTag(tag: string) {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]
@@ -146,6 +176,15 @@ export default function RateCafeScreen() {
   }
 
   async function handleSubmit() {
+    rateDebug('handleSubmit invoked', {
+      platform: Platform.OS,
+      targetCafeId,
+      coffeeScore,
+      workScore,
+      vibeScore,
+      submitDisabledExpected: !hasAnyRating || submitted,
+    });
+
     const ratingData = {
       coffee: coffeeScore,
       work: workScore,
@@ -158,40 +197,58 @@ export default function RateCafeScreen() {
     const parts = [coffeeScore, workScore, vibeScore].filter((v) => v > 0);
     const ratingValue = parts.length > 0 ? parts.reduce((sum, v) => sum + v, 0) / parts.length : 0;
 
-    console.log('Rate cafe payload:', {
-      cafeId: targetCafeId,
+    rateDebug('computed payload', {
       ...ratingData,
       ratingValue,
+      partsUsedInAverage: parts,
     });
 
+    if (!hasAnyRating) {
+      rateDebug('early exit: validation', {
+        reason: 'no dimension > 0 — submit should have been disabled',
+      });
+      return;
+    }
+    if (submitted) {
+      rateDebug('early exit: already submitted', {});
+      return;
+    }
+
     try {
-      const numericCafeId = Number.parseInt(targetCafeId, 10);
-      if (Number.isFinite(numericCafeId)) {
-        // Save to Supabase so this rating persists across devices.
-        const res = await rateCafe(numericCafeId, {
-          coffee: coffeeScore,
-          work: workScore,
-          vibe: vibeScore,
-          overall: ratingValue,
-        });
-        if (!res.ok) {
-          throw new Error(res.error);
-        }
+      rateDebug('calling rateCafe', { targetCafeId });
+      const rateRes = await rateCafe(targetCafeId, {
+        coffee: coffeeScore,
+        work: workScore,
+        vibe: vibeScore,
+        tags: selectedTags,
+        notes: notes.trim(),
+      });
+      rateDebug('rateCafe result', { ok: rateRes.ok, error: rateRes.ok ? null : rateRes.error });
+      if (!rateRes.ok) {
+        throw new Error(rateRes.error);
       }
 
+      rateDebug('calling setCafeRating (context refresh)', { targetCafeId });
       await setCafeRating(targetCafeId, ratingData);
       setSubmitted(true);
+      rateDebug('submit success', { targetCafeId });
       Alert.alert('Thanks!', 'Your rating was submitted.', [
         { text: 'OK', onPress: () => router.replace(`/cafe/${targetCafeId}`) },
       ]);
-    } catch {
+    } catch (e) {
+      rateDebug('submit error', {
+        message: e instanceof Error ? e.message : String(e),
+      });
       Alert.alert('Could not save', 'Your rating could not be saved. Check your connection and try again.');
     }
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.leadText}>Help others find great places to work</Text>
 
         <View style={styles.previewCard}>
@@ -280,11 +337,11 @@ export default function RateCafeScreen() {
           activeOpacity={0.88}
           style={[
             styles.submitButton,
-            (!hasAnyRating || submitted) && styles.submitButtonDisabled,
+            submitDisabled && styles.submitButtonDisabled,
             submitted && styles.submitButtonSuccess,
           ]}
-          onPress={handleSubmit}
-          disabled={!hasAnyRating || submitted}
+          onPress={() => void handleSubmit()}
+          disabled={submitDisabled}
         >
           <Text style={styles.submitButtonText}>
             {submitted ? 'Submitted' : 'Submit'}
@@ -395,6 +452,9 @@ const styles = StyleSheet.create({
   ratingOptionSelected: {
     backgroundColor: COLORS.roastedBrown,
     borderColor: 'rgba(138, 106, 79, 0.55)',
+  },
+  ratingOptionPressed: {
+    opacity: 0.88,
   },
   ratingOptionText: {
     color: COLORS.text,

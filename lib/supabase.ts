@@ -94,11 +94,18 @@ export async function unsaveCafe(cafeId: number): Promise<SupabaseActionResult> 
 
 /**
  * Create or update a cafe rating (0–10) for the current user.
- * Uses an upsert so repeated ratings update the same row.
+ * Writes to `public.user_cafe_ratings` (same table as `CafeStateContext.setCafeRating`), not a legacy `ratings` table.
+ * Columns match `supabase/schema_all_tables.sql`: cafe_id text, coffee/work/vibe smallint, tags, notes.
  */
 export async function rateCafe(
-  cafeId: number,
-  rating: { coffee: number; work: number; vibe: number; overall?: number }
+  cafeId: string | number,
+  rating: {
+    coffee: number;
+    work: number;
+    vibe: number;
+    tags?: string[];
+    notes?: string;
+  }
 ): Promise<SupabaseActionResult> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
@@ -111,43 +118,57 @@ export async function rateCafe(
     return { ok: false, error: 'You must be signed in to rate a cafe.' };
   }
 
-  // Clamp each score into 0–10 to keep data clean.
   const clamp010 = (n: number) => Math.min(10, Math.max(0, n));
-  const coffee = clamp010(rating.coffee);
-  const work = clamp010(rating.work);
-  const vibe = clamp010(rating.vibe);
-  // Overall rating is always the average of coffee/work/vibe.
-  const overall = (coffee + work + vibe) / 3;
+  const coffee = Math.round(clamp010(rating.coffee));
+  const work = Math.round(clamp010(rating.work));
+  const vibe = Math.round(clamp010(rating.vibe));
 
-  const res = await supabase
-    .from('ratings')
-    .upsert(
-      {
-        cafe_id: cafeId,
-        user_id: userId,
-        // rating = overall (0–10)
-        rating: overall,
-        // category ratings (0–10)
-        coffee_rating: coffee,
-        work_rating: work,
-        vibe_rating: vibe,
-      },
-      { onConflict: 'user_id,cafe_id' }
-    );
+  const payload = {
+    user_id: userId,
+    cafe_id: String(cafeId),
+    coffee,
+    work,
+    vibe,
+    tags: rating.tags ?? [],
+    notes: rating.notes ?? '',
+  };
+
+  if (__DEV__) {
+    console.log(`[rateCafe] upsert → user_cafe_ratings\n${JSON.stringify(payload, null, 2)}`);
+    console.log(`[rateCafe] onConflict: user_id,cafe_id`);
+  }
+
+  const res = await supabase.from('user_cafe_ratings').upsert(payload, {
+    onConflict: 'user_id,cafe_id',
+  });
 
   if (res.error) {
-    console.error('rateCafe: upsert failed:', res.error);
-    return { ok: false, error: res.error.message };
+    const err = res.error;
+    if (__DEV__) {
+      console.log(
+        `[rateCafe] Supabase error\n${JSON.stringify(
+          {
+            message: err.message,
+            code: err.code,
+            details: err.details,
+            hint: err.hint,
+          },
+          null,
+          2
+        )}`
+      );
+    }
+    console.error('rateCafe: upsert failed:', err);
+    return { ok: false, error: err.message };
   }
 
   return { ok: true };
 }
 
 /**
- * Read the current user's rating for one cafe.
- * Returns null when the user isn't signed in or no rating exists.
+ * Read the current user's overall score for one cafe (average of coffee/work/vibe from `user_cafe_ratings`).
  */
-export async function getUserRating(cafeId: number): Promise<number | null> {
+export async function getUserRating(cafeId: number | string): Promise<number | null> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
     console.error('getUserRating: auth getUser failed:', authError);
@@ -160,10 +181,10 @@ export async function getUserRating(cafeId: number): Promise<number | null> {
   }
 
   const res = await supabase
-    .from('ratings')
-    .select('rating')
+    .from('user_cafe_ratings')
+    .select('coffee, work, vibe')
     .eq('user_id', userId)
-    .eq('cafe_id', cafeId)
+    .eq('cafe_id', String(cafeId))
     .maybeSingle();
 
   if (res.error) {
@@ -171,7 +192,12 @@ export async function getUserRating(cafeId: number): Promise<number | null> {
     return null;
   }
 
-  const v = res.data?.rating;
-  return typeof v === 'number' ? v : null;
+  const row = res.data;
+  if (!row) return null;
+  const c = typeof row.coffee === 'number' ? row.coffee : 0;
+  const w = typeof row.work === 'number' ? row.work : 0;
+  const v = typeof row.vibe === 'number' ? row.vibe : 0;
+  if (c === 0 && w === 0 && v === 0) return null;
+  return (c + w + v) / 3;
 }
 
