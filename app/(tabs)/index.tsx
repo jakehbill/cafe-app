@@ -15,7 +15,6 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
 import {
   fetchTrendingGlobal,
-  fetchTrendingNearby,
   rankCafesForTrending,
 } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
@@ -125,7 +124,7 @@ export default function HomeScreen() {
 
   /**
    * Top picks for you:
-   * - Primary: fetch Top 10 cafe ids from `cafe_overall_ranking` (overall_score desc).
+   * - Fetch top cafes from the `cafe_ranking` view (overall_score desc, limit 10).
    * - Then map ids → local cafe objects for a stable UI shape (`Cafe` type).
    * - Fallback: local ranking if the fetch fails or returns nothing.
    */
@@ -139,8 +138,8 @@ export default function HomeScreen() {
       setTopPicksLoading(true);
       try {
         const res = await supabase
-          .from('cafe_overall_ranking')
-          .select('cafe_id')
+          .from('cafe_ranking')
+          .select('*')
           .order('overall_score', { ascending: false })
           .limit(10);
 
@@ -153,7 +152,7 @@ export default function HomeScreen() {
         }
 
         const ids = (res.data ?? [])
-          .map((r) => r.cafe_id)
+          .map((r: any) => (typeof r?.cafe_id === 'string' ? r.cafe_id : r?.id))
           .filter((id): id is string => typeof id === 'string' && id.length > 0);
 
         setTopPickIds(ids.length > 0 ? ids : null);
@@ -237,8 +236,8 @@ export default function HomeScreen() {
 
   /**
    * Trending section:
-   * - If we have location, ask the backend for trending *nearby*.
-   * - If not, fall back to the global trending view.
+   * - Uses the `cafe_trending` view (already ranked by `trending_score`).
+   * - We map ids → local cafes so the UI props stay the same.
    */
   const [trendingNearby, setTrendingNearby] = useState<Cafe[]>(() =>
     rankCafesForTrending([...cafes])
@@ -251,14 +250,8 @@ export default function HomeScreen() {
 
     async function loadTrending() {
       try {
-        const lat = userLocation?.latitude;
-        const lng = userLocation?.longitude;
-
-        // Location-aware first; otherwise global fallback.
-        const rows =
-          typeof lat === 'number' && typeof lng === 'number'
-            ? await fetchTrendingNearby({ userLat: lat, userLng: lng, radiusMiles: 0.5 })
-            : await fetchTrendingGlobal();
+        // Fetch ranked trending rows from Supabase view (no raw `cafes` table read here).
+        const rows = await fetchTrendingGlobal();
 
         if (cancelled) return;
 
