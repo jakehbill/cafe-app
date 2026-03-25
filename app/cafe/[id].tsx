@@ -1,5 +1,5 @@
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { saveCafe, supabase, unsaveCafe } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useLayoutEffect, useState } from 'react';
@@ -81,6 +81,7 @@ export default function CafeDetailScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const {
+    toggleSaved,
     toggleVisited,
     isSaved,
     isVisited,
@@ -118,14 +119,9 @@ export default function CafeDetailScreen() {
 
   const routeCafeId = cafeId ? String(cafeId) : '';
 
-  const [isSavedLocal, setIsSavedLocal] = useState(() => (routeCafeId ? isSaved(routeCafeId) : false));
   const [avgScores, setAvgScores] = useState<{ coffee: number; work: number; vibe: number } | null>(
     null
   );
-
-  useEffect(() => {
-    setIsSavedLocal(routeCafeId ? isSaved(routeCafeId) : false);
-  }, [routeCafeId, isSaved]);
 
   useEffect(() => {
     let cancelled = false;
@@ -223,27 +219,29 @@ export default function CafeDetailScreen() {
     await Linking.openURL(mapsUrl);
   }
 
+  /** Persists to `user_saved_cafes` via context (same source as the Saved tab), not legacy `saves`. */
   async function handleSavePress() {
-    const numericCafeId = Number.parseInt(routeCafeId, 10);
-    if (!Number.isFinite(numericCafeId)) {
-      console.warn('Save: cafe.id is not a number:', routeCafeId);
-      return;
+    if (!cafe) return;
+    if (__DEV__) {
+      console.log('[Save cafe] press', {
+        cafeId: cafe.id,
+        routeCafeId,
+        currentlySaved: isSaved(cafe.id),
+        willCall: 'toggleSaved',
+      });
     }
-
-    // Toggle save/unsave using the `saves` table helpers.
-    const result = isSavedLocal ? await unsaveCafe(numericCafeId) : await saveCafe(numericCafeId);
-    if (!result.ok) {
-      console.warn('Save toggle failed:', result.error);
-      // Not logged in (or another error) — fail gracefully without crashing.
-      return;
+    await toggleSaved(cafe.id);
+    if (__DEV__) {
+      console.log('[Save cafe] toggleSaved finished', { cafeId: cafe.id });
     }
-
-    setIsSavedLocal((prev) => !prev);
   }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.heroWrap}>
           {cafe.imageUrl ? (
             <Image source={{ uri: cafe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
@@ -307,7 +305,7 @@ export default function CafeDetailScreen() {
 
         <View style={styles.actionsWrap}>
           <ActionButton
-            label={isSavedLocal ? 'Saved' : 'Save'}
+            label={isSaved(cafe.id) ? 'Saved' : 'Save'}
             variant="primary"
             onPress={() => void handleSavePress()}
           />

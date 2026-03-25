@@ -2,7 +2,6 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -122,6 +121,8 @@ export default function RateCafeScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>(existingRating?.tags ?? []);
   const [notes, setNotes] = useState(existingRating?.notes ?? '');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -153,7 +154,15 @@ export default function RateCafeScreen() {
   const hasAnyRating =
     coffeeScore > 0 || workScore > 0 || vibeScore > 0;
 
-  const submitDisabled = !hasAnyRating || submitted;
+  const submitDisabled = !hasAnyRating || submitted || submitting;
+
+  React.useEffect(() => {
+    if (!submitted) return;
+    const t = setTimeout(() => {
+      router.replace(`/cafe/${targetCafeId}`);
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [submitted, targetCafeId, router]);
 
   React.useEffect(() => {
     if (!__DEV__) return;
@@ -213,7 +222,12 @@ export default function RateCafeScreen() {
       rateDebug('early exit: already submitted', {});
       return;
     }
+    if (submitting) {
+      return;
+    }
 
+    setSubmitError(null);
+    setSubmitting(true);
     try {
       rateDebug('calling rateCafe', { targetCafeId });
       const rateRes = await rateCafe(targetCafeId, {
@@ -232,14 +246,13 @@ export default function RateCafeScreen() {
       await setCafeRating(targetCafeId, ratingData);
       setSubmitted(true);
       rateDebug('submit success', { targetCafeId });
-      Alert.alert('Thanks!', 'Your rating was submitted.', [
-        { text: 'OK', onPress: () => router.replace(`/cafe/${targetCafeId}`) },
-      ]);
     } catch (e) {
-      rateDebug('submit error', {
-        message: e instanceof Error ? e.message : String(e),
-      });
-      Alert.alert('Could not save', 'Your rating could not be saved. Check your connection and try again.');
+      const message =
+        e instanceof Error ? e.message : 'Your rating could not be saved. Try again.';
+      rateDebug('submit error', { message });
+      setSubmitError(message);
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -333,6 +346,19 @@ export default function RateCafeScreen() {
           />
         </View>
 
+        {submitError ? (
+          <View style={styles.feedbackBanner} accessibilityLiveRegion="polite">
+            <Text style={styles.feedbackErrorText}>{submitError}</Text>
+          </View>
+        ) : null}
+
+        {submitted ? (
+          <View style={styles.feedbackBannerSuccess} accessibilityLiveRegion="polite">
+            <Text style={styles.feedbackSuccessTitle}>Rating saved</Text>
+            <Text style={styles.feedbackSuccessSub}>Returning to the cafe page…</Text>
+          </View>
+        ) : null}
+
         <TouchableOpacity
           activeOpacity={0.88}
           style={[
@@ -344,7 +370,7 @@ export default function RateCafeScreen() {
           disabled={submitDisabled}
         >
           <Text style={styles.submitButtonText}>
-            {submitted ? 'Submitted' : 'Submit'}
+            {submitted ? 'Rating saved' : submitting ? 'Saving…' : 'Submit'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -504,6 +530,42 @@ const styles = StyleSheet.create({
     color: '#4A5A49',
   },
 
+  feedbackBanner: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(180, 80, 80, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(180, 80, 80, 0.28)',
+  },
+  feedbackErrorText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '500',
+    color: '#8B4A4A',
+    textAlign: 'center',
+  },
+  feedbackBannerSuccess: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(163, 177, 138, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(163, 177, 138, 0.45)',
+    gap: 4,
+  },
+  feedbackSuccessTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4A5A49',
+    textAlign: 'center',
+  },
+  feedbackSuccessSub: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#5F6B58',
+    textAlign: 'center',
+  },
   submitButton: {
     borderRadius: 16,
     paddingVertical: 14,

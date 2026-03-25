@@ -147,10 +147,9 @@ export default function HomeScreen() {
 
   /**
    * Top picks for you:
-   * - Prefer `cafe_ranking`, else `cafe_overall_ranking`.
-   * - `.order()` must use the real column name from each view (`cafe_ranking` uses `score` here).
-   * - Map ids → rows from Supabase `cafes` (via catalog) for the `Cafe` UI shape.
-   * - Fallback: client ranking over the catalog if the fetch fails or returns nothing.
+   * Home ranking is driven by the aggregated Supabase view `cafe_overall_ranking` (ratings, saves,
+   * visits roll up into `overall_score`). Map ids → catalog `Cafe` rows for the card UI.
+   * Fallback: client ranking over the catalog if the fetch fails or returns nothing.
    */
   const [topPickIds, setTopPickIds] = useState<string[] | null>(null);
   const [topPicksLoading, setTopPicksLoading] = useState(false);
@@ -161,20 +160,11 @@ export default function HomeScreen() {
     async function loadTopPicks() {
       setTopPicksLoading(true);
       try {
-        let res = await supabase
-          .from('cafe_ranking')
+        const res = await supabase
+          .from('cafe_overall_ranking')
           .select('*')
-          // PostgREST returns 400 if this string is not an exposed column on the view.
-          .order('score', { ascending: false })
+          .order('overall_score', { ascending: false })
           .limit(10);
-
-        if (res.error) {
-          res = await supabase
-            .from('cafe_overall_ranking')
-            .select('*')
-            .order('overall_score', { ascending: false })
-            .limit(10);
-        }
 
         if (cancelled) return;
 
@@ -186,10 +176,10 @@ export default function HomeScreen() {
             };
             try {
               console.log(
-                `[DEBUG Home cafe_ranking / cafe_overall_ranking]\n${JSON.stringify(payload, null, 2)}`
+                `[DEBUG Home cafe_overall_ranking]\n${JSON.stringify(payload, null, 2)}`
               );
             } catch {
-              console.log('[DEBUG Home cafe_ranking / cafe_overall_ranking]', payload);
+              console.log('[DEBUG Home cafe_overall_ranking]', payload);
             }
           }
           setTopPickIds(null);
@@ -216,10 +206,10 @@ export default function HomeScreen() {
           };
           try {
             console.log(
-              `[DEBUG Home topPicks: cafe_ranking query]\n${JSON.stringify(payload, null, 2)}`
+              `[DEBUG Home topPicks: cafe_overall_ranking query]\n${JSON.stringify(payload, null, 2)}`
             );
           } catch {
-            console.log('[DEBUG Home topPicks: cafe_ranking query]', payload);
+            console.log('[DEBUG Home topPicks: cafe_overall_ranking query]', payload);
           }
         }
 
