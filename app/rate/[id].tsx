@@ -19,12 +19,6 @@ import type { Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { getUserRating, rateCafe } from '@/lib/supabase';
 
-const RATING_CATEGORIES = [
-  { key: 'coffee', label: 'How tasty was the coffee?' },
-  { key: 'work', label: 'Was it a good place to work?' },
-  { key: 'vibe', label: 'How was the overall atmosphere?' },
-] as const;
-
 function rateDebug(label: string, payload: Record<string, unknown>) {
   if (!__DEV__) return;
   try {
@@ -35,14 +29,20 @@ function rateDebug(label: string, payload: Record<string, unknown>) {
 }
 
 const TAGS = [
-  'Quiet',
-  'Laptop Friendly',
-  'Good for Calls',
-  'Fast Service',
-  'Specialty Coffee',
-  'Great Seating',
-  'Social Spot',
-  'Busy',
+  'good_for_working',
+  'quiet',
+  'busy',
+  'aesthetic',
+  'great_espresso',
+  'great_filter',
+  'specialty_coffee',
+  'cosy',
+  'spacious',
+  'quick_stop',
+  'brunch_spot',
+  'great_pastries',
+  'good_food',
+  'vegan_options',
 ] as const;
 
 function RatingRow({
@@ -58,7 +58,7 @@ function RatingRow({
     <View style={styles.ratingRow}>
       <Text style={styles.ratingRowLabel}>{label}</Text>
       <View style={styles.ratingOptions}>
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => {
+        {[1, 2, 3, 4, 5].map((rating) => {
           const selected = value === rating;
           return (
             <Pressable
@@ -118,7 +118,9 @@ export default function RateCafeScreen() {
   const [coffeeScore, setCoffeeScore] = useState(existingRating?.coffee ?? 0);
   const [workScore, setWorkScore] = useState(existingRating?.work ?? 0);
   const [vibeScore, setVibeScore] = useState(existingRating?.vibe ?? 0);
-  const [selectedTags, setSelectedTags] = useState<string[]>(existingRating?.tags ?? []);
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    (existingRating?.tags ?? []).filter((tag) => TAGS.includes(tag as (typeof TAGS)[number])).slice(0, 3)
+  );
   const [notes, setNotes] = useState(existingRating?.notes ?? '');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -139,7 +141,7 @@ export default function RateCafeScreen() {
       if (coffeeScore !== 0 || workScore !== 0 || vibeScore !== 0) return;
       if (existingRating) return;
 
-      const v = Math.min(10, Math.max(1, Math.round(prev)));
+      const v = Math.min(5, Math.max(1, Math.round(prev)));
       setCoffeeScore(v);
       setWorkScore(v);
       setVibeScore(v);
@@ -151,8 +153,7 @@ export default function RateCafeScreen() {
     };
   }, [targetCafeId, existingRating, coffeeScore, workScore, vibeScore]);
 
-  const hasAnyRating =
-    coffeeScore > 0 || workScore > 0 || vibeScore > 0;
+  const hasAnyRating = coffeeScore > 0;
 
   const submitDisabled = !hasAnyRating || submitted || submitting;
 
@@ -179,9 +180,11 @@ export default function RateCafeScreen() {
   }, [hasAnyRating, submitted, submitDisabled, coffeeScore, workScore, vibeScore, targetCafeId]);
 
   function toggleTag(tag: string) {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]
-    );
+    setSelectedTags((prev) => {
+      if (prev.includes(tag)) return prev.filter((item) => item !== tag);
+      if (prev.length >= 3) return prev;
+      return [...prev, tag];
+    });
   }
 
   async function handleSubmit() {
@@ -276,37 +279,23 @@ export default function RateCafeScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Quick ratings</Text>
+          <Text style={styles.sectionTitle}>Coffee rating</Text>
           <View style={styles.ratingRowsWrap}>
-            {RATING_CATEGORIES.map((category) => (
-              <RatingRow
-                key={category.key}
-                label={category.label}
-                value={
-                  category.key === 'coffee'
-                    ? coffeeScore
-                    : category.key === 'work'
-                      ? workScore
-                      : vibeScore
-                }
-                onSelect={(value) => {
-                  if (category.key === 'coffee') {
-                    setCoffeeScore(value);
-                    return;
-                  }
-                  if (category.key === 'work') {
-                    setWorkScore(value);
-                    return;
-                  }
-                  setVibeScore(value);
-                }}
-              />
-            ))}
+            <RatingRow
+              label="How was the coffee?"
+              value={coffeeScore}
+              onSelect={(value) => {
+                // Keep backend payload shape unchanged for now.
+                setCoffeeScore(value);
+                setWorkScore(value);
+                setVibeScore(value);
+              }}
+            />
           </View>
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>What stood out?</Text>
+          <Text style={styles.sectionTitle}>What stood out? (pick up to 3)</Text>
           <View style={styles.tagsWrap}>
             {TAGS.map((tag) => (
               <TouchableOpacity

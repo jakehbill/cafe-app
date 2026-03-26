@@ -93,9 +93,8 @@ export async function unsaveCafe(cafeId: number): Promise<SupabaseActionResult> 
 }
 
 /**
- * Create or update a cafe rating (0–10) for the current user.
- * Writes to `public.user_cafe_ratings` (same table as `CafeStateContext.setCafeRating`), not a legacy `ratings` table.
- * Columns match `supabase/schema_all_tables.sql`: cafe_id text, coffee/work/vibe smallint, tags, notes.
+ * Create or update a cafe rating for the current user.
+ * Submit flow writes to `public.ratings` and fully replaces rows in `public.rating_tags`.
  */
 export async function rateCafe(
   cafeId: string | number,
@@ -107,8 +106,21 @@ export async function rateCafe(
     notes?: string;
   }
 ): Promise<SupabaseActionResult> {
+  const logStep = (step: string, payload?: Record<string, unknown>) => {
+    if (!__DEV__) return;
+    if (payload) {
+      console.log(`[rateCafe] ${step}\n${JSON.stringify(payload, null, 2)}`);
+      return;
+    }
+    console.log(`[rateCafe] ${step}`);
+  };
+
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
+    logStep('auth.getUser failed', {
+      message: authError.message,
+      code: authError.code,
+    });
     console.error('rateCafe: auth getUser failed:', authError);
     return { ok: false, error: authError.message };
   }
@@ -119,49 +131,101 @@ export async function rateCafe(
   }
 
   const clamp010 = (n: number) => Math.min(10, Math.max(0, n));
-  const coffee = Math.round(clamp010(rating.coffee));
-  const work = Math.round(clamp010(rating.work));
-  const vibe = Math.round(clamp010(rating.vibe));
+  const coffeeRating = Math.round(clamp010(rating.coffee));
+  const workRating = Math.round(clamp010(rating.work));
+  const vibeRating = Math.round(clamp010(rating.vibe));
+  const normalizedCafeId = Number.parseInt(String(cafeId), 10);
 
-  const payload = {
-    user_id: userId,
-    cafe_id: String(cafeId),
-    coffee,
-    work,
-    vibe,
-    tags: rating.tags ?? [],
-    notes: rating.notes ?? '',
-  };
-
-  if (__DEV__) {
-    console.log(`[rateCafe] upsert → user_cafe_ratings\n${JSON.stringify(payload, null, 2)}`);
-    console.log(`[rateCafe] onConflict: user_id,cafe_id`);
+  if (!Number.isFinite(normalizedCafeId)) {
+    const message = `Invalid cafe_id for ratings submit: ${String(cafeId)}`;
+    logStep('invalid cafe_id', { cafeId });
+    console.error('rateCafe:', message);
+    return { ok: false, error: message };
   }
 
-  const res = await supabase.from('user_cafe_ratings').upsert(payload, {
+  const ratingPayload = {
+    user_id: userId,
+    cafe_id: normalizedCafeId,
+    rating: coffeeRating,
+    coffee_rating: coffeeRating,
+    work_rating: workRating,
+    vibe_rating: vibeRating,
+  };
+
+  logStep('step 1: upsert ratings', {
     onConflict: 'user_id,cafe_id',
+    payload: ratingPayload,
   });
 
-  if (res.error) {
-    const err = res.error;
-    if (__DEV__) {
-      console.log(
-        `[rateCafe] Supabase error\n${JSON.stringify(
-          {
-            message: err.message,
-            code: err.code,
-            details: err.details,
-            hint: err.hint,
-          },
-          null,
-          2
-        )}`
-      );
-    }
+  const upsertRes = await supabase
+    .from('ratings')
+    .upsert(ratingPayload, { onConflict: 'user_id,cafe_id' })
+    .select('id, user_id, cafe_id, coffee_rating, work_rating, vibe_rating')
+    .single();
+
+  if (upsertRes.error) {
+    const err = upsertRes.error;
+    logStep('step 1 failed: upsert ratings error', {
+      message: err.message,
+      code: err.code,
+      details: err.details,
+      hint: err.hint,
+    });
     console.error('rateCafe: upsert failed:', err);
     return { ok: false, error: err.message };
   }
 
+  const savedRating = upsertRes.data;
+  logStep('step 2: saved rating row', { savedRating });
+
+  const ratingId = savedRating?.id;
+  if (typeof ratingId !== 'number') {
+    const message = 'Ratings upsert did not return a valid numeric rating id.';
+    logStep('step 2 failed: missing rating id', { savedRating });
+    console.error('rateCafe:', message);
+    return { ok: false, error: message };
+  }
+
+  logStep('step 3: delete existing rating_tags', { rating_id: ratingId });
+  const deleteTagsRes = await supabase.from('rating_tags').delete().eq('rating_id', ratingId);
+  if (deleteTagsRes.error) {
+    const err = deleteTagsRes.error;
+    logStep('step 3 failed: delete rating_tags error', {
+      message: err.message,
+      code: err.code,
+      details: err.details,
+      hint: err.hint,
+      rating_id: ratingId,
+    });
+    console.error('rateCafe: delete rating_tags failed:', err);
+    return { ok: false, error: err.message };
+  }
+
+  const normalizedTags = Array.from(new Set((rating.tags ?? []).map((t) => t.trim()).filter(Boolean)));
+  logStep('step 4: insert rating_tags', {
+    rating_id: ratingId,
+    tagCount: normalizedTags.length,
+    tags: normalizedTags,
+  });
+
+  if (normalizedTags.length > 0) {
+    const tagRows = normalizedTags.map((tag) => ({ rating_id: ratingId, tag }));
+    const insertTagsRes = await supabase.from('rating_tags').insert(tagRows);
+    if (insertTagsRes.error) {
+      const err = insertTagsRes.error;
+      logStep('step 4 failed: insert rating_tags error', {
+        message: err.message,
+        code: err.code,
+        details: err.details,
+        hint: err.hint,
+        rating_id: ratingId,
+      });
+      console.error('rateCafe: insert rating_tags failed:', err);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  logStep('submit flow complete', { rating_id: ratingId });
   return { ok: true };
 }
 
