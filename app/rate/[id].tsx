@@ -17,6 +17,7 @@ import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
+import { ALL_RATING_TAGS, TAG_SECTIONS, formatTagLabel } from '@/lib/cafeTags';
 import { getUserRating, rateCafe } from '@/lib/supabase';
 
 function rateDebug(label: string, payload: Record<string, unknown>) {
@@ -27,23 +28,6 @@ function rateDebug(label: string, payload: Record<string, unknown>) {
     console.log(`[RATE DEBUG] ${label}`, payload);
   }
 }
-
-const TAGS = [
-  'good_for_working',
-  'quiet',
-  'busy',
-  'aesthetic',
-  'great_espresso',
-  'great_filter',
-  'specialty_coffee',
-  'cosy',
-  'spacious',
-  'quick_stop',
-  'brunch_spot',
-  'great_pastries',
-  'good_food',
-  'vegan_options',
-] as const;
 
 function RatingRow({
   label,
@@ -95,7 +79,7 @@ export default function RateCafeScreen() {
   const [workScore, setWorkScore] = useState(existingRating?.work ?? 0);
   const [vibeScore, setVibeScore] = useState(existingRating?.vibe ?? 0);
   const [selectedTags, setSelectedTags] = useState<string[]>(
-    (existingRating?.tags ?? []).filter((tag) => TAGS.includes(tag as (typeof TAGS)[number])).slice(0, 3)
+    (existingRating?.tags ?? []).filter((tag) => ALL_RATING_TAGS.includes(tag as (typeof ALL_RATING_TAGS)[number])).slice(0, 3)
   );
   const [notes, setNotes] = useState(existingRating?.notes ?? '');
   const [submitted, setSubmitted] = useState(false);
@@ -272,28 +256,33 @@ export default function RateCafeScreen() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>What stood out? (pick up to 3)</Text>
-          <View style={styles.tagsWrap}>
-            {TAGS.map((tag) => (
-              <TouchableOpacity
-                key={tag}
-                activeOpacity={0.85}
-                style={[
-                  styles.tagChip,
-                  selectedTags.includes(tag) && styles.tagChipSelected,
-                ]}
-                onPress={() => toggleTag(tag)}
-              >
-                <Text
-                  style={[
-                    styles.tagChipText,
-                    selectedTags.includes(tag) && styles.tagChipTextSelected,
-                  ]}
-                >
-                  {tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          {TAG_SECTIONS.map((section) => (
+            <View key={section.title} style={styles.tagSection}>
+              <Text style={styles.tagSectionTitle}>{section.title}</Text>
+              <View style={styles.tagsWrap}>
+                {section.tags.map((tag) => (
+                  <TouchableOpacity
+                    key={tag}
+                    activeOpacity={0.85}
+                    style={[
+                      styles.tagChip,
+                      selectedTags.includes(tag) && styles.tagChipSelected,
+                    ]}
+                    onPress={() => toggleTag(tag)}
+                  >
+                    <Text
+                      style={[
+                        styles.tagChipText,
+                        selectedTags.includes(tag) && styles.tagChipTextSelected,
+                      ]}
+                    >
+                      {formatTagLabel(tag)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
         </View>
 
         <View style={styles.sectionCard}>
@@ -473,6 +462,16 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     paddingTop: 2,
+  },
+  tagSection: {
+    gap: 8,
+  },
+  tagSectionTitle: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: COLORS.muted,
+    letterSpacing: 0.2,
   },
   tagChip: {
     paddingHorizontal: 10,

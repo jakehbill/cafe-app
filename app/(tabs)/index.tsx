@@ -16,6 +16,7 @@ import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
+import { formatTagLabel } from '@/lib/cafeTags';
 import {
   fetchTrendingGlobal,
   rankCafesForTrending,
@@ -125,7 +126,7 @@ function HomeCafeCard({
         <View style={styles.featuredTagsRow}>
           {topTags.map((tag) => (
             <View key={tag} style={styles.featuredTag}>
-              <Text style={styles.featuredTagText}>{tag}</Text>
+              <Text style={styles.featuredTagText}>{formatTagLabel(tag)}</Text>
             </View>
           ))}
         </View>

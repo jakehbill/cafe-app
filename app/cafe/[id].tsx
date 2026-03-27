@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Cafe } from '../../data/cafes';
 import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
+import { formatTagLabel } from '@/lib/cafeTags';
 
 const COLORS = {
   background: '#F7F3EE',
@@ -50,7 +51,7 @@ function ScorePill({
 function Tag({ label }: { label: string }) {
   return (
     <View style={styles.tag}>
-      <Text style={styles.tagText}>{label}</Text>
+      <Text style={styles.tagText}>{formatTagLabel(label)}</Text>
     </View>
   );
 }

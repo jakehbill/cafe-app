@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
 import { CoffeeCupRating } from '@/components/CoffeeCupRating';
+import { formatTagLabel } from '@/lib/cafeTags';
 import { getTopCafeTags } from '@/lib/supabase';
 
 import { COLORS } from '@/components/theme';
@@ -98,7 +99,7 @@ export function CompactCafeCard({
           <View style={styles.tagsRow}>
             {tagSlice.map((tag) => (
               <View key={tag} style={styles.tagChip}>
-                <Text style={styles.tagChipText}>{tag}</Text>
+                <Text style={styles.tagChipText}>{formatTagLabel(tag)}</Text>
               </View>
             ))}
           </View>
