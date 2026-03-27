@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import type { Cafe } from '../../data/cafes';
+import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
@@ -21,7 +22,7 @@ import {
 } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
-import { supabase } from '@/lib/supabase';
+import { getTopCafeTags, supabase } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -71,6 +72,18 @@ function HomeCafeCard({
         work: cafe.workScore,
         vibe: cafe.vibeScore,
       };
+  const [topTags, setTopTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const fetched = await getTopCafeTags(cafe.id, MAX_VISIBLE_TAGS);
+      if (!cancelled) setTopTags(fetched);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cafe.id]);
 
   return (
     <TouchableOpacity activeOpacity={0.92} style={styles.featuredCard} onPress={onPress}>
@@ -105,21 +118,12 @@ function HomeCafeCard({
 
         <View style={styles.equalScoresRow}>
           <View style={styles.equalScoreBlock}>
-            <Text style={styles.equalScoreLabel}>Coffee</Text>
-            <Text style={styles.equalScoreValue}>{displayScores.coffee.toFixed(1)}</Text>
-          </View>
-          <View style={styles.equalScoreBlock}>
-            <Text style={styles.equalScoreLabel}>Work</Text>
-            <Text style={styles.equalScoreValue}>{displayScores.work.toFixed(1)}</Text>
-          </View>
-          <View style={styles.equalScoreBlock}>
-            <Text style={styles.equalScoreLabel}>Vibe</Text>
-            <Text style={styles.equalScoreValue}>{displayScores.vibe.toFixed(1)}</Text>
+            <CoffeeCupRating value={displayScores.coffee} size={16} />
           </View>
         </View>
 
         <View style={styles.featuredTagsRow}>
-          {getVisibleTags(cafe.tags).map((tag) => (
+          {topTags.map((tag) => (
             <View key={tag} style={styles.featuredTag}>
               <Text style={styles.featuredTagText}>{tag}</Text>
             </View>

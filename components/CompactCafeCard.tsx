@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
+import { CoffeeCupRating } from '@/components/CoffeeCupRating';
+import { getTopCafeTags } from '@/lib/supabase';
 
 import { COLORS } from '@/components/theme';
 
@@ -32,10 +34,29 @@ export function CompactCafeCard({
   recommendationReason,
 }: CompactCafeCardProps) {
   const coffee = scores?.coffee ?? cafe.coffeeScore;
-  const work = scores?.work ?? cafe.workScore;
-  const vibe = scores?.vibe ?? cafe.vibeScore;
-  const showTags = tags && tags.length > 0;
-  const tagSlice = showTags ? tags!.slice(0, maxTags) : [];
+  const [topTags, setTopTags] = useState<string[]>([]);
+  const tagSlice = useMemo(() => {
+    if (tags && tags.length > 0) return tags.slice(0, maxTags);
+    return topTags.slice(0, maxTags);
+  }, [tags, topTags, maxTags]);
+  const showTags = tagSlice.length > 0;
+
+  useEffect(() => {
+    let cancelled = false;
+    if (tags && tags.length > 0) {
+      setTopTags([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+    void (async () => {
+      const fetched = await getTopCafeTags(cafe.id, maxTags);
+      if (!cancelled) setTopTags(fetched);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cafe.id, maxTags, tags]);
 
   return (
     <Pressable
@@ -70,16 +91,9 @@ export function CompactCafeCard({
         <Text style={styles.location} numberOfLines={1}>
           {cafe.neighborhood}
         </Text>
-        <Text style={styles.scoresLine}>
-          <Text style={styles.scoreWord}>Coffee </Text>
-          <Text style={styles.scoreNum}>{coffee.toFixed(1)}</Text>
-          <Text style={styles.scorePipe}> | </Text>
-          <Text style={styles.scoreWord}>Work </Text>
-          <Text style={styles.scoreNum}>{work.toFixed(1)}</Text>
-          <Text style={styles.scorePipe}> | </Text>
-          <Text style={styles.scoreWord}>Vibe </Text>
-          <Text style={styles.scoreNum}>{vibe.toFixed(1)}</Text>
-        </Text>
+        <View style={styles.scoresLine}>
+          <CoffeeCupRating value={coffee} size={14} />
+        </View>
         {showTags ? (
           <View style={styles.tagsRow}>
             {tagSlice.map((tag) => (
@@ -162,21 +176,14 @@ const styles = StyleSheet.create({
   },
   scoresLine: {
     marginTop: 2,
-    fontSize: 13,
-    lineHeight: 18,
-    flexWrap: 'wrap',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   scoreWord: {
     color: COLORS.muted,
     fontWeight: '600',
-  },
-  scoreNum: {
-    color: COLORS.roastedBrown,
-    fontWeight: '700',
-  },
-  scorePipe: {
-    color: '#C9BEAF',
-    fontWeight: '500',
+    fontSize: 12,
   },
   tagsRow: {
     flexDirection: 'row',

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Cafe } from '../../data/cafes';
+import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 
 const COLORS = {
@@ -35,13 +36,13 @@ function ScorePill({
   label,
   value,
 }: {
-  label: string;
-  value: string;
+  label?: string;
+  value: number;
 }) {
   return (
     <View style={styles.scorePill}>
-      <Text style={styles.scoreLabel}>{label}</Text>
-      <Text style={styles.scoreValue}>{value}</Text>
+      {label ? <Text style={styles.scoreLabel}>{label}</Text> : null}
+      <CoffeeCupRating value={value} size={20} />
     </View>
   );
 }
@@ -262,25 +263,22 @@ export default function CafeDetailScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Scores</Text>
+          <Text style={styles.sectionTitle}>Rating</Text>
           <View style={styles.scoresGrid}>
-            <ScorePill label="Coffee" value={ratingSource.coffee.toFixed(1)} />
-            <ScorePill label="Work" value={ratingSource.work.toFixed(1)} />
-            <ScorePill label="Vibe" value={ratingSource.vibe.toFixed(1)} />
+            <ScorePill value={ratingSource.coffee} />
           </View>
           {avgScores ? (
             <View style={styles.avgWrap}>
               <Text style={styles.avgLabel}>Average from ratings</Text>
-              <Text style={styles.avgLine}>
-                Coffee: {avgScores.coffee.toFixed(1)} · Work: {avgScores.work.toFixed(1)} · Vibe:{' '}
-                {avgScores.vibe.toFixed(1)}
-              </Text>
+              <View style={styles.avgLine}>
+                <CoffeeCupRating value={avgScores.coffee} size={16} />
+              </View>
             </View>
           ) : null}
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Vibe</Text>
+          <Text style={styles.sectionTitle}>Tags</Text>
           <View style={styles.tagsRow}>
             {displayTags.map((t) => (
               <Tag key={t} label={t} />
@@ -474,10 +472,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   avgLine: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: COLORS.text,
-    fontWeight: '600',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
 
   tagsRow: {

@@ -42,6 +42,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 
 export type SupabaseActionResult = { ok: true } | { ok: false; error: string };
 
+const topTagsCache = new Map<string, string[]>();
+
 /**
  * Save a cafe for the current user (writes 1 row to `saves`).
  * Returns a simple success/failure result so UI can react.
@@ -263,5 +265,52 @@ export async function getUserRating(cafeId: number | string): Promise<number | n
   const v = typeof row.vibe === 'number' ? row.vibe : 0;
   if (c === 0 && w === 0 && v === 0) return null;
   return (c + w + v) / 3;
+}
+
+/**
+ * Returns top tags for one cafe, aggregated from `rating_tags` joined through `ratings`.
+ */
+export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[]> {
+  const cached = topTagsCache.get(cafeId);
+  if (cached) return cached.slice(0, limit);
+
+  const numericCafeId = Number.parseInt(cafeId, 10);
+  if (!Number.isFinite(numericCafeId)) return [];
+
+  const ratingsRes = await supabase
+    .from('ratings')
+    .select('id')
+    .eq('cafe_id', numericCafeId);
+  if (ratingsRes.error) {
+    console.error('getTopCafeTags: ratings fetch failed:', ratingsRes.error);
+    return [];
+  }
+
+  const ratingIds = (ratingsRes.data ?? []).map((row) => row.id).filter((id): id is number => typeof id === 'number');
+  if (ratingIds.length === 0) return [];
+
+  const tagsRes = await supabase
+    .from('rating_tags')
+    .select('tag,rating_id')
+    .in('rating_id', ratingIds);
+  if (tagsRes.error) {
+    console.error('getTopCafeTags: rating_tags fetch failed:', tagsRes.error);
+    return [];
+  }
+
+  const counts = new Map<string, number>();
+  for (const row of tagsRes.data ?? []) {
+    const tag = typeof row.tag === 'string' ? row.tag.trim() : '';
+    if (!tag) continue;
+    counts.set(tag, (counts.get(tag) ?? 0) + 1);
+  }
+
+  const top = [...counts.entries()]
+    .sort((a, b) => (b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])))
+    .slice(0, limit)
+    .map(([tag]) => tag);
+
+  topTagsCache.set(cafeId, top);
+  return top;
 }
 

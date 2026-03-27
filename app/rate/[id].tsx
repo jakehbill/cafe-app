@@ -3,7 +3,6 @@ import React, { useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS } from '@/components/theme';
+import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
@@ -57,31 +57,7 @@ function RatingRow({
   return (
     <View style={styles.ratingRow}>
       <Text style={styles.ratingRowLabel}>{label}</Text>
-      <View style={styles.ratingOptions}>
-        {[1, 2, 3, 4, 5].map((rating) => {
-          const selected = value === rating;
-          return (
-            <Pressable
-              key={rating}
-              style={({ pressed }) => [
-                styles.ratingOption,
-                selected && styles.ratingOptionSelected,
-                pressed && styles.ratingOptionPressed,
-              ]}
-              onPress={() => onSelect(rating)}
-            >
-              <Text
-                style={[
-                  styles.ratingOptionText,
-                  selected && styles.ratingOptionTextSelected,
-                ]}
-              >
-                {rating}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <CoffeeCupRating value={value} onChange={onSelect} size={24} />
     </View>
   );
 }
@@ -279,10 +255,10 @@ export default function RateCafeScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Coffee rating</Text>
+          <Text style={styles.sectionTitle}>Rating</Text>
           <View style={styles.ratingRowsWrap}>
             <RatingRow
-              label="How was the coffee?"
+              label="How was it?"
               value={coffeeScore}
               onSelect={(value) => {
                 // Keep backend payload shape unchanged for now.
