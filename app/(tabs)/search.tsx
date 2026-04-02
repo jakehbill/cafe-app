@@ -21,6 +21,7 @@ import { getRecommendationReason } from '@/lib/recommendationReason';
 
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { FilterChip } from '@/components/FilterChip';
+import { getSearchFilterIcon } from '@/lib/tagIcons';
 import SearchResultsMap from '@/components/maps/SearchResultsMap';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
@@ -150,6 +151,7 @@ export default function SearchScreen() {
             <FilterChip
               key={chip.id}
               label={chip.label}
+              icon={getSearchFilterIcon(chip.id) ?? undefined}
               selected={selectedChip === chip.id}
               onPress={() =>
                 setSelectedChip((prev) => (prev === chip.id ? null : chip.id))

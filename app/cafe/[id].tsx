@@ -1,5 +1,6 @@
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { COLORS, FONTS } from '@/components/theme';
+import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getCafeCommunityTagInsight, getTopCafeTags, type CafeCommunityTagInsight } from '@/lib/supabase';
@@ -62,15 +63,6 @@ function ImageHeroBottomFade({ cafeId, width, height }: { cafeId: string; width:
       <Rect x={0} y={0} width={width} height={height} fill={`url(#${gid})`} />
     </Svg>
   );
-}
-
-function tagLeadingIcon(tag: string): keyof typeof Ionicons.glyphMap {
-  const t = tag.toLowerCase();
-  if (t.includes('quiet')) return 'volume-mute-outline';
-  if (t.includes('quick') || t.includes('fast')) return 'flash-outline';
-  if (t.includes('specialty') || t.includes('roast')) return 'cafe-outline';
-  if (t.includes('outdoor') || t.includes('patio')) return 'sunny-outline';
-  return 'pricetag-outline';
 }
 
 function formatIdentityAddress(cafe: Cafe): string {
@@ -369,8 +361,13 @@ export default function CafeDetailScreen() {
             <View style={styles.featuresGrid}>
               {featureTags.map((tag) => (
                 <View key={tag} style={styles.featureTag}>
-                  <Ionicons name={tagLeadingIcon(tag)} size={17} color={COLORS.roastedBrown} />
-                  <Text style={styles.featureTagLabel}>{formatTagLabel(tag)}</Text>
+                  <TagWithOptionalIcon
+                    tag={tag}
+                    iconSize={16}
+                    color={COLORS.roastedBrown}
+                    textStyle={styles.featureTagLabel}
+                    gap={6}
+                  />
                 </View>
               ))}
             </View>
@@ -542,9 +539,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   featureTag: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    justifyContent: 'center',
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 999,

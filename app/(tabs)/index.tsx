@@ -21,7 +21,7 @@ import { BrandTopBar } from '@/components/BrandTopBar';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
-import { formatTagLabel } from '@/lib/cafeTags';
+import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
@@ -31,15 +31,6 @@ const MAX_VISIBLE_TAGS = 3;
 
 function heroGradientId(cafeId: string): string {
   return `homeHero_${cafeId.replace(/[^a-zA-Z0-9_]/g, '_')}`;
-}
-
-function tagLeadingIcon(tag: string): keyof typeof Ionicons.glyphMap {
-  const t = tag.toLowerCase();
-  if (t.includes('quiet')) return 'volume-mute-outline';
-  if (t.includes('quick') || t.includes('fast')) return 'flash-outline';
-  if (t.includes('specialty') || t.includes('roast')) return 'cafe-outline';
-  if (t.includes('outdoor') || t.includes('patio')) return 'sunny-outline';
-  return 'pricetag-outline';
 }
 
 /** Top band only: dark at the hero top edge, fading out so mid-image stays clean. */
@@ -219,8 +210,13 @@ function HomeCafeCard({
           <View style={styles.tagsWithIcons}>
             {topTags.map((tag) => (
               <View key={tag} style={styles.tagWithIcon}>
-                <Ionicons name={tagLeadingIcon(tag)} size={14} color={COLORS.roastedBrown} />
-                <Text style={styles.tagWithIconLabel}>{formatTagLabel(tag)}</Text>
+                <TagWithOptionalIcon
+                  tag={tag}
+                  iconSize={14}
+                  color={COLORS.roastedBrown}
+                  textStyle={styles.tagWithIconLabel}
+                  gap={5}
+                />
               </View>
             ))}
           </View>

@@ -17,7 +17,8 @@ import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
-import { ALL_RATING_TAGS, TAG_SECTIONS, formatTagLabel } from '@/lib/cafeTags';
+import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
 import { getUserCoffeeRating, rateCafe } from '@/lib/supabase';
 
 function rateDebug(label: string, payload: Record<string, unknown>) {
@@ -247,14 +248,16 @@ export default function RateCafeScreen() {
                     ]}
                     onPress={() => toggleTag(tag)}
                   >
-                    <Text
-                      style={[
+                    <TagWithOptionalIcon
+                      tag={tag}
+                      iconSize={14}
+                      color={selectedTags.includes(tag) ? COLORS.accent : COLORS.text}
+                      textStyle={[
                         styles.tagChipText,
                         selectedTags.includes(tag) && styles.tagChipTextSelected,
                       ]}
-                    >
-                      {formatTagLabel(tag)}
-                    </Text>
+                      gap={5}
+                    />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -452,6 +455,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.inputBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tagChipSelected: {
     backgroundColor: COLORS.accentSubtleFill,

@@ -4,7 +4,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
-import { formatTagLabel } from '@/lib/cafeTags';
+import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { getTopCafeTags } from '@/lib/supabase';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -113,9 +113,13 @@ export function CompactCafeCard({
             <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
               {tagSlice.map((tag) => (
                 <View key={tag} style={[styles.tagChip, tagsSubtle && styles.tagChipSubtle]}>
-                  <Text style={[styles.tagChipText, tagsSubtle && styles.tagChipTextSubtle]}>
-                    {formatTagLabel(tag)}
-                  </Text>
+                  <TagWithOptionalIcon
+                    tag={tag}
+                    iconSize={tagsSubtle ? 11 : 12}
+                    color={COLORS.muted}
+                    textStyle={[styles.tagChipText, tagsSubtle && styles.tagChipTextSubtle]}
+                    gap={4}
+                  />
                 </View>
               ))}
             </View>
@@ -240,6 +244,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.tagBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   tagChipSubtle: {
     paddingHorizontal: 7,
