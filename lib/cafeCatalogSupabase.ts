@@ -147,6 +147,43 @@ function mergePublicIntoCafe(cafe: Cafe, row: CafePublicScoreRow | null): Cafe {
   };
 }
 
+/**
+ * `cafe_public_scores.cafe_id` may align with `cafes.cafe_id` while `mapCafeRowToCafe` uses `id ?? cafe_id`
+ * (PK wins). Bulk merge used to only `pubMap.get(base.id)`, missing rows keyed by the other column — detail
+ * could still match via a direct `eq('cafe_id', …)` query. Try all stable id variants from the cafe row.
+ */
+function resolvePublicScoreRowFromMap(
+  base: Cafe,
+  raw: Record<string, unknown>,
+  pubMap: Map<string, CafePublicScoreRow>
+): CafePublicScoreRow | null {
+  const keys: string[] = [];
+  const push = (v: unknown) => {
+    if (v == null) return;
+    const s = String(v).trim();
+    if (s.length === 0) return;
+    if (!keys.includes(s)) keys.push(s);
+  };
+  push(base.id);
+  push(raw.cafe_id);
+  push(raw.id);
+  for (const k of keys) {
+    const hit = pubMap.get(k);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+async function fetchPublicScoreRowForCafeBase(base: Cafe, raw: Record<string, unknown>): Promise<CafePublicScoreRow | null> {
+  let pub = await fetchCafePublicScoreForId(base.id);
+  if (pub != null) return pub;
+  const alt = raw.cafe_id != null ? String(raw.cafe_id).trim() : '';
+  if (alt.length > 0 && alt !== base.id) {
+    pub = await fetchCafePublicScoreForId(alt);
+  }
+  return pub;
+}
+
 /** Full map of `cafe_id` → public coffee stats (from `public.cafe_public_scores`). */
 export async function fetchCafePublicScoresMap(): Promise<Map<string, CafePublicScoreRow>> {
   const res = await supabase.from('cafe_public_scores').select('cafe_id, public_coffee_score, coffee_rating_count');
@@ -223,10 +260,12 @@ export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
     return [];
   }
   const out: Cafe[] = [];
-  for (const r of res.data ?? []) {
-    const base = mapCafeRowToCafe(r as Record<string, unknown>);
+  const rawRows = res.data ?? [];
+  for (const r of rawRows) {
+    const row = r as Record<string, unknown>;
+    const base = mapCafeRowToCafe(row);
     if (!base) continue;
-    out.push(mergePublicIntoCafe(base, pubMap.get(base.id) ?? null));
+    out.push(mergePublicIntoCafe(base, resolvePublicScoreRowFromMap(base, row, pubMap)));
   }
   if (rawCount > 0 && out.length === 0) {
     debugCatalog('fetchAllCafesFromSupabase: rows dropped by mapper', {
@@ -268,9 +307,10 @@ export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null
     return null;
   }
   if (res.data) {
-    const base = mapCafeRowToCafe(res.data as Record<string, unknown>);
+    const raw = res.data as Record<string, unknown>;
+    const base = mapCafeRowToCafe(raw);
     if (!base) return null;
-    const pub = await fetchCafePublicScoreForId(base.id);
+    const pub = await fetchPublicScoreRowForCafeBase(base, raw);
     return mergePublicIntoCafe(base, pub);
   }
 
@@ -286,9 +326,10 @@ export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null
     return null;
   }
   if (!resByCafeId.data) return null;
-  const base = mapCafeRowToCafe(resByCafeId.data as Record<string, unknown>);
+  const raw2 = resByCafeId.data as Record<string, unknown>;
+  const base = mapCafeRowToCafe(raw2);
   if (!base) return null;
-  const pub = await fetchCafePublicScoreForId(base.id);
+  const pub = await fetchPublicScoreRowForCafeBase(base, raw2);
   return mergePublicIntoCafe(base, pub);
 }
 
@@ -338,9 +379,10 @@ export async function fetchCafesByIdsOrdered(ids: string[]): Promise<Cafe[]> {
 
   const byId = new Map<string, Cafe>();
   for (const r of rows) {
-    const base = mapCafeRowToCafe(r as Record<string, unknown>);
+    const row = r as Record<string, unknown>;
+    const base = mapCafeRowToCafe(row);
     if (!base) continue;
-    byId.set(base.id, mergePublicIntoCafe(base, pubMap.get(base.id) ?? null));
+    byId.set(base.id, mergePublicIntoCafe(base, resolvePublicScoreRowFromMap(base, row, pubMap)));
   }
   return ids.map((id) => byId.get(id)).filter((c): c is Cafe => c != null);
 }
