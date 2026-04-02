@@ -156,8 +156,7 @@ export async function rateCafe(
   const upsertRes = await supabase
     .from('ratings')
     .upsert(ratingPayload, { onConflict: 'user_id,cafe_id' })
-    .select('id, user_id, cafe_id, coffee_rating')
-    .single();
+    .select('id');
 
   if (upsertRes.error) {
     const err = upsertRes.error;
@@ -171,13 +170,29 @@ export async function rateCafe(
     return { ok: false, error: err.message };
   }
 
-  const savedRating = upsertRes.data;
-  logStep('step 2: saved rating row', { savedRating });
+  const rows = upsertRes.data;
+  let ratingId: number | string | undefined = rows?.[0]?.id;
 
-  const ratingId = savedRating?.id;
-  if (typeof ratingId !== 'number') {
-    const message = 'Ratings upsert did not return a valid numeric rating id.';
-    logStep('step 2 failed: missing rating id', { savedRating });
+  if (ratingId == null) {
+    const fetchRes = await supabase
+      .from('ratings')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('cafe_id', normalizedCafeId)
+      .maybeSingle();
+    ratingId = fetchRes.data?.id;
+    if (fetchRes.error) {
+      logStep('step 2 fallback select failed', { message: fetchRes.error.message });
+      console.error('rateCafe: fallback select ratings id failed:', fetchRes.error);
+      return { ok: false, error: fetchRes.error.message };
+    }
+  }
+
+  logStep('step 2: resolved rating id', { ratingId });
+
+  if (ratingId == null) {
+    const message = 'Ratings upsert did not return a rating id.';
+    logStep('step 2 failed: missing rating id', {});
     console.error('rateCafe:', message);
     return { ok: false, error: message };
   }
@@ -226,7 +241,7 @@ export async function rateCafe(
 }
 
 /**
- * Coffee-only helper for rate-screen prefill from `user_cafe_ratings` (no work/vibe blend).
+ * Coffee-only helper for rate-screen prefill from `user_cafe_ratings`.
  */
 export async function getUserCoffeeRating(cafeId: number | string): Promise<number | null> {
   const { data, error: authError } = await supabase.auth.getUser();

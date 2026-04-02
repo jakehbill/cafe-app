@@ -12,7 +12,7 @@ import { supabase } from '@/lib/supabase';
 
 import { useAuth } from './AuthContext';
 
-/** Per-user row in `user_cafe_ratings` — coffee-only in app logic; DB may still store legacy columns (written as 0). */
+/** Per-user row in `user_cafe_ratings` — coffee, tags, and notes only (matches live columns). */
 export type CafeRating = {
   coffee: number;
   tags: string[];
@@ -235,10 +235,8 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.from('user_cafe_ratings').upsert(
         {
           user_id: userId,
-          cafe_id: id,
+          cafe_id: String(id),
           coffee: ratingData.coffee,
-          work: 0,
-          vibe: 0,
           tags: ratingData.tags,
           notes: ratingData.notes,
         },

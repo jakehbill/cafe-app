@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Image,
@@ -84,8 +84,17 @@ export default function RateCafeScreen() {
 
   const existingRating = getCafeRating(targetCafeId);
 
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      router.replace('/');
+    }
+  }, [navigation, router]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
+      headerShown: false,
       title: cafe?.name ? `Rate · ${cafe.name}` : 'Rate Cafe',
     });
   }, [cafe?.name, navigation]);
@@ -218,7 +227,19 @@ export default function RateCafeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <View style={styles.heroBackRow}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          onPress={handleBack}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.heroBackHit}
+        >
+          <Ionicons name="chevron-back" size={24} color={COLORS.text} />
+        </TouchableOpacity>
+      </View>
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
@@ -338,6 +359,18 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scroll: {
+    flex: 1,
+  },
+  heroBackRow: {
+    alignSelf: 'stretch',
+    marginBottom: 10,
+    paddingHorizontal: 20,
+  },
+  heroBackHit: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
   },
   content: {
     paddingHorizontal: 20,
