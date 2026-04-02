@@ -1,11 +1,14 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -32,9 +35,24 @@ type RatedItem = {
 
 export default function MyRatingsScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const [items, setItems] = useState<RatedItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      router.replace('/profile');
+    }
+  }, [navigation, router]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
 
   const loadRatings = useCallback(async () => {
     if (!user?.id) {
@@ -82,23 +100,51 @@ export default function MyRatingsScreen() {
     }, [loadRatings])
   );
 
+  const backRow = (
+    <View style={styles.backRow}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        onPress={handleBack}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={styles.backHit}
+      >
+        <Ionicons name="chevron-back" size={24} color={COLORS.text} />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.muted} />
-        </View>
+        <>
+          <View style={styles.headerBlock}>
+            {backRow}
+            <Text style={styles.screenTitle}>Ratings</Text>
+          </View>
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={COLORS.muted} />
+          </View>
+        </>
       ) : items.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>No ratings yet</Text>
-          <Text style={styles.emptySubtitle}>Rate cafes to keep track of your experience</Text>
-        </View>
+        <>
+          <View style={styles.headerBlock}>
+            {backRow}
+            <Text style={styles.screenTitle}>Ratings</Text>
+          </View>
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>No ratings yet</Text>
+            <Text style={styles.emptySubtitle}>Rate cafes to keep track of your experience</Text>
+          </View>
+        </>
       ) : (
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {backRow}
+          <Text style={styles.screenTitle}>Ratings</Text>
           {items.map(({ cafe, rating }) => (
             <CompactCafeCard
               key={rating.cafe_id}
@@ -124,9 +170,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  headerBlock: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+  },
+  backRow: {
+    alignSelf: 'stretch',
+    marginBottom: 4,
+  },
+  backHit: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontFamily: FONTS.display.bold,
+    color: COLORS.text,
+    letterSpacing: -0.4,
+    marginBottom: 2,
+  },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 32,
     gap: 10,
   },
