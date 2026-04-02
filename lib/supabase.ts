@@ -260,6 +260,7 @@ export async function getUserCoffeeRating(cafeId: number | string): Promise<numb
 
 /**
  * Returns top tags for one cafe, aggregated from `rating_tags` joined through `ratings`.
+ * Caches the full popularity-ordered list so different callers can request up to N tags.
  */
 export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[]> {
   const cached = topTagsCache.get(cafeId);
@@ -296,12 +297,73 @@ export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[
     counts.set(tag, (counts.get(tag) ?? 0) + 1);
   }
 
-  const top = [...counts.entries()]
+  const sortedTags = [...counts.entries()]
     .sort((a, b) => (b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])))
-    .slice(0, limit)
     .map(([tag]) => tag);
 
-  topTagsCache.set(cafeId, top);
-  return top;
+  topTagsCache.set(cafeId, sortedTags);
+  return sortedTags.slice(0, limit);
+}
+
+/** Community line: share of ratings that included the most-picked tag (real data from `rating_tags`). */
+export type CafeCommunityTagInsight = {
+  totalRatings: number;
+  /** % of ratings that include at least one pick of this tag */
+  percent: number;
+  tag: string;
+};
+
+/**
+ * Best tag for “X% of people rate this for Y” — uses the most common tag among
+ * `rating_tags` rows for this cafe’s ratings; % = ratings that include that tag / total ratings.
+ */
+export async function getCafeCommunityTagInsight(cafeId: string): Promise<CafeCommunityTagInsight | null> {
+  const numericCafeId = Number.parseInt(cafeId, 10);
+  if (!Number.isFinite(numericCafeId)) return null;
+
+  const ratingsRes = await supabase
+    .from('ratings')
+    .select('id')
+    .eq('cafe_id', numericCafeId);
+  if (ratingsRes.error) {
+    console.error('getCafeCommunityTagInsight: ratings fetch failed:', ratingsRes.error);
+    return null;
+  }
+
+  const ratingIds = (ratingsRes.data ?? []).map((row) => row.id).filter((id): id is number => typeof id === 'number');
+  const totalRatings = ratingIds.length;
+  if (totalRatings === 0) return null;
+
+  const tagsRes = await supabase
+    .from('rating_tags')
+    .select('tag,rating_id')
+    .in('rating_id', ratingIds);
+  if (tagsRes.error) {
+    console.error('getCafeCommunityTagInsight: rating_tags fetch failed:', tagsRes.error);
+    return null;
+  }
+
+  const tagToRatings = new Map<string, Set<number>>();
+  for (const row of tagsRes.data ?? []) {
+    const rid = typeof row.rating_id === 'number' ? row.rating_id : null;
+    const tag = typeof row.tag === 'string' ? row.tag.trim() : '';
+    if (rid == null || !tag) continue;
+    if (!tagToRatings.has(tag)) tagToRatings.set(tag, new Set());
+    tagToRatings.get(tag)!.add(rid);
+  }
+
+  let bestTag = '';
+  let bestCount = 0;
+  for (const [tag, set] of tagToRatings) {
+    if (set.size > bestCount) {
+      bestCount = set.size;
+      bestTag = tag;
+    }
+  }
+
+  if (!bestTag || bestCount === 0) return null;
+
+  const percent = Math.min(100, Math.max(0, Math.round((bestCount / totalRatings) * 100)));
+  return { totalRatings, percent, tag: bestTag };
 }
 

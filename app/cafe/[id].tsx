@@ -1,20 +1,19 @@
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
-import { COLORS, FONTS, SHADOWS } from '@/components/theme';
-import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { COLORS, FONTS } from '@/components/theme';
 import { formatTagLabel } from '@/lib/cafeTags';
-import { buildTasteProfileFromState } from '@/lib/cafeRanking';
-import { getRecommendationReason } from '@/lib/recommendationReason';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { getCafeCommunityTagInsight, getTopCafeTags, type CafeCommunityTagInsight } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
   Linking,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -25,7 +24,7 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'reac
 import type { Cafe } from '../../data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 
-const MAX_VISIBLE_TAGS = 3;
+const FEATURE_TAG_COUNT = 6;
 
 function heroGradientId(cafeId: string): string {
   return `detailHero_${cafeId.replace(/[^a-zA-Z0-9_]/g, '_')}`;
@@ -74,36 +73,28 @@ function tagLeadingIcon(tag: string): keyof typeof Ionicons.glyphMap {
   return 'pricetag-outline';
 }
 
+function formatIdentityAddress(cafe: Cafe): string {
+  const line = (cafe.addressLine ?? '').trim();
+  if (line.length > 0) return line;
+  return `${cafe.neighborhood}\nOpen in Google Maps for the exact pin`;
+}
+
 function ActionButton({
   label,
-  variant = 'primary',
   accentActive = false,
   onPress,
 }: {
   label: string;
-  variant?: 'primary' | 'secondary';
   accentActive?: boolean;
   onPress?: () => void;
 }) {
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      style={[
-        styles.actionButton,
-        variant === 'secondary' && styles.actionButtonSecondary,
-        accentActive && styles.actionButtonAccent,
-      ]}
+      style={[styles.actionButton, accentActive && styles.actionButtonAccent]}
       onPress={onPress}
     >
-      <Text
-        style={[
-          styles.actionButtonText,
-          variant === 'secondary' && !accentActive && styles.actionButtonTextSecondary,
-          accentActive && styles.actionButtonTextAccent,
-        ]}
-      >
-        {label}
-      </Text>
+      <Text style={[styles.actionButtonText, accentActive && styles.actionButtonTextAccent]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -112,31 +103,13 @@ export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
   const navigation = useNavigation();
-  const {
-    toggleSaved,
-    toggleVisited,
-    isSaved,
-    isVisited,
-    getCafeRating,
-    ratingsByCafeId,
-    visitedCafeIds,
-    savedCafeIds,
-  } = useCafeState();
-  const { cafes: cafeCatalog } = useCafeCatalog();
+  const { toggleSaved, toggleVisited, isSaved, isVisited, getCafeRating } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [cafeLoading, setCafeLoading] = useState(true);
   const [heroGSize, setHeroGSize] = useState({ w: 0, h: 0 });
-
-  const tasteProfile = useMemo(
-    () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
-    [ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds]
-  );
-
-  const recommendationReason = useMemo(
-    () => (cafe ? getRecommendationReason(cafe, tasteProfile) : null),
-    [cafe, tasteProfile]
-  );
+  const [featureTags, setFeatureTags] = useState<string[]>([]);
+  const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
 
   useEffect(() => {
     if (!cafeId) {
@@ -157,6 +130,33 @@ export default function CafeDetailScreen() {
       cancelled = true;
     };
   }, [cafeId]);
+
+  useEffect(() => {
+    if (!cafe?.id) {
+      setFeatureTags([]);
+      setTagInsight(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const c = cafe;
+      if (!c) return;
+      const [popular, insight] = await Promise.all([
+        getTopCafeTags(c.id, FEATURE_TAG_COUNT),
+        getCafeCommunityTagInsight(c.id),
+      ]);
+      if (cancelled) return;
+      let tags = popular;
+      if (tags.length === 0 && c.tags.length > 0) {
+        tags = [...c.tags].slice(0, FEATURE_TAG_COUNT);
+      }
+      setFeatureTags(tags);
+      setTagInsight(insight);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cafe?.id]);
 
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -212,20 +212,13 @@ export default function CafeDetailScreen() {
   }
 
   const localRating = getCafeRating(cafe.id);
-  const ratingSource = localRating
-    ? {
-        coffee: localRating.coffee,
-        tags: localRating.tags,
-        notes: localRating.notes,
-      }
-    : {
-        coffee: cafe.publicCoffeeScore ?? 0,
-        tags: cafe.tags,
-        notes: '',
-      };
-  const displayTags = ratingSource.tags.slice(0, MAX_VISIBLE_TAGS);
+  const ratingNotes = localRating?.notes?.trim() ?? '';
   const mapsUrl = cafe.googleMapsUrl;
   const hasGoogleMapsUrl = typeof mapsUrl === 'string' && mapsUrl.trim().length > 0;
+
+  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
+  const identityScoreLine =
+    publicCoffeeLabel === '—' ? '— / 5' : `${publicCoffeeLabel} / 5`;
 
   async function handleOpenGoogleMaps() {
     if (!hasGoogleMapsUrl) {
@@ -258,6 +251,27 @@ export default function CafeDetailScreen() {
       console.log('[Save cafe] toggleSaved finished', { cafeId: cafe.id });
     }
   }
+
+  const onShare = async () => {
+    try {
+      await Share.share({
+        message: `${cafe.name} — ${cafe.neighborhood}`,
+        title: cafe.name,
+      });
+    } catch {
+      /* dismissed */
+    }
+  };
+
+  const insightBubbleText = (() => {
+    if (tagInsight) {
+      return `${tagInsight.percent}% of people rate this for ${formatTagLabel(tagInsight.tag)}`;
+    }
+    if (cafe.coffeeRatingCount > 0) {
+      return `Based on ${cafe.coffeeRatingCount} community coffee score${cafe.coffeeRatingCount === 1 ? '' : 's'} — tag picks will show here as more people rate.`;
+    }
+    return 'Community picks will appear here once more people rate and tag this cafe.';
+  })();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
@@ -298,86 +312,85 @@ export default function CafeDetailScreen() {
             <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.95)" />
           </TouchableOpacity>
 
-          {(isSaved(cafe.id) || localRating) && (
-            <View style={styles.heroStatusPills} pointerEvents="none">
-              {isSaved(cafe.id) ? (
-                <View style={styles.heroMiniPill}>
-                  <Text style={styles.heroMiniPillText}>Saved</Text>
-                </View>
-              ) : null}
-              {localRating ? (
-                <View style={styles.heroMiniPill}>
-                  <Text style={styles.heroMiniPillText}>Rated by you</Text>
-                </View>
-              ) : null}
-            </View>
-          )}
-
-          <View style={styles.heroTextBlock} pointerEvents="none">
-            <Text style={styles.heroTitle} numberOfLines={2}>
-              {cafe.name}
-            </Text>
-            <Text style={styles.heroLocation} numberOfLines={1}>
-              {cafe.neighborhood}
-            </Text>
+          <View style={styles.heroTopRight}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel={isSaved(cafe.id) ? 'Saved' : 'Save cafe'}
+              onPress={() => void handleSavePress()}
+              style={styles.heroIconFab}
+            >
+              <Ionicons
+                name={isSaved(cafe.id) ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color="rgba(255,255,255,0.95)"
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityLabel="Share this cafe"
+              onPress={() => void onShare()}
+              style={styles.heroIconFab}
+            >
+              <Ionicons name="share-outline" size={20} color="rgba(255,255,255,0.95)" />
+            </TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.featuredBody}>
-          <View style={styles.tagsScoreRow}>
-            <View style={styles.tagsWithIcons}>
-              {displayTags.map((tag) => (
-                <View key={tag} style={styles.tagWithIcon}>
-                  <Ionicons name={tagLeadingIcon(tag)} size={16} color={COLORS.roastedBrown} />
-                  <Text style={styles.tagWithIconLabel}>{formatTagLabel(tag)}</Text>
+        <View style={styles.mainPad}>
+          <View style={styles.identityRow}>
+            <View style={styles.identityTextBlock}>
+              <Text style={styles.identityName}>{cafe.name}</Text>
+              <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
+            </View>
+            <Text
+              style={styles.identityScore}
+              accessibilityLabel={
+                publicCoffeeLabel === '—' ? 'No public coffee score' : `Coffee ${publicCoffeeLabel} out of 5`
+              }
+            >
+              {identityScoreLine}
+            </Text>
+          </View>
+
+          {cafe.summary ? (
+            <Text style={styles.summaryText} numberOfLines={8}>
+              {cafe.summary}
+            </Text>
+          ) : null}
+
+          {ratingNotes.length > 0 ? (
+            <Text style={styles.notesText} numberOfLines={6}>
+              {ratingNotes}
+            </Text>
+          ) : null}
+
+          <Text style={styles.sectionHeading}>Features</Text>
+          {featureTags.length === 0 ? (
+            <Text style={styles.featuresEmpty}>No community tags yet — rate to add yours.</Text>
+          ) : (
+            <View style={styles.featuresGrid}>
+              {featureTags.map((tag) => (
+                <View key={tag} style={styles.featureTag}>
+                  <Ionicons name={tagLeadingIcon(tag)} size={17} color={COLORS.roastedBrown} />
+                  <Text style={styles.featureTagLabel}>{formatTagLabel(tag)}</Text>
                 </View>
               ))}
             </View>
-            <View style={styles.publicScoreWrap}>
-              <PublicCoffeeScoreText cafe={cafe} />
-            </View>
+          )}
+
+          <View style={styles.insightBubble}>
+            <Text style={styles.insightBubbleText}>{insightBubbleText}</Text>
           </View>
 
-          <Text numberOfLines={6} style={styles.featuredSummary}>
-            {cafe.summary}
-          </Text>
-
-          {recommendationReason ? (
-            <Text style={styles.insightLine} numberOfLines={3}>
-              {recommendationReason}
-            </Text>
-          ) : null}
-
-          {ratingSource.notes ? (
-            <Text numberOfLines={4} style={styles.notesText}>
-              {ratingSource.notes}
-            </Text>
-          ) : null}
-        </View>
-
-        <View style={styles.actionsWrap}>
-          <ActionButton
-            label={isSaved(cafe.id) ? 'Saved' : 'Save'}
-            variant="secondary"
-            accentActive={isSaved(cafe.id)}
-            onPress={() => void handleSavePress()}
-          />
-          <ActionButton
-            label={isVisited(cafe.id) ? 'Visited' : 'Mark Visited'}
-            variant="secondary"
-            accentActive={isVisited(cafe.id)}
-            onPress={() => toggleVisited(cafe.id)}
-          />
-          <ActionButton
-            label="Rate this Cafe"
-            variant="secondary"
-            onPress={() => router.push(`/rate/${cafe.id}`)}
-          />
-          <ActionButton
-            label="Open in Google Maps"
-            variant="secondary"
-            onPress={handleOpenGoogleMaps}
-          />
+          <View style={styles.actionsWrap}>
+            <ActionButton
+              label={isVisited(cafe.id) ? 'Visited' : 'Mark as visited'}
+              accentActive={isVisited(cafe.id)}
+              onPress={() => toggleVisited(cafe.id)}
+            />
+            <ActionButton label="Rate this cafe" onPress={() => router.push(`/rate/${cafe.id}`)} />
+            <ActionButton label="Open in Google Maps" onPress={handleOpenGoogleMaps} />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -438,113 +451,131 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.22)',
   },
-  heroStatusPills: {
+  heroTopRight: {
     position: 'absolute',
     top: 12,
     right: 12,
-    zIndex: 2,
+    zIndex: 4,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    maxWidth: '52%',
-    justifyContent: 'flex-end',
+    gap: 8,
   },
-  heroMiniPill: {
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.26)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.28)',
+  heroIconFab: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
-  heroMiniPillText: {
-    fontSize: 11,
-    fontFamily: FONTS.sans.semibold,
-    color: 'rgba(255,255,255,0.93)',
-    letterSpacing: -0.08,
+  mainPad: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    gap: 16,
   },
-  heroTextBlock: {
-    position: 'absolute',
-    left: 14,
-    right: 14,
-    bottom: 14,
-    zIndex: 2,
-    gap: 4,
-  },
-  heroTitle: {
-    fontSize: 26,
-    fontFamily: FONTS.display.semibold,
-    color: '#faf8f5',
-    lineHeight: 32,
-    letterSpacing: -0.4,
-    textShadowColor: 'rgba(0,0,0,0.35)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
-  },
-  heroLocation: {
-    fontSize: 14,
-    fontFamily: FONTS.sans.medium,
-    color: 'rgba(250,248,245,0.88)',
-    letterSpacing: -0.05,
-  },
-  featuredBody: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 4,
-    gap: 12,
-    backgroundColor: COLORS.background,
-  },
-  tagsScoreRow: {
+  identityRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 16,
   },
-  tagsWithIcons: {
+  identityTextBlock: {
     flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  tagWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    minWidth: 0,
     gap: 6,
   },
-  tagWithIconLabel: {
-    fontSize: 15,
-    fontFamily: FONTS.sans.semibold,
+  identityName: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontFamily: FONTS.display.bold,
     color: COLORS.text,
-    letterSpacing: -0.15,
+    letterSpacing: -0.5,
   },
-  publicScoreWrap: {
-    paddingTop: 2,
-    alignItems: 'flex-end',
-    justifyContent: 'flex-start',
-    minWidth: 56,
-  },
-  featuredSummary: {
+  identityAddress: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
-    fontSize: 14,
-    lineHeight: 21,
+    letterSpacing: -0.1,
+  },
+  identityScore: {
+    fontSize: 13,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    letterSpacing: 0.15,
+    marginTop: 4,
+    minWidth: 52,
+    textAlign: 'right',
+  },
+  summaryText: {
+    color: COLORS.muted,
+    fontSize: 15,
+    lineHeight: 23,
     fontFamily: FONTS.sans.regular,
     letterSpacing: -0.05,
   },
   notesText: {
     color: COLORS.muted,
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 21,
     fontFamily: FONTS.sans.regular,
     fontStyle: 'italic',
     letterSpacing: -0.05,
   },
-  insightLine: {
-    fontSize: 12,
-    lineHeight: 17,
+  sectionHeading: {
+    fontSize: 13,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginTop: 4,
+  },
+  featuresEmpty: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    letterSpacing: -0.05,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  featureTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: COLORS.chipBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+  },
+  featureTagLabel: {
+    fontSize: 15,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.2,
+  },
+  insightBubble: {
+    marginTop: 4,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: COLORS.cardBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+  },
+  insightBubbleText: {
+    fontSize: 14,
+    lineHeight: 21,
     fontFamily: FONTS.sans.regular,
     fontStyle: 'italic',
     color: COLORS.roastedBrown,
-    opacity: 0.92,
+    letterSpacing: -0.05,
   },
   heroBackRow: {
     alignSelf: 'stretch',
@@ -576,20 +607,15 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
   },
   actionsWrap: {
-    marginTop: 12,
-    paddingHorizontal: 20,
+    marginTop: 8,
     gap: 10,
   },
   actionButton: {
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    backgroundColor: COLORS.text,
-    borderWidth: 1,
-    borderColor: 'rgba(26, 26, 26, 0.2)',
-  },
-  actionButtonSecondary: {
+    borderRadius: 14,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
     backgroundColor: COLORS.inputBackground,
+    borderWidth: 1,
     borderColor: COLORS.cardBorder,
   },
   actionButtonAccent: {
@@ -597,13 +623,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accentSubtleBorder,
   },
   actionButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: COLORS.text,
+    fontSize: 15,
     fontFamily: FONTS.sans.semibold,
     textAlign: 'center',
-  },
-  actionButtonTextSecondary: {
-    color: COLORS.text,
+    letterSpacing: -0.2,
   },
   actionButtonTextAccent: {
     color: COLORS.accent,

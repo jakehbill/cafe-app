@@ -83,6 +83,9 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
   const { coffee, work, vibe } = scoreTriple(row);
   const imageRaw = row.image_url ?? row.photo_url ?? row.cover_image_url ?? row.image ?? row.thumbnail_url;
   const imageUrl = str(imageRaw).trim();
+  const addressRaw = str(
+    row.address ?? row.address_line ?? row.formatted_address ?? row.street_address ?? row.full_address ?? ''
+  ).trim();
 
   return {
     id,
@@ -101,6 +104,7 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
       row.google_maps_url ?? row.googleMapsUrl ?? row.google_maps_link ?? row.maps_url
     ),
     ...(imageUrl.length > 0 ? { imageUrl } : {}),
+    ...(addressRaw.length > 0 ? { addressLine: addressRaw } : {}),
     communityStats,
   };
 }
