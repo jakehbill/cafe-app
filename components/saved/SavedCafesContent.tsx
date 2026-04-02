@@ -40,7 +40,7 @@ type Props = {
  */
 export function SavedCafesContent({ showPageTitle = true }: Props) {
   const router = useRouter();
-  const { savedCafeIds, ratingsByCafeId } = useCafeState();
+  const { savedCafeIds } = useCafeState();
   const [savedCafes, setSavedCafes] = useState<Cafe[]>([]);
 
   useEffect(() => {
@@ -82,16 +82,10 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
       ) : (
         <View style={styles.listWrap}>
           {savedCafes.map((cafe) => {
-            const localRating = ratingsByCafeId[cafe.id];
-            const coffee = localRating ? localRating.coffee : cafe.coffeeScore;
-            const work = localRating ? localRating.work : cafe.workScore;
-            const vibe = localRating ? localRating.vibe : cafe.vibeScore;
-
             return (
               <CompactCafeCard
                 key={cafe.id}
                 cafe={cafe}
-                scores={{ coffee, work, vibe }}
                 onPress={() => router.push(`/cafe/${cafe.id}`)}
               />
             );

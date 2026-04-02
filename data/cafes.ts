@@ -8,9 +8,20 @@ export type Cafe = {
   neighborhood: string;
   latitude: number;
   longitude: number;
+  /**
+   * Legacy listing scores from `public.cafes` (used for internal ranking / personalization).
+   * Do not use for visible public coffee — use `publicCoffeeScore`.
+   */
   coffeeScore: number;
   workScore: number;
   vibeScore: number;
+  /**
+   * Canonical community coffee score from `public.cafe_public_scores` (aggregated `coffee_rating` only).
+   * `null` when the cafe has no qualifying rows in the view.
+   */
+  publicCoffeeScore: number | null;
+  /** Number of user ratings included in `publicCoffeeScore` (from the view). */
+  coffeeRatingCount: number;
   tags: string[];
   summary: string;
   googleMapsUrl: string;

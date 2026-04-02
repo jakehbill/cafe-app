@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
-import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { formatTagLabel } from '@/lib/cafeTags';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags } from '@/lib/supabase';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -14,11 +14,6 @@ export type CompactCafeCardProps = {
   onPress: () => void;
   /** 1-based rank label (e.g. favorite = 1). */
   rank?: number;
-  /**
-   * Optional score overrides (e.g. user rating from context).
-   * If omitted, uses `cafe.coffeeScore`, `cafe.workScore`, and `cafe.vibeScore`.
-   */
-  scores?: { coffee: number; work: number; vibe: number };
   /** Optional tags (e.g. from a saved rating); up to `maxTags` shown. */
   tags?: string[];
   maxTags?: number;
@@ -40,14 +35,13 @@ export function CompactCafeCard({
   cafe,
   onPress,
   rank,
-  scores,
   tags,
   maxTags = 3,
   recommendationReason,
   trailing,
   showTagsUI = true,
 }: CompactCafeCardProps) {
-  const coffee = scores?.coffee ?? cafe.coffeeScore;
+  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   /** Visited list (with trailing): when tags are shown, cap count and lighter styling. */
   const effectiveMaxTags = trailing != null ? Math.min(maxTags, 2) : maxTags;
   const [topTags, setTopTags] = useState<string[]>([]);
@@ -76,8 +70,6 @@ export function CompactCafeCard({
       cancelled = true;
     };
   }, [cafe.id, effectiveMaxTags, tags, showTagsUI]);
-
-  const coffeeSize = trailing != null ? 12 : 14;
 
   return (
     <View style={styles.card}>
@@ -114,7 +106,16 @@ export function CompactCafeCard({
             {cafe.neighborhood}
           </Text>
           <View style={styles.scoresLine}>
-            <CoffeeCupRating value={coffee} size={coffeeSize} />
+            <Text
+              style={styles.publicCoffeeText}
+              accessibilityLabel={
+                publicCoffeeLabel === '—'
+                  ? 'No public coffee score'
+                  : `Coffee score ${publicCoffeeLabel} out of 5`
+              }
+            >
+              {publicCoffeeLabel}
+            </Text>
           </View>
           {showTagRow ? (
             <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
@@ -219,6 +220,12 @@ const styles = StyleSheet.create({
     gap: 8,
     flexShrink: 1,
     minWidth: 0,
+  },
+  publicCoffeeText: {
+    fontSize: 13,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    letterSpacing: -0.2,
   },
   scoreWord: {
     color: COLORS.muted,

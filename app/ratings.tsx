@@ -149,11 +149,6 @@ export default function MyRatingsScreen() {
             <CompactCafeCard
               key={rating.cafe_id}
               cafe={cafe}
-              scores={{
-                coffee: rating.coffee,
-                work: rating.work,
-                vibe: rating.vibe,
-              }}
               tags={rating.tags ?? undefined}
               maxTags={3}
               onPress={() => router.push(`/cafe/${cafe.id}`)}

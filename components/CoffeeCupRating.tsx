@@ -1,14 +1,16 @@
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS } from '@/components/theme';
 
 type CoffeeCupRatingProps = {
   value: number;
   max?: number;
   onChange?: (next: number) => void;
   size?: number;
+  /** Read-only: show a small number next to the bar (default true). */
+  showNumeric?: boolean;
 };
 
 function normalizeToFive(raw: number): number {
@@ -17,11 +19,17 @@ function normalizeToFive(raw: number): number {
   return Math.min(5, Math.max(0, base));
 }
 
+function formatRatingLabel(n: number): string {
+  const r = Math.round(n * 10) / 10;
+  return r % 1 === 0 ? String(r) : r.toFixed(1);
+}
+
 export function CoffeeCupRating({
   value,
   max = 5,
   onChange,
   size = 18,
+  showNumeric = true,
 }: CoffeeCupRatingProps) {
   const normalized = normalizeToFive(value);
   const filled = Math.round(normalized);
@@ -30,6 +38,30 @@ export function CoffeeCupRating({
   /** Tighter wraps + gap for small sizes so a row of 5 fits on narrow screens. */
   const wrapSize = Math.min(34, Math.max(20, Math.round(size + 10)));
   const gapBetween = size <= 14 ? 2 : size <= 17 ? 4 : 6;
+
+  if (!interactive) {
+    const pct = max > 0 ? Math.min(100, (normalized / max) * 100) : 0;
+    const barHeight = Math.max(3, Math.round(size * 0.22));
+    const labelSize = Math.max(10, Math.min(13, Math.round(size * 0.72)));
+
+    return (
+      <View
+        style={[styles.row, styles.rowDisplay]}
+        accessibilityRole="progressbar"
+        accessibilityLabel={`Coffee rating ${formatRatingLabel(normalized)} out of ${max}`}
+        accessibilityValue={{ min: 0, max, now: normalized }}
+      >
+        <View style={[styles.barTrack, { height: barHeight }]}>
+          <View style={[styles.barFill, { width: `${pct}%` }]} />
+        </View>
+        {showNumeric ? (
+          <Text style={[styles.barNumeric, { fontSize: labelSize }]}>
+            {formatRatingLabel(normalized)}
+          </Text>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.row, interactive && styles.rowInteractive]}>
@@ -83,6 +115,34 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  rowDisplay: {
+    minWidth: 0,
+    width: '100%',
+    gap: 8,
+  },
+  barTrack: {
+    flex: 1,
+    minWidth: 48,
+    borderRadius: 999,
+    backgroundColor: COLORS.inputBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: COLORS.accent,
+    opacity: 0.88,
+  },
+  barNumeric: {
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    letterSpacing: -0.2,
+    minWidth: 22,
+    textAlign: 'right',
   },
   rowInteractive: {
     justifyContent: 'center',

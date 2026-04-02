@@ -14,7 +14,6 @@ import {
 
 import type { Cafe } from '../../data/cafes';
 import { BrandTopBar } from '@/components/BrandTopBar';
-import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
@@ -26,6 +25,7 @@ import {
 } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags, supabase } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
@@ -65,17 +65,7 @@ function HomeCafeCard({
   isSaved?: boolean;
   onPress: () => void;
 }) {
-  const displayScores = localRating
-    ? {
-        coffee: localRating.coffee,
-        work: localRating.work,
-        vibe: localRating.vibe,
-      }
-    : {
-        coffee: cafe.coffeeScore,
-        work: cafe.workScore,
-        vibe: cafe.vibeScore,
-      };
+  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   const [topTags, setTopTags] = useState<string[]>([]);
 
   useEffect(() => {
@@ -122,7 +112,16 @@ function HomeCafeCard({
 
         <View style={styles.equalScoresRow}>
           <View style={styles.equalScoreBlock}>
-            <CoffeeCupRating value={displayScores.coffee} size={16} />
+            <Text
+              style={styles.featuredPublicCoffee}
+              accessibilityLabel={
+                publicCoffeeLabel === '—'
+                  ? 'No public coffee score'
+                  : `Coffee score ${publicCoffeeLabel} out of 5`
+              }
+            >
+              {publicCoffeeLabel}
+            </Text>
           </View>
         </View>
 
@@ -431,7 +430,6 @@ export default function HomeScreen() {
         <View style={styles.topSection}>
           <BrandTopBar />
 
-          <View style={styles.homeSectionsInset}>
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
               <Text style={styles.homeSectionTitle}>Top picks for you</Text>
@@ -470,7 +468,6 @@ export default function HomeScreen() {
               />
             ))}
           </View>
-          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -483,17 +480,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   scrollContent: {
-    paddingLeft: 0,
-    paddingRight: 20,
+    paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 42,
   },
   topSection: {
     gap: 24,
-  },
-  /** Restores horizontal inset for body sections only; BrandTopBar can align nearer the left edge. */
-  homeSectionsInset: {
-    paddingLeft: 20,
   },
   homeSection: {
     gap: 18,
@@ -603,6 +595,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     gap: 2,
+  },
+  featuredPublicCoffee: {
+    fontSize: 13,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    letterSpacing: -0.2,
   },
   equalScoreLabel: {
     fontSize: 12,

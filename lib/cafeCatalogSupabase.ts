@@ -94,6 +94,8 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     coffeeScore: coffee,
     workScore: work,
     vibeScore: vibe,
+    publicCoffeeScore: null,
+    coffeeRatingCount: 0,
     tags: tagsFromRow(row),
     summary: str(row.summary ?? row.short_description ?? row.description),
     googleMapsUrl: str(
@@ -104,9 +106,100 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
   };
 }
 
+export type CafePublicScoreRow = {
+  publicCoffeeScore: number | null;
+  coffeeRatingCount: number;
+};
+
+function parsePublicScoreRow(row: unknown): CafePublicScoreRow | null {
+  if (row == null || typeof row !== 'object') return null;
+  const r = row as Record<string, unknown>;
+  const id = r.cafe_id;
+  if (id == null) return null;
+  const raw = r.public_coffee_score ?? r.publicCoffeeScore;
+  let publicCoffeeScore: number | null = null;
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    publicCoffeeScore = raw;
+  } else if (typeof raw === 'string' && raw.trim() !== '') {
+    const n = Number(raw);
+    if (Number.isFinite(n)) publicCoffeeScore = n;
+  }
+  const cntRaw = r.coffee_rating_count ?? r.coffeeRatingCount;
+  const coffeeRatingCount =
+    typeof cntRaw === 'number' && Number.isFinite(cntRaw) ? Math.max(0, Math.floor(cntRaw)) : 0;
+
+  return { publicCoffeeScore, coffeeRatingCount };
+}
+
+function mergePublicIntoCafe(cafe: Cafe, row: CafePublicScoreRow | null): Cafe {
+  if (row == null) {
+    return { ...cafe, publicCoffeeScore: null, coffeeRatingCount: 0 };
+  }
+  return {
+    ...cafe,
+    publicCoffeeScore: row.publicCoffeeScore,
+    coffeeRatingCount: row.coffeeRatingCount,
+  };
+}
+
+/** Full map of `cafe_id` → public coffee stats (from `public.cafe_public_scores`). */
+export async function fetchCafePublicScoresMap(): Promise<Map<string, CafePublicScoreRow>> {
+  const res = await supabase.from('cafe_public_scores').select('cafe_id, public_coffee_score, coffee_rating_count');
+  if (res.error) {
+    console.error('fetchCafePublicScoresMap failed:', res.error);
+    return new Map();
+  }
+  const map = new Map<string, CafePublicScoreRow>();
+  for (const row of res.data ?? []) {
+    const parsed = parsePublicScoreRow(row);
+    if (parsed == null) continue;
+    const id = String((row as { cafe_id?: unknown }).cafe_id ?? '');
+    if (id.length === 0) continue;
+    map.set(id, parsed);
+  }
+  return map;
+}
+
+export async function fetchCafePublicScoresForIds(ids: string[]): Promise<Map<string, CafePublicScoreRow>> {
+  if (ids.length === 0) return new Map();
+  const res = await supabase
+    .from('cafe_public_scores')
+    .select('cafe_id, public_coffee_score, coffee_rating_count')
+    .in('cafe_id', ids);
+  if (res.error) {
+    console.error('fetchCafePublicScoresForIds failed:', res.error);
+    return new Map();
+  }
+  const map = new Map<string, CafePublicScoreRow>();
+  for (const row of res.data ?? []) {
+    const parsed = parsePublicScoreRow(row);
+    if (parsed == null) continue;
+    const id = String((row as { cafe_id?: unknown }).cafe_id ?? '');
+    if (id.length === 0) continue;
+    map.set(id, parsed);
+  }
+  return map;
+}
+
+export async function fetchCafePublicScoreForId(id: string): Promise<CafePublicScoreRow | null> {
+  const res = await supabase
+    .from('cafe_public_scores')
+    .select('cafe_id, public_coffee_score, coffee_rating_count')
+    .eq('cafe_id', id)
+    .maybeSingle();
+  if (res.error) {
+    console.error('fetchCafePublicScoreForId failed:', res.error);
+    return null;
+  }
+  return parsePublicScoreRow(res.data ?? null);
+}
+
 /** Full cafe catalog — Supabase `public.cafes` is the source of truth for listing metadata. */
 export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
-  const res = await supabase.from('cafes').select('*');
+  const [res, pubMap] = await Promise.all([
+    supabase.from('cafes').select('*'),
+    fetchCafePublicScoresMap(),
+  ]);
   const rawCount = res.data?.length ?? 0;
 
   debugCatalog('fetchAllCafesFromSupabase', {
@@ -126,8 +219,9 @@ export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
   }
   const out: Cafe[] = [];
   for (const r of res.data ?? []) {
-    const c = mapCafeRowToCafe(r as Record<string, unknown>);
-    if (c) out.push(c);
+    const base = mapCafeRowToCafe(r as Record<string, unknown>);
+    if (!base) continue;
+    out.push(mergePublicIntoCafe(base, pubMap.get(base.id) ?? null));
   }
   if (rawCount > 0 && out.length === 0) {
     debugCatalog('fetchAllCafesFromSupabase: rows dropped by mapper', {
@@ -169,7 +263,10 @@ export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null
     return null;
   }
   if (res.data) {
-    return mapCafeRowToCafe(res.data as Record<string, unknown>);
+    const base = mapCafeRowToCafe(res.data as Record<string, unknown>);
+    if (!base) return null;
+    const pub = await fetchCafePublicScoreForId(base.id);
+    return mergePublicIntoCafe(base, pub);
   }
 
   // Safe fallback: some schemas use cafe_id as the primary column name, not id.
@@ -184,13 +281,19 @@ export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null
     return null;
   }
   if (!resByCafeId.data) return null;
-  return mapCafeRowToCafe(resByCafeId.data as Record<string, unknown>);
+  const base = mapCafeRowToCafe(resByCafeId.data as Record<string, unknown>);
+  if (!base) return null;
+  const pub = await fetchCafePublicScoreForId(base.id);
+  return mergePublicIntoCafe(base, pub);
 }
 
 /** Preserves caller order (e.g. visited rank or saved order). */
 export async function fetchCafesByIdsOrdered(ids: string[]): Promise<Cafe[]> {
   if (ids.length === 0) return [];
-  const res = await supabase.from('cafes').select('*').in('id', ids);
+  const [res, pubMap] = await Promise.all([
+    supabase.from('cafes').select('*').in('id', ids),
+    fetchCafePublicScoresForIds(ids),
+  ]);
 
   debugCatalog('fetchCafesByIdsOrdered (in id)', {
     requestedIds: ids.length,
@@ -230,8 +333,9 @@ export async function fetchCafesByIdsOrdered(ids: string[]): Promise<Cafe[]> {
 
   const byId = new Map<string, Cafe>();
   for (const r of rows) {
-    const c = mapCafeRowToCafe(r as Record<string, unknown>);
-    if (c) byId.set(c.id, c);
+    const base = mapCafeRowToCafe(r as Record<string, unknown>);
+    if (!base) continue;
+    byId.set(base.id, mergePublicIntoCafe(base, pubMap.get(base.id) ?? null));
   }
   return ids.map((id) => byId.get(id)).filter((c): c is Cafe => c != null);
 }

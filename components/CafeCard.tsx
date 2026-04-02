@@ -2,16 +2,13 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 
 type CafeCardProps = {
   cafeName?: string;
   neighborhood?: string;
-  coffeeScoreLabel?: string;
-  coffeeScoreValue?: string;
-  workScoreLabel?: string;
-  workScoreValue?: string;
-  vibeScoreLabel?: string;
-  vibeScoreValue?: string;
+  /** Canonical public coffee from `cafe_public_scores` (merged on `Cafe.publicCoffeeScore`). */
+  publicCoffeeScore?: number | null;
   tags?: string[];
   summary?: string;
   onPress?: () => void;
@@ -20,16 +17,13 @@ type CafeCardProps = {
 export function CafeCard({
   cafeName = 'Moss & Co. Coffee',
   neighborhood = 'Downtown • Elm Street',
-  coffeeScoreLabel = 'Coffee score',
-  coffeeScoreValue = '9.4',
-  workScoreLabel = 'Work score',
-  workScoreValue = '8.7',
-  vibeScoreLabel = 'Vibe',
-  vibeScoreValue,
+  publicCoffeeScore = 4.3,
   tags = ['Specialty', 'Fast Wi‑Fi', 'Quiet corners'],
   summary = 'Cozy light-filled seating with consistently great pour-overs.',
   onPress,
 }: CafeCardProps) {
+  const coffeeLabel = formatPublicCoffeeOutOf5(publicCoffeeScore);
+
   return (
     <TouchableOpacity activeOpacity={0.92} style={styles.featuredCard} onPress={onPress}>
       <View style={styles.imagePlaceholder} />
@@ -40,29 +34,14 @@ export function CafeCard({
           <Text style={styles.neighborhoodText}>{neighborhood}</Text>
         </View>
 
-        <View style={styles.scoresRow}>
-          <View style={styles.scoreItem}>
-            <Text style={[styles.scoreLabel, styles.scoreLabelCoffee]}>{coffeeScoreLabel}</Text>
-            <Text style={styles.scoreValue}>{coffeeScoreValue}</Text>
-          </View>
-
-          <View style={styles.scoreDot} />
-
-          <View style={styles.scoreItem}>
-            <Text style={[styles.scoreLabel, styles.scoreLabelWork]}>{workScoreLabel}</Text>
-            <Text style={styles.scoreValue}>{workScoreValue}</Text>
-          </View>
-
-          {vibeScoreValue ? (
-            <>
-              <View style={styles.scoreDot} />
-              <View style={styles.scoreItem}>
-                <Text style={[styles.scoreLabel, styles.scoreLabelVibe]}>{vibeScoreLabel}</Text>
-                <Text style={styles.scoreValueSubtle}>{vibeScoreValue}</Text>
-              </View>
-            </>
-          ) : null}
-        </View>
+        <Text
+          style={styles.publicCoffeeOnly}
+          accessibilityLabel={
+            coffeeLabel === '—' ? 'No public coffee score' : `Coffee score ${coffeeLabel} out of 5`
+          }
+        >
+          {coffeeLabel}
+        </Text>
 
         <View style={styles.tagsRow}>
           {tags.slice(0, 5).map((tag) => (
@@ -119,49 +98,11 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
   },
 
-  scoresRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-  },
-  scoreItem: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 6,
-  },
-  scoreDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: '#C9BEAF',
-    marginBottom: 6,
-  },
-  scoreLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  scoreLabelCoffee: {
-    color: COLORS.text,
-  },
-  scoreLabelWork: {
-    color: COLORS.text,
-  },
-  scoreLabelVibe: {
-    color: '#7E7265',
-  },
-  scoreValue: {
-    fontSize: 34,
-    fontFamily: FONTS.sans.bold,
-    color: COLORS.text,
-    lineHeight: 36,
-    letterSpacing: -0.8,
-  },
-  scoreValueSubtle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#7E7265',
-    lineHeight: 28,
-    letterSpacing: -0.4,
+  publicCoffeeOnly: {
+    fontSize: 13,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    letterSpacing: -0.2,
   },
 
   tagsRow: {
@@ -196,4 +137,3 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
   },
 });
-

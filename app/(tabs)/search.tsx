@@ -192,16 +192,10 @@ export default function SearchScreen() {
             <>
               <Text style={styles.resultsLabel}>{resultsLabel}</Text>
               {results.map((cafe) => {
-                const localRating = ratingsByCafeId[cafe.id];
-                const coffee = localRating ? localRating.coffee : cafe.coffeeScore;
-                const work = localRating ? localRating.work : cafe.workScore;
-                const vibe = localRating ? localRating.vibe : cafe.vibeScore;
-
                 return (
                   <CompactCafeCard
                     key={cafe.id}
                     cafe={cafe}
-                    scores={{ coffee, work, vibe }}
                     recommendationReason={
                       selectedChip === 'trending'
                         ? undefined

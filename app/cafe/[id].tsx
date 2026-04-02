@@ -1,5 +1,4 @@
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { supabase } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -17,23 +16,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Cafe } from '../../data/cafes';
-import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
+import { formatPrivateCoffeeOneDecimal, formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 const MAX_VISIBLE_TAGS = 3;
 
-function ScorePill({
-  label,
-  value,
-}: {
-  label?: string;
-  value: number;
-}) {
+function ScorePill({ valueText }: { valueText: string }) {
   return (
     <View style={styles.scorePill}>
-      {label ? <Text style={styles.scoreLabel}>{label}</Text> : null}
-      <CoffeeCupRating value={value} size={20} />
+      <Text style={styles.scorePillNumeric}>{valueText}</Text>
     </View>
   );
 }
@@ -131,6 +123,8 @@ export default function CafeDetailScreen() {
     });
   }, [navigation]);
 
+  const routeCafeId = cafeId ? String(cafeId) : '';
+
   const heroBackRow = (
     <View style={styles.heroBackRow}>
       <TouchableOpacity
@@ -144,47 +138,6 @@ export default function CafeDetailScreen() {
       </TouchableOpacity>
     </View>
   );
-
-  const routeCafeId = cafeId ? String(cafeId) : '';
-
-  const [avgScores, setAvgScores] = useState<{ coffee: number; work: number; vibe: number } | null>(
-    null
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadAverages() {
-      const numericCafeId = Number.parseInt(routeCafeId, 10);
-      if (!Number.isFinite(numericCafeId)) return;
-
-      const res = await supabase
-        .from('ratings')
-        .select('coffee:coffee_rating.avg(), work:work_rating.avg(), vibe:vibe_rating.avg()')
-        .eq('cafe_id', numericCafeId)
-        .maybeSingle();
-
-      if (cancelled) return;
-      if (res.error) {
-        console.error('Failed to load average ratings:', res.error);
-        return;
-      }
-
-      const coffee = res.data?.coffee;
-      const work = res.data?.work;
-      const vibe = res.data?.vibe;
-      if (typeof coffee === 'number' && typeof work === 'number' && typeof vibe === 'number') {
-        setAvgScores({ coffee, work, vibe });
-      } else {
-        setAvgScores(null);
-      }
-    }
-
-    void loadAverages();
-    return () => {
-      cancelled = true;
-    };
-  }, [routeCafeId]);
 
   if (cafeLoading) {
     return (
@@ -212,7 +165,7 @@ export default function CafeDetailScreen() {
   }
 
   const localRating = getCafeRating(cafe.id);
-  // Prefer the user’s saved rating; otherwise use listing scores from Supabase `cafes`.
+  /** User’s saved rating when present; otherwise listing work/vibe + canonical public coffee from `cafe_public_scores`. */
   const ratingSource = localRating
     ? {
         coffee: localRating.coffee,
@@ -222,13 +175,16 @@ export default function CafeDetailScreen() {
         notes: localRating.notes,
       }
     : {
-        coffee: cafe.coffeeScore,
+        coffee: cafe.publicCoffeeScore ?? 0,
         work: cafe.workScore,
         vibe: cafe.vibeScore,
         tags: cafe.tags,
         notes: '',
       };
   const displayTags = ratingSource.tags.slice(0, MAX_VISIBLE_TAGS);
+  const mainCoffeeDisplay = localRating
+    ? formatPrivateCoffeeOneDecimal(localRating.coffee)
+    : formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   const mapsUrl = cafe.googleMapsUrl;
   const hasGoogleMapsUrl =
     typeof mapsUrl === 'string' && mapsUrl.trim().length > 0;
@@ -294,13 +250,13 @@ export default function CafeDetailScreen() {
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Rating</Text>
           <View style={styles.scoresGrid}>
-            <ScorePill value={ratingSource.coffee} />
+            <ScorePill valueText={mainCoffeeDisplay} />
           </View>
-          {avgScores ? (
+          {cafe.coffeeRatingCount > 0 && cafe.publicCoffeeScore != null ? (
             <View style={styles.avgWrap}>
               <Text style={styles.avgLabel}>Average from ratings</Text>
               <View style={styles.avgLine}>
-                <CoffeeCupRating value={avgScores.coffee} size={16} />
+                <Text style={styles.avgNumeric}>{formatPublicCoffeeOutOf5(cafe.publicCoffeeScore)}</Text>
               </View>
             </View>
           ) : null}
@@ -476,6 +432,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 2,
   },
+  scorePillNumeric: {
+    fontSize: 22,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.3,
+  },
   scoreLabel: {
     fontSize: 12,
     fontFamily: FONTS.sans.semibold,
@@ -504,6 +466,12 @@ const styles = StyleSheet.create({
   avgLine: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  avgNumeric: {
+    fontSize: 22,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.3,
   },
 
   tagsRow: {
