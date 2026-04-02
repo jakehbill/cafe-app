@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS } from '@/components/theme';
 import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
@@ -430,8 +430,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   ratingOptionSelected: {
-    backgroundColor: COLORS.roastedBrown,
-    borderColor: 'rgba(138, 106, 79, 0.55)',
+    backgroundColor: COLORS.text,
+    borderColor: 'rgba(26, 26, 26, 0.35)',
   },
   ratingOptionPressed: {
     opacity: 0.88,
@@ -534,9 +534,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    backgroundColor: COLORS.roastedBrown,
+    backgroundColor: COLORS.text,
     borderWidth: 1,
-    borderColor: 'rgba(138, 106, 79, 0.55)',
+    borderColor: 'rgba(26, 26, 26, 0.25)',
     marginTop: 2,
   },
   submitButtonDisabled: {
@@ -547,9 +547,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(163, 177, 138, 0.8)',
   },
   submitButtonText: {
-    color: COLORS.background,
+    color: '#ffffff',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.semibold,
     textAlign: 'center',
   },
 });

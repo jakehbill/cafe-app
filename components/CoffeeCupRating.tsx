@@ -2,6 +2,8 @@ import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { COLORS } from '@/components/theme';
+
 type CoffeeCupRatingProps = {
   value: number;
   max?: number;
@@ -62,7 +64,7 @@ export function CoffeeCupRating({
                 name={isFilled ? 'coffee' : 'coffee-outline'}
                 size={size}
                 style={[styles.cupIcon, { transform: organicTransform }]}
-                color="#111111"
+                color={isFilled ? COLORS.accent : COLORS.muted}
               />
             </Pressable>
           );
@@ -93,21 +95,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#B8B1A7',
-    backgroundColor: '#FFFFFF',
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
   },
   cupWrapSelected: {
-    borderColor: '#111111',
-    backgroundColor: '#F2F2F2',
+    borderColor: 'rgba(225, 92, 49, 0.35)',
+    backgroundColor: COLORS.inputBackground,
   },
   cupWrapUnselected: {
-    borderColor: '#B8B1A7',
-    backgroundColor: '#FFFFFF',
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
     opacity: 0.5,
   },
   cupHover: {
-    borderColor: '#111111',
-    backgroundColor: '#F7F7F7',
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.background,
     opacity: 0.85,
   },
   cupPressed: {

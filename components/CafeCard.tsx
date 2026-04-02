@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
 type CafeCardProps = {
   cafeName?: string;
@@ -84,16 +84,12 @@ export function CafeCard({
 const styles = StyleSheet.create({
   featuredCard: {
     marginTop: 6,
-    backgroundColor: COLORS.background,
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#EEE4D6',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 3,
+    borderColor: COLORS.cardBorder,
+    ...SHADOWS.card,
   },
   imagePlaceholder: {
     width: '100%',
@@ -110,16 +106,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cafeName: {
-    fontSize: 21,
-    fontWeight: '700',
+    fontSize: 22,
+    fontFamily: FONTS.display.semibold,
     color: COLORS.text,
-    lineHeight: 26,
-    letterSpacing: -0.2,
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
   neighborhoodText: {
     fontSize: 13,
     color: COLORS.muted,
     lineHeight: 18,
+    fontFamily: FONTS.sans.regular,
   },
 
   scoresRow: {
@@ -154,7 +151,7 @@ const styles = StyleSheet.create({
   },
   scoreValue: {
     fontSize: 34,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.bold,
     color: COLORS.text,
     lineHeight: 36,
     letterSpacing: -0.8,
@@ -177,25 +174,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#F8F5F0',
+    backgroundColor: COLORS.chipBackground,
     borderWidth: 1,
-    borderColor: '#ECE2D3',
+    borderColor: COLORS.cardBorder,
   },
   tagText: {
-    color: '#5E5348',
+    color: COLORS.muted,
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: FONTS.sans.medium,
   },
   summaryDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: '#EFE7DB',
+    borderBottomColor: COLORS.cardBorder,
     marginTop: 2,
   },
 
   summaryText: {
-    color: '#4F4740',
+    color: COLORS.muted,
     fontSize: 14,
     lineHeight: 22,
+    fontFamily: FONTS.sans.regular,
   },
 });
 

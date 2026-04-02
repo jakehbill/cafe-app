@@ -15,7 +15,7 @@ import type { Cafe } from '@/data/cafes';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
 import { CompactCafeCard } from '@/components/CompactCafeCard';
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS } from '@/components/theme';
 
 type RatingRow = {
   cafe_id: string;
@@ -86,7 +86,7 @@ export default function MyRatingsScreen() {
     <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={COLORS.roastedBrown} />
+          <ActivityIndicator size="large" color={COLORS.muted} />
         </View>
       ) : items.length === 0 ? (
         <View style={styles.emptyWrap}>
@@ -145,8 +145,8 @@ const styles = StyleSheet.create({
     paddingBottom: 64,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontFamily: FONTS.display.semibold,
     color: COLORS.text,
     textAlign: 'center',
   },
@@ -155,5 +155,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: COLORS.muted,
     textAlign: 'center',
+    fontFamily: FONTS.sans.regular,
   },
 });

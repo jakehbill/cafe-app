@@ -23,7 +23,7 @@ import {
   type ActivityCounts,
 } from '@/lib/profileGamification';
 
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
 type ProfileCounts = {
   saved: number;
@@ -185,7 +185,7 @@ export default function ProfileScreen() {
           <View style={styles.pointsHeaderRow}>
             <Text style={styles.pointsLabel}>Total points</Text>
             {countsLoading ? (
-              <ActivityIndicator color={COLORS.roastedBrown} />
+              <ActivityIndicator color={COLORS.muted} />
             ) : (
               <Text style={styles.pointsBig}>{formatPoints(totalPoints)}</Text>
             )}
@@ -246,7 +246,7 @@ export default function ProfileScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
               {countsLoading ? (
-                <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
               ) : (
                 <Text style={styles.statNumber}>{displayCounts.visited}</Text>
               )}
@@ -256,7 +256,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.statCard}>
               {countsLoading ? (
-                <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
               ) : (
                 <Text style={styles.statNumber}>{displayCounts.ratings}</Text>
               )}
@@ -266,7 +266,7 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.statCard}>
               {countsLoading ? (
-                <ActivityIndicator color={COLORS.roastedBrown} style={styles.statSpinner} />
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
               ) : (
                 <Text style={styles.statNumber}>{displayCounts.saved}</Text>
               )}
@@ -362,29 +362,30 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 36,
+    paddingTop: 24,
+    paddingBottom: 40,
     gap: 0,
   },
   headerBlock: {
-    gap: 6,
-    marginBottom: 20,
+    gap: 8,
+    marginBottom: 22,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: 34,
+    fontFamily: FONTS.display.bold,
     color: COLORS.text,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
   email: {
     fontSize: 15,
     color: COLORS.muted,
     lineHeight: 22,
+    fontFamily: FONTS.sans.regular,
   },
   levelSubtitle: {
     fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.roastedBrown,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.accent,
     marginTop: 2,
   },
   emailMuted: {
@@ -393,18 +394,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   pointsCard: {
-    backgroundColor: '#F2EBDD',
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#E7DDCD',
+    borderColor: COLORS.cardBorder,
     padding: 18,
     marginBottom: 24,
     gap: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    ...SHADOWS.card,
   },
   pointsHeaderRow: {
     flexDirection: 'row',
@@ -413,12 +410,12 @@ const styles = StyleSheet.create({
   },
   pointsLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
   },
   pointsBig: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.bold,
     color: COLORS.text,
     letterSpacing: -0.5,
   },
@@ -432,25 +429,25 @@ const styles = StyleSheet.create({
   progressMetaText: {
     flex: 1,
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
   },
   progressFraction: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
   },
   progressTrack: {
     height: 8,
     borderRadius: 999,
-    backgroundColor: '#E4D9C8',
+    backgroundColor: COLORS.inputBackground,
     overflow: 'hidden',
     flexDirection: 'row',
   },
   progressFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: COLORS.sage,
+    backgroundColor: 'rgba(26, 26, 26, 0.14)',
   },
   pointsToNext: {
     fontSize: 12,
@@ -467,7 +464,7 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.bold,
     color: COLORS.muted,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
@@ -506,9 +503,9 @@ const styles = StyleSheet.create({
     maxWidth: '32%',
     aspectRatio: 1,
     borderRadius: 14,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
-    borderColor: '#EDE3D5',
+    borderColor: COLORS.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 8,
@@ -520,14 +517,14 @@ const styles = StyleSheet.create({
   },
   badgeIcon: {
     fontSize: 22,
-    color: COLORS.roastedBrown,
+    color: COLORS.accent,
   },
   badgeIconLocked: {
     color: COLORS.muted,
   },
   badgeLabel: {
     fontSize: 10,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
     textAlign: 'center',
     lineHeight: 13,
@@ -549,31 +546,27 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE3D5',
+    borderColor: COLORS.cardBorder,
     paddingVertical: 18,
     paddingHorizontal: 10,
     alignItems: 'center',
     gap: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    ...SHADOWS.card,
     minHeight: 96,
     justifyContent: 'center',
   },
   statNumber: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.bold,
     color: COLORS.text,
     letterSpacing: -0.5,
   },
   statLabel: {
     fontSize: 11,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
     textAlign: 'center',
     lineHeight: 14,
@@ -591,9 +584,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    backgroundColor: '#F2EBDD',
+    backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
-    borderColor: '#E7DDCD',
+    borderColor: COLORS.cardBorder,
     gap: 12,
   },
   activityTextWrap: {
@@ -602,13 +595,14 @@ const styles = StyleSheet.create({
   },
   activityTitle: {
     fontSize: 17,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
   },
   activityHint: {
     fontSize: 13,
     color: COLORS.muted,
     lineHeight: 18,
+    fontFamily: FONTS.sans.regular,
   },
   chevron: {
     fontSize: 22,
@@ -625,14 +619,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 15,
     paddingHorizontal: 16,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.inputBackground,
     borderWidth: 1,
-    borderColor: '#E0D4C4',
+    borderColor: COLORS.cardBorder,
   },
   logOutButtonText: {
     color: COLORS.text,
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.semibold,
     textAlign: 'center',
   },
 });

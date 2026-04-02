@@ -4,7 +4,7 @@ import React from 'react';
 import { HapticTab } from '@/components/haptic-tab';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS } from '@/components/theme';
 
 export default function TabLayout() {
   return (
@@ -12,17 +12,17 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarButton: HapticTab,
-        tabBarActiveTintColor: COLORS.roastedBrown,
+        tabBarActiveTintColor: COLORS.accent,
         tabBarInactiveTintColor: COLORS.muted,
         tabBarStyle: {
           backgroundColor: COLORS.background,
           borderTopColor: COLORS.cardBorder,
           borderTopWidth: 1,
-          paddingTop: 6,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '600',
+          fontFamily: FONTS.sans.semibold,
           marginTop: 2,
         },
       }}>

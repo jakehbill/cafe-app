@@ -19,18 +19,7 @@ import type { Cafe } from '../../data/cafes';
 import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { formatTagLabel } from '@/lib/cafeTags';
-
-const COLORS = {
-  background: '#F7F3EE',
-  text: '#2E2A27',
-  muted: '#6E6254',
-  border: '#E6DCCB',
-  card: '#F2EBDD',
-  input: '#EFE8DC',
-  image: '#E9E2D6',
-  espresso: '#8A6A4F',
-  sage: '#A3B18A',
-} as const;
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 const MAX_VISIBLE_TAGS = 3;
 
 function ScorePill({
@@ -116,6 +105,11 @@ export default function CafeDetailScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: cafe?.name ?? 'Cafe',
+      headerTitleStyle: {
+        fontFamily: FONTS.sans.semibold,
+        fontSize: 17,
+        color: COLORS.text,
+      },
     });
   }, [cafe?.name, navigation]);
 
@@ -164,7 +158,7 @@ export default function CafeDetailScreen() {
     return (
       <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
         <View style={styles.notFoundWrap}>
-          <ActivityIndicator size="large" color={COLORS.espresso} />
+          <ActivityIndicator size="large" color={COLORS.muted} />
         </View>
       </SafeAreaView>
     );
@@ -335,60 +329,60 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   content: {
-    paddingBottom: 36,
+    paddingBottom: 40,
   },
   heroWrap: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 14,
   },
   heroImage: {
     width: '100%',
     aspectRatio: 3 / 2,
-    backgroundColor: COLORS.image,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
+    backgroundColor: COLORS.imagePlaceholder,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    ...SHADOWS.none,
   },
 
   header: {
     paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 6,
-    gap: 5,
+    paddingTop: 20,
+    paddingBottom: 8,
+    gap: 6,
   },
   cafeName: {
     fontSize: 32,
-    fontWeight: '700',
+    fontFamily: FONTS.display.bold,
     color: COLORS.text,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
     lineHeight: 38,
   },
   neighborhood: {
     fontSize: 15,
     color: COLORS.muted,
     lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
   },
   routeHint: {
     fontSize: 12,
     color: COLORS.muted,
     lineHeight: 18,
+    fontFamily: FONTS.sans.regular,
   },
   ratedBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(163, 177, 138, 0.18)',
+    backgroundColor: COLORS.workPillBackground,
     borderWidth: 1,
-    borderColor: 'rgba(163, 177, 138, 0.45)',
+    borderColor: COLORS.workPillBorder,
   },
   ratedBadgeText: {
     fontSize: 12,
-    color: '#4A5A49',
-    fontWeight: '600',
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
   },
   notFoundWrap: {
     flex: 1,
@@ -399,7 +393,7 @@ const styles = StyleSheet.create({
   },
   notFoundTitle: {
     fontSize: 24,
-    fontWeight: '700',
+    fontFamily: FONTS.display.semibold,
     color: COLORS.text,
     letterSpacing: -0.2,
   },
@@ -408,26 +402,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: COLORS.muted,
     textAlign: 'center',
+    fontFamily: FONTS.sans.regular,
   },
 
   sectionCard: {
-    marginTop: 16,
+    marginTop: 18,
     marginHorizontal: 20,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ECE2D4',
+    borderColor: COLORS.cardBorder,
     padding: 16,
     gap: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
+    ...SHADOWS.card,
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
     letterSpacing: 0.2,
   },
@@ -442,19 +433,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderWidth: 1,
-    borderColor: '#E8DECE',
-    backgroundColor: '#F2EBDD',
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
     alignItems: 'center',
     gap: 2,
   },
   scoreLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#5F5346',
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
   },
   scoreValue: {
     fontSize: 28,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.bold,
     color: COLORS.text,
     lineHeight: 30,
     letterSpacing: -0.3,
@@ -463,12 +454,12 @@ const styles = StyleSheet.create({
     marginTop: 2,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#EFE7DB',
+    borderTopColor: COLORS.cardBorder,
     gap: 4,
   },
   avgLabel: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
     letterSpacing: 0.2,
   },
@@ -487,20 +478,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#F8F5F0',
+    backgroundColor: COLORS.chipBackground,
     borderWidth: 1,
-    borderColor: '#ECE2D3',
+    borderColor: COLORS.cardBorder,
   },
   tagText: {
-    color: '#5E5348',
+    color: COLORS.muted,
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: FONTS.sans.medium,
   },
 
   summaryText: {
-    color: '#4F4740',
+    color: COLORS.muted,
     fontSize: 14,
     lineHeight: 22,
+    fontFamily: FONTS.sans.regular,
   },
 
   actionsWrap: {
@@ -512,18 +504,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    backgroundColor: COLORS.espresso,
+    backgroundColor: COLORS.text,
     borderWidth: 1,
-    borderColor: 'rgba(138, 106, 79, 0.55)',
+    borderColor: 'rgba(26, 26, 26, 0.2)',
   },
   actionButtonSecondary: {
-    backgroundColor: '#F2EBDD',
-    borderColor: '#E7DDCD',
+    backgroundColor: COLORS.inputBackground,
+    borderColor: COLORS.cardBorder,
   },
   actionButtonText: {
-    color: COLORS.background,
+    color: '#ffffff',
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.semibold,
     textAlign: 'center',
   },
   actionButtonTextSecondary: {

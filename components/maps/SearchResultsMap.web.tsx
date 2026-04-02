@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,

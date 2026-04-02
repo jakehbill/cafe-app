@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS } from '@/components/theme';
 
 type FilterChipProps = {
   label: string;
@@ -31,16 +31,16 @@ const styles = StyleSheet.create({
     borderColor: '#E8DECE',
   },
   chipSelected: {
-    backgroundColor: COLORS.roastedBrown,
-    borderColor: 'rgba(138, 106, 79, 0.6)',
+    backgroundColor: COLORS.accent,
+    borderColor: 'rgba(225, 92, 49, 0.35)',
   },
   chipText: {
     color: COLORS.text,
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
   },
   chipTextSelected: {
-    color: '#F7F3EE',
+    color: '#ffffff',
   },
 });
 

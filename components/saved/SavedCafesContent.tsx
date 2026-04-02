@@ -13,7 +13,7 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
 import { CompactCafeCard } from '@/components/CompactCafeCard';
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
 /** Map Supabase `cafe_id` values to full cafe rows from `public.cafes` (same ids). */
 export function cafesFromSavedIds(savedIds: string[], catalog: Cafe[]): Cafe[] {
@@ -110,10 +110,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontFamily: FONTS.display.bold,
     color: COLORS.text,
-    letterSpacing: -0.2,
+    letterSpacing: -0.4,
   },
   subtitle: {
     fontSize: 14,
@@ -122,19 +122,15 @@ const styles = StyleSheet.create({
   },
   emptyWrap: {
     marginTop: 20,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.cardBackground,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE3D5',
+    borderColor: COLORS.cardBorder,
     paddingHorizontal: 18,
     paddingVertical: 24,
     gap: 10,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
+    ...SHADOWS.card,
   },
   emptyIconWrap: {
     width: 48,
@@ -148,7 +144,7 @@ const styles = StyleSheet.create({
   },
   emptyIcon: {
     fontSize: 22,
-    color: '#8A6A4F',
+    color: COLORS.accent,
   },
   emptyTitle: {
     fontSize: 18,
@@ -160,16 +156,16 @@ const styles = StyleSheet.create({
   ctaButton: {
     marginTop: 4,
     borderRadius: 999,
-    backgroundColor: '#8A6A4F',
+    backgroundColor: COLORS.text,
     borderWidth: 1,
-    borderColor: 'rgba(138, 106, 79, 0.6)',
+    borderColor: 'rgba(26, 26, 26, 0.2)',
     paddingHorizontal: 16,
     paddingVertical: 9,
   },
   ctaButtonText: {
-    color: '#F7F3EE',
+    color: '#ffffff',
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.bold,
   },
   listWrap: {
     gap: 10,

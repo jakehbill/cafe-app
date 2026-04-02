@@ -22,7 +22,7 @@ import { getRecommendationReason } from '@/lib/recommendationReason';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { FilterChip } from '@/components/FilterChip';
 import SearchResultsMap from '@/components/maps/SearchResultsMap';
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
 /** Search chips: intent filters + non-personalized trending (aligned with Home). */
 type SearchChipId = RankKey | 'trending';
@@ -262,10 +262,10 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 28,
+    fontFamily: FONTS.display.bold,
     color: COLORS.text,
-    letterSpacing: -0.2,
+    letterSpacing: -0.4,
   },
   input: {
     borderRadius: 14,
@@ -276,6 +276,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: COLORS.text,
+    fontFamily: FONTS.sans.regular,
   },
   chipsRow: {
     gap: 8,
@@ -299,26 +300,26 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   viewTogglePillActive: {
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
-    borderColor: 'rgba(138, 106, 79, 0.35)',
+    borderColor: 'rgba(225, 92, 49, 0.25)',
   },
   viewToggleLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
   },
   viewToggleLabelActive: {
-    color: COLORS.roastedBrown,
+    color: COLORS.accent,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingBottom: 28,
-    gap: 10,
+    paddingBottom: 32,
+    gap: 12,
   },
   resultsLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
     letterSpacing: 0.2,
     marginBottom: 2,
@@ -339,26 +340,23 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   webCard: {
-    backgroundColor: '#F7F3EE',
-    borderRadius: 14,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E6DCCB',
+    borderColor: COLORS.cardBorder,
     padding: 12,
     gap: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
+    ...SHADOWS.card,
   },
   webCardTitle: {
     color: COLORS.text,
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: FONTS.display.semibold,
   },
   webCardSubtitle: {
     color: COLORS.muted,
     fontSize: 13,
     lineHeight: 18,
+    fontFamily: FONTS.sans.regular,
   },
 });

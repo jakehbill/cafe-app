@@ -1,12 +1,14 @@
 import { StyleSheet } from 'react-native';
 
+import { COLORS as THEME_COLORS, FONTS, SHADOWS } from '@/components/theme';
+
+/** Auth screens — aligned with global theme tokens */
 export const COLORS = {
-  background: '#F7F3EE',
-  text: '#2E2A27',
-  muted: '#6E6254',
-  roastedBrown: '#8A6A4F',
-  border: '#E6DCCB',
-  input: '#EFE8DC',
+  background: THEME_COLORS.background,
+  text: THEME_COLORS.text,
+  muted: THEME_COLORS.muted,
+  border: THEME_COLORS.cardBorder,
+  input: THEME_COLORS.inputBackground,
 } as const;
 
 export const authStyles = StyleSheet.create({
@@ -33,7 +35,7 @@ export const authStyles = StyleSheet.create({
     minHeight: 30,
   },
   backArrow: {
-    color: '#6E6254',
+    color: THEME_COLORS.muted,
     fontSize: 26,
     lineHeight: 30,
     width: 30,
@@ -47,36 +49,38 @@ export const authStyles = StyleSheet.create({
     gap: 6,
   },
   title: {
-    fontSize: 48,
-    fontWeight: '700',
+    fontSize: 44,
+    fontFamily: FONTS.display.bold,
     color: COLORS.text,
     letterSpacing: -0.8,
-    lineHeight: 54,
+    lineHeight: 50,
   },
   subtitle: {
     fontSize: 17,
-    color: '#3F3934',
-    lineHeight: 20,
+    color: THEME_COLORS.muted,
+    lineHeight: 22,
+    fontFamily: FONTS.sans.regular,
   },
   fieldWrap: {
     gap: 8,
   },
   fieldLabel: {
     fontSize: 16,
-    color: '#2E2A27',
-    fontWeight: '600',
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
   },
   inputWrap: {
-    backgroundColor: '#F0ECE6',
+    backgroundColor: THEME_COLORS.inputBackground,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E7DECF',
+    borderColor: THEME_COLORS.cardBorder,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   input: {
     fontSize: 18,
     color: COLORS.text,
+    fontFamily: FONTS.sans.regular,
     padding: 0,
     height: 28,
   },
@@ -84,19 +88,15 @@ export const authStyles = StyleSheet.create({
     marginTop: 4,
     borderRadius: 16,
     paddingVertical: 18,
-    backgroundColor: COLORS.roastedBrown,
+    backgroundColor: THEME_COLORS.text,
     borderWidth: 1,
-    borderColor: 'rgba(138, 106, 79, 0.65)',
-    shadowColor: '#000',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 1,
+    borderColor: 'rgba(26, 26, 26, 0.2)',
+    ...SHADOWS.none,
   },
   primaryButtonText: {
-    color: COLORS.background,
+    color: '#ffffff',
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.bold,
     textAlign: 'center',
   },
   footerRow: {
@@ -107,12 +107,13 @@ export const authStyles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   footerText: {
-    color: '#3F3934',
+    color: THEME_COLORS.muted,
     fontSize: 16,
+    fontFamily: FONTS.sans.regular,
   },
   footerLink: {
     color: COLORS.text,
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.bold,
   },
 });

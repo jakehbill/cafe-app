@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   callout: {
     minWidth: 160,
     maxWidth: 220,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.background,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E6DCCB',

@@ -6,7 +6,7 @@ import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { getTopCafeTags } from '@/lib/supabase';
 
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
 export type CompactCafeCardProps = {
   cafe: Cafe;
@@ -117,25 +117,21 @@ const styles = StyleSheet.create({
   },
   rankBadgeText: {
     fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.roastedBrown,
+    fontFamily: FONTS.sans.bold,
+    color: COLORS.text,
     letterSpacing: -0.3,
   },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#F7F3EE',
-    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#EDE3D5',
-    shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
+    borderColor: COLORS.cardBorder,
+    ...SHADOWS.card,
   },
   cardWithTags: {
     alignItems: 'flex-start',
@@ -150,7 +146,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: COLORS.imagePlaceholder,
     borderWidth: 1,
-    borderColor: '#E4D9C8',
+    borderColor: COLORS.cardBorder,
   },
   body: {
     flex: 1,
@@ -158,22 +154,23 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontFamily: FONTS.display.semibold,
     color: COLORS.text,
-    letterSpacing: -0.2,
-    lineHeight: 20,
+    letterSpacing: -0.25,
+    lineHeight: 22,
   },
   recommendationReason: {
     fontSize: 12,
     lineHeight: 16,
     color: COLORS.muted,
-    fontWeight: '500',
+    fontFamily: FONTS.sans.medium,
   },
   location: {
     fontSize: 12,
     color: COLORS.muted,
     lineHeight: 16,
+    fontFamily: FONTS.sans.regular,
   },
   scoresLine: {
     marginTop: 2,
@@ -183,7 +180,7 @@ const styles = StyleSheet.create({
   },
   scoreWord: {
     color: COLORS.muted,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
     fontSize: 12,
   },
   tagsRow: {
@@ -196,14 +193,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#F0E8DC',
+    backgroundColor: COLORS.chipBackground,
     borderWidth: 1,
-    borderColor: '#E4D9C8',
+    borderColor: COLORS.cardBorder,
   },
   tagChipText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#5E5348',
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
   },
 });
 

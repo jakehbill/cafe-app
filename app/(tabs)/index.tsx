@@ -13,6 +13,7 @@ import {
 
 import type { Cafe } from '../../data/cafes';
 import { CoffeeCupRating } from '@/components/CoffeeCupRating';
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
@@ -434,7 +435,7 @@ export default function HomeScreen() {
             </View>
             {topPicksLoading ? (
               <View style={styles.sectionLoadingRow}>
-                <ActivityIndicator size="small" color="#8A6A4F" />
+                <ActivityIndicator size="small" color={COLORS.muted} />
                 <Text style={styles.sectionLoadingText}>Loading picks…</Text>
               </View>
             ) : null}
@@ -474,15 +475,15 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.background,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 36,
+    paddingTop: 24,
+    paddingBottom: 42,
   },
   topSection: {
-    gap: 20,
+    gap: 24,
   },
   homeTopBar: {
     alignItems: 'flex-end',
@@ -490,20 +491,20 @@ const styles = StyleSheet.create({
   },
   searchAllLink: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#8A6A4F',
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.accent,
     letterSpacing: -0.15,
   },
   homeSection: {
-    gap: 14,
+    gap: 18,
   },
   homeSectionTrending: {
-    marginTop: 4,
-    paddingTop: 22,
+    marginTop: 6,
+    paddingTop: 26,
   },
   homeSectionHeader: {
-    gap: 5,
-    marginBottom: 6,
+    gap: 6,
+    marginBottom: 8,
     paddingTop: 2,
   },
   sectionLoadingRow: {
@@ -516,95 +517,92 @@ const styles = StyleSheet.create({
   sectionLoadingText: {
     fontSize: 12,
     lineHeight: 16,
-    color: '#8A8278',
-    fontWeight: '600',
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.semibold,
   },
   homeSectionTitle: {
-    fontSize: 21,
-    lineHeight: 27,
-    fontWeight: '700',
-    color: '#2E2A27',
-    letterSpacing: -0.4,
+    fontSize: 28,
+    lineHeight: 34,
+    fontFamily: FONTS.display.bold,
+    color: COLORS.text,
+    letterSpacing: -0.6,
   },
   homeSectionSubtitle: {
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '500',
-    color: '#8A8278',
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
     letterSpacing: -0.1,
   },
   testAuthButton: {
     alignSelf: 'flex-start',
     borderRadius: 999,
-    backgroundColor: '#F2EBDD',
+    backgroundColor: COLORS.inputBackground,
     borderWidth: 1,
-    borderColor: '#E7DDCD',
+    borderColor: COLORS.cardBorder,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   testAuthButtonText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#2E2A27',
+    fontFamily: FONTS.sans.bold,
+    color: COLORS.text,
   },
 
   featuredCard: {
     marginTop: 6,
-    backgroundColor: '#F7F3EE',
-    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#EEE4D6',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 3,
+    borderColor: COLORS.cardBorder,
+    ...SHADOWS.card,
   },
   featuredImagePlaceholder: {
     width: '100%',
     aspectRatio: 3 / 2,
-    backgroundColor: '#E9E2D6',
+    backgroundColor: COLORS.imagePlaceholder,
   },
   featuredBody: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 18,
-    gap: 14,
+    paddingTop: 18,
+    paddingBottom: 20,
+    gap: 16,
   },
   featuredName: {
-    fontSize: 21,
-    fontWeight: '700',
-    color: '#2E2A27',
-    lineHeight: 26,
-    letterSpacing: -0.2,
+    fontSize: 22,
+    fontFamily: FONTS.display.semibold,
+    color: COLORS.text,
+    lineHeight: 28,
+    letterSpacing: -0.3,
   },
   featuredReason: {
     fontSize: 12,
     lineHeight: 16,
-    color: '#6E6254',
-    fontWeight: '500',
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.medium,
     marginTop: 2,
   },
   featuredNeighborhood: {
     fontSize: 13,
-    color: '#6E6254',
+    color: COLORS.muted,
     lineHeight: 18,
+    fontFamily: FONTS.sans.regular,
   },
   ratedBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(163, 177, 138, 0.18)',
+    backgroundColor: COLORS.workPillBackground,
     borderWidth: 1,
-    borderColor: 'rgba(163, 177, 138, 0.45)',
+    borderColor: COLORS.workPillBorder,
     marginTop: -4,
   },
   ratedBadgeText: {
     fontSize: 12,
-    color: '#4A5A49',
-    fontWeight: '600',
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
   },
   equalScoresRow: {
     flexDirection: 'row',
@@ -612,10 +610,10 @@ const styles = StyleSheet.create({
   },
   equalScoreBlock: {
     flex: 1,
-    backgroundColor: '#F1E9DC',
+    backgroundColor: COLORS.inputBackground,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E7DDCD',
+    borderColor: COLORS.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
@@ -623,13 +621,13 @@ const styles = StyleSheet.create({
   },
   equalScoreLabel: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#5F5346',
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
   },
   equalScoreValue: {
     fontSize: 27,
-    fontWeight: '700',
-    color: '#2E2A27',
+    fontFamily: FONTS.sans.bold,
+    color: COLORS.text,
     lineHeight: 30,
     letterSpacing: -0.4,
   },
@@ -643,18 +641,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#F8F5F0',
+    backgroundColor: COLORS.chipBackground,
     borderWidth: 1,
-    borderColor: '#ECE2D3',
+    borderColor: COLORS.cardBorder,
   },
   featuredTagText: {
-    color: '#5E5348',
+    color: COLORS.muted,
     fontSize: 12,
-    fontWeight: '500',
+    fontFamily: FONTS.sans.medium,
   },
   featuredSummary: {
-    color: '#4F4740',
+    color: COLORS.muted,
     fontSize: 14,
     lineHeight: 22,
+    fontFamily: FONTS.sans.regular,
   },
 });

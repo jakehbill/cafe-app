@@ -1,12 +1,25 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  useFonts,
+} from '@expo-google-fonts/inter';
+import { PlayfairDisplay_600SemiBold, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { SafeAreaView, StyleSheet, Text } from 'react-native';
 import 'react-native-reanimated';
 
+import { COLORS, FONTS } from '@/components/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { CafeStateProvider } from '@/contexts/CafeStateContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+
+SplashScreen.preventAutoHideAsync();
 
 // Temporary testing toggle: set to true to force showing auth screen.
 const FORCE_SHOW_AUTH_FOR_TESTING = false;
@@ -17,13 +30,41 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    PlayfairDisplay_600SemiBold,
+    PlayfairDisplay_700Bold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  // Default body text: Inter (Playfair only on explicit heading/cafe name styles).
+  const TextAny = Text as unknown as {
+    defaultProps?: { style?: unknown };
+  };
+  TextAny.defaultProps = TextAny.defaultProps ?? {};
+  TextAny.defaultProps.style = [
+    { fontFamily: FONTS.sans.regular },
+    TextAny.defaultProps.style,
+  ];
 
   return (
     <AuthProvider>
       <CafeStateProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <RootNavigator />
-          <StatusBar style="auto" />
+          <StatusBar style="dark" />
         </ThemeProvider>
       </CafeStateProvider>
     </AuthProvider>
@@ -46,11 +87,16 @@ function RootNavigator() {
     headerShown: true,
     headerBackButtonDisplayMode: 'minimal' as const,
     headerBackTitle: '',
-    headerTintColor: '#8A6A4F',
-    headerStyle: { backgroundColor: '#F7F3EE' },
-    headerTitleStyle: { fontSize: 17, fontWeight: '700' as const, color: '#2E2A27' },
+    headerTintColor: COLORS.accent,
+    headerStyle: { backgroundColor: COLORS.background },
+    headerTitleStyle: {
+      fontSize: 17,
+      fontWeight: '600' as const,
+      color: COLORS.text,
+      fontFamily: FONTS.sans.semibold,
+    },
     headerShadowVisible: false,
-    contentStyle: { backgroundColor: '#F7F3EE' },
+    contentStyle: { backgroundColor: COLORS.background },
   };
 
   return (
@@ -87,11 +133,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F7F3EE',
+    backgroundColor: COLORS.background,
   },
   loadingText: {
-    color: '#2E2A27',
+    color: COLORS.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: FONTS.sans.semibold,
   },
 });
