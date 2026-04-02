@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 4,
     paddingBottom: 32,
-    gap: 10,
+    gap: 14,
   },
   centered: {
     flex: 1,

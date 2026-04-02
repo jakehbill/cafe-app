@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 32,
-    gap: 12,
+    gap: 14,
   },
   resultsLabel: {
     fontSize: 13,
@@ -331,16 +331,16 @@ const styles = StyleSheet.create({
   webList: {
     paddingHorizontal: 20,
     paddingBottom: 28,
-    gap: 10,
+    gap: 14,
   },
   webCard: {
     backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    padding: 12,
-    gap: 2,
-    ...SHADOWS.card,
+    padding: 14,
+    gap: 4,
+    ...SHADOWS.none,
   },
   webCardTitle: {
     color: COLORS.text,

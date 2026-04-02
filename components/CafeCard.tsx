@@ -64,11 +64,11 @@ const styles = StyleSheet.create({
   featuredCard: {
     marginTop: 6,
     backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    ...SHADOWS.card,
+    ...SHADOWS.none,
   },
   imagePlaceholder: {
     width: '100%',
@@ -76,10 +76,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.imagePlaceholder,
   },
   cardBody: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 18,
-    gap: 14,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 20,
+    gap: 12,
   },
   headerBlock: {
     gap: 4,
@@ -99,10 +99,11 @@ const styles = StyleSheet.create({
   },
 
   publicCoffeeOnly: {
-    fontSize: 13,
-    fontFamily: FONTS.sans.medium,
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
-    letterSpacing: -0.2,
+    letterSpacing: 0.12,
+    opacity: 0.92,
   },
 
   tagsRow: {
@@ -112,17 +113,18 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
   tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: COLORS.chipBackground,
+    backgroundColor: COLORS.tagBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
   },
   tagText: {
     color: COLORS.muted,
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONTS.sans.medium,
+    letterSpacing: -0.05,
   },
   summaryDivider: {
     borderBottomWidth: 1,

@@ -1,16 +1,19 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import {
   Image,
+  Pressable,
   SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 
 import type { Cafe } from '../../data/cafes';
 import type { CafeRating } from '@/contexts/CafeStateContext';
@@ -21,30 +24,83 @@ import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
-import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags, supabase } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
+
+function heroGradientId(cafeId: string): string {
+  return `homeHero_${cafeId.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+}
+
+function tagLeadingIcon(tag: string): keyof typeof Ionicons.glyphMap {
+  const t = tag.toLowerCase();
+  if (t.includes('quiet')) return 'volume-mute-outline';
+  if (t.includes('quick') || t.includes('fast')) return 'flash-outline';
+  if (t.includes('specialty') || t.includes('roast')) return 'cafe-outline';
+  if (t.includes('outdoor') || t.includes('patio')) return 'sunny-outline';
+  return 'pricetag-outline';
+}
+
+/** Top band only: dark at the hero top edge, fading out so mid-image stays clean. */
+function ImageHeroTopFade({ cafeId, width, height }: { cafeId: string; width: number; height: number }) {
+  const gid = `${heroGradientId(cafeId)}_top`;
+  if (width <= 0 || height <= 0) return null;
+  return (
+    <Svg width={width} height={height} pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+      <Defs>
+        <SvgLinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#0a0a0a" stopOpacity="0.38" />
+          <Stop offset="0.58" stopColor="#0a0a0a" stopOpacity="0.07" />
+          <Stop offset="1" stopColor="#0a0a0a" stopOpacity="0" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect x={0} y={0} width={width} height={height} fill={`url(#${gid})`} />
+    </Svg>
+  );
+}
+
+/** Bottom band: preserves the previous full-hero bottom emphasis (transparent → mid → strong) within this strip. */
+function ImageHeroBottomFade({ cafeId, width, height }: { cafeId: string; width: number; height: number }) {
+  const gid = `${heroGradientId(cafeId)}_bot`;
+  if (width <= 0 || height <= 0) return null;
+  return (
+    <Svg width={width} height={height} pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+      <Defs>
+        <SvgLinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#0a0a0a" stopOpacity="0" />
+          <Stop offset="0.45" stopColor="#0a0a0a" stopOpacity="0.28" />
+          <Stop offset="1" stopColor="#0a0a0a" stopOpacity="0.72" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect x={0} y={0} width={width} height={height} fill={`url(#${gid})`} />
+    </Svg>
+  );
+}
 
 function HomeCafeCard({
   cafe,
   localRating,
   recommendationReason,
   isSaved,
+  distanceLabel,
+  hoursLabel,
   onPress,
   layout = 'stack',
 }: {
   cafe: Cafe;
   localRating?: CafeRating;
-  /** Shown under the name when set (personalized “why” line). */
   recommendationReason?: string | null;
-  /** Used to show the correct saved state on first render. */
   isSaved?: boolean;
+  /** E.g. "0.4 mi" when user location is available; omit when null. */
+  distanceLabel?: string | null;
+  /** Opening / open-until copy when backend provides it; omit when null. */
+  hoursLabel?: string | null;
   onPress: () => void;
-  /** Carousel: slightly larger type + image for editorial strip. */
   layout?: 'stack' | 'carousel';
 }) {
   const [topTags, setTopTags] = useState<string[]>([]);
+  const [heroGSize, setHeroGSize] = useState({ w: 0, h: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -58,60 +114,125 @@ function HomeCafeCard({
   }, [cafe.id]);
 
   const isCarousel = layout === 'carousel';
+  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
+
+  const onShare = async () => {
+    try {
+      await Share.share({
+        message: `${cafe.name} — ${cafe.neighborhood}`,
+        title: cafe.name,
+      });
+    } catch {
+      /* user dismissed share sheet */
+    }
+  };
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.92}
-      style={[styles.featuredCard, isCarousel && styles.featuredCardCarousel]}
-      onPress={onPress}
-    >
-      {cafe.imageUrl ? (
-        <Image
-          source={{ uri: cafe.imageUrl }}
-          style={[styles.featuredImagePlaceholder, isCarousel && styles.featuredImageCarousel]}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={[styles.featuredImagePlaceholder, isCarousel && styles.featuredImageCarousel]} />
-      )}
+    <Pressable accessibilityRole="button" style={[styles.featuredCard, isCarousel && styles.featuredCardCarousel]} onPress={onPress}>
+      <View
+        pointerEvents="box-none"
+        style={[styles.heroWrap, isCarousel && styles.heroWrapCarousel]}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setHeroGSize((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
+        }}
+      >
+        {cafe.imageUrl ? (
+          <Image source={{ uri: cafe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.heroImage, styles.heroImageFallback]} />
+        )}
+        <View style={styles.heroGradientSlot} pointerEvents="none">
+          {heroGSize.h > 0 && heroGSize.w > 0 ? (
+            <>
+              <View style={[styles.heroTopFadeSlot, { height: heroGSize.h * 0.38 }]}>
+                <ImageHeroTopFade cafeId={cafe.id} width={heroGSize.w} height={heroGSize.h * 0.38} />
+              </View>
+              <View style={[styles.heroBottomFadeSlot, { height: heroGSize.h * 0.54 }]}>
+                <ImageHeroBottomFade cafeId={cafe.id} width={heroGSize.w} height={heroGSize.h * 0.54} />
+              </View>
+            </>
+          ) : null}
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share this cafe"
+          hitSlop={12}
+          style={styles.heroShareBtn}
+          onPress={() => {
+            void onShare();
+          }}
+        >
+          <Ionicons name="share-outline" size={22} color="rgba(255,255,255,0.95)" />
+        </Pressable>
+
+        {(isSaved || localRating) && (
+          <View style={styles.heroStatusPills} pointerEvents="none">
+            {isSaved ? (
+              <View style={styles.heroMiniPill}>
+                <Text style={styles.heroMiniPillText}>Saved</Text>
+              </View>
+            ) : null}
+            {localRating ? (
+              <View style={styles.heroMiniPill}>
+                <Text style={styles.heroMiniPillText}>Rated by you</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        <View style={styles.heroTextBlock} pointerEvents="none">
+          <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
+            {cafe.name}
+          </Text>
+          <Text style={styles.heroLocation} numberOfLines={1}>
+            {cafe.neighborhood}
+          </Text>
+          {distanceLabel ? (
+            <Text style={styles.heroMeta} numberOfLines={1}>
+              {distanceLabel}
+            </Text>
+          ) : null}
+          {hoursLabel ? (
+            <Text style={styles.heroMeta} numberOfLines={1}>
+              {hoursLabel}
+            </Text>
+          ) : null}
+        </View>
+      </View>
 
       <View style={[styles.featuredBody, isCarousel && styles.featuredBodyCarousel]}>
-        <Text style={[styles.featuredName, isCarousel && styles.featuredNameCarousel]}>{cafe.name}</Text>
+        <View style={styles.tagsScoreRow}>
+          <View style={styles.tagsWithIcons}>
+            {topTags.map((tag) => (
+              <View key={tag} style={styles.tagWithIcon}>
+                <Ionicons name={tagLeadingIcon(tag)} size={14} color={COLORS.roastedBrown} />
+                <Text style={styles.tagWithIconLabel}>{formatTagLabel(tag)}</Text>
+              </View>
+            ))}
+          </View>
+          <Text
+            style={styles.inlineCoffeeScore}
+            accessibilityLabel={
+              publicCoffeeLabel === '—' ? 'No public coffee score' : `Coffee ${publicCoffeeLabel} out of 5`
+            }
+          >
+            {publicCoffeeLabel}
+          </Text>
+        </View>
+
+        <Text numberOfLines={3} style={styles.featuredSummary}>
+          {cafe.summary}
+        </Text>
+
         {recommendationReason ? (
-          <Text style={styles.featuredReason} numberOfLines={1}>
+          <Text style={styles.insightLine} numberOfLines={2}>
             {recommendationReason}
           </Text>
         ) : null}
-        <Text style={styles.featuredNeighborhood}>{cafe.neighborhood}</Text>
-        {isSaved ? (
-          <View style={styles.ratedBadge}>
-            <Text style={styles.ratedBadgeText}>Saved</Text>
-          </View>
-        ) : null}
-        {localRating ? (
-          <View style={styles.ratedBadge}>
-            <Text style={styles.ratedBadgeText}>Rated by you</Text>
-          </View>
-        ) : null}
-
-        {/* Same numeric line as CompactCafeCard (`PublicCoffeeScoreText`); avoid boxed flex row that hid the score on some layouts */}
-        <View style={styles.homeScoresLine}>
-          <PublicCoffeeScoreText cafe={cafe} />
-        </View>
-
-        <View style={styles.featuredTagsRow}>
-          {topTags.map((tag) => (
-            <View key={tag} style={styles.featuredTag}>
-              <Text style={styles.featuredTagText}>{formatTagLabel(tag)}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Text numberOfLines={2} style={styles.featuredSummary}>
-          {cafe.summary}
-        </Text>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
 
@@ -316,100 +437,175 @@ const styles = StyleSheet.create({
   featuredCard: {
     marginTop: 6,
     backgroundColor: COLORS.cardBackground,
-    borderRadius: 20,
+    borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    ...SHADOWS.card,
+    ...SHADOWS.none,
   },
   featuredCardCarousel: {
     marginTop: 0,
   },
-  featuredImagePlaceholder: {
+  heroWrap: {
     width: '100%',
     aspectRatio: 3 / 2,
     backgroundColor: COLORS.imagePlaceholder,
   },
-  featuredImageCarousel: {
+  heroWrapCarousel: {
     aspectRatio: 4 / 3,
   },
-  featuredBody: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-    paddingBottom: 20,
-    gap: 16,
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
-  featuredBodyCarousel: {
-    paddingTop: 20,
-    paddingBottom: 22,
-    gap: 14,
+  heroImageFallback: {
+    backgroundColor: COLORS.imagePlaceholder,
   },
-  featuredName: {
+  heroGradientSlot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  heroTopFadeSlot: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+  },
+  heroBottomFadeSlot: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+  },
+  heroShareBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 3,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  heroStatusPills: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    zIndex: 2,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    maxWidth: '72%',
+  },
+  heroMiniPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.26)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  heroMiniPillText: {
+    fontSize: 11,
+    fontFamily: FONTS.sans.semibold,
+    color: 'rgba(255,255,255,0.93)',
+    letterSpacing: -0.08,
+  },
+  heroTextBlock: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 14,
+    zIndex: 2,
+    gap: 4,
+  },
+  heroTitle: {
     fontSize: 22,
     fontFamily: FONTS.display.semibold,
-    color: COLORS.text,
+    color: '#faf8f5',
     lineHeight: 28,
-    letterSpacing: -0.3,
+    letterSpacing: -0.35,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
-  featuredNameCarousel: {
+  heroTitleCarousel: {
     fontSize: 24,
     lineHeight: 30,
   },
-  featuredReason: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.medium,
-    marginTop: 2,
-  },
-  featuredNeighborhood: {
+  heroLocation: {
     fontSize: 13,
-    color: COLORS.muted,
-    lineHeight: 18,
-    fontFamily: FONTS.sans.regular,
+    fontFamily: FONTS.sans.medium,
+    color: 'rgba(250,248,245,0.88)',
+    letterSpacing: -0.05,
   },
-  ratedBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: COLORS.coffeePillBackground,
-    borderWidth: 1,
-    borderColor: COLORS.coffeePillBorder,
-    marginTop: -4,
-  },
-  ratedBadgeText: {
+  heroMeta: {
     fontSize: 12,
-    color: COLORS.accent,
-    fontFamily: FONTS.sans.semibold,
+    fontFamily: FONTS.sans.regular,
+    color: 'rgba(250,248,245,0.78)',
   },
-  homeScoresLine: {
-    marginTop: 2,
-    alignSelf: 'stretch',
+  featuredBody: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 18,
+    gap: 12,
+    backgroundColor: COLORS.cardBackground,
   },
-  featuredTagsRow: {
+  featuredBodyCarousel: {
+    paddingTop: 16,
+    paddingBottom: 18,
+    gap: 12,
+  },
+  tagsScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  tagsWithIcons: {
+    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    paddingTop: 2,
+    gap: 10,
   },
-  featuredTag: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: COLORS.chipBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+  tagWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
-  featuredTagText: {
-    color: COLORS.muted,
+  tagWithIconLabel: {
     fontSize: 12,
     fontFamily: FONTS.sans.medium,
+    color: COLORS.text,
+    letterSpacing: -0.1,
+  },
+  inlineCoffeeScore: {
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+    letterSpacing: 0.2,
+    marginTop: 1,
   },
   featuredSummary: {
     color: COLORS.muted,
     fontSize: 14,
-    lineHeight: 22,
+    lineHeight: 21,
     fontFamily: FONTS.sans.regular,
+    letterSpacing: -0.05,
+  },
+  insightLine: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: FONTS.sans.regular,
+    fontStyle: 'italic',
+    color: COLORS.roastedBrown,
+    opacity: 0.92,
   },
 });

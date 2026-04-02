@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.bold,
   },
   listWrap: {
-    gap: 10,
+    gap: 14,
     paddingBottom: 8,
   },
 });

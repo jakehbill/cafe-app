@@ -93,9 +93,14 @@ export function CompactCafeCard({
           <View style={styles.thumbnail} />
         )}
         <View style={styles.body}>
-          <Text style={styles.name} numberOfLines={2}>
-            {cafe.name}
-          </Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.name} numberOfLines={2}>
+              {cafe.name}
+            </Text>
+            <View style={styles.scoreColumn}>
+              <PublicCoffeeScoreText cafe={cafe} variant="list" />
+            </View>
+          </View>
           {recommendationReason ? (
             <Text style={styles.recommendationReason} numberOfLines={1}>
               {recommendationReason}
@@ -104,9 +109,6 @@ export function CompactCafeCard({
           <Text style={styles.location} numberOfLines={1}>
             {cafe.neighborhood}
           </Text>
-          <View style={styles.scoresLine}>
-            <PublicCoffeeScoreText cafe={cafe} />
-          </View>
           {showTagRow ? (
             <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
               {tagSlice.map((tag) => (
@@ -141,29 +143,28 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    paddingRight: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingRight: 12,
     backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    ...SHADOWS.card,
-    gap: 8,
+    ...SHADOWS.none,
+    gap: 12,
   },
   cardMainPressable: {
     flex: 1,
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
   },
   cardMainPressableAlignStart: {
     alignItems: 'flex-start',
   },
   cardPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.985 }],
+    opacity: 0.94,
   },
   trailing: {
     flexShrink: 0,
@@ -172,85 +173,91 @@ const styles = StyleSheet.create({
     paddingLeft: 2,
   },
   thumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
+    width: 72,
+    height: 72,
+    borderRadius: 14,
     backgroundColor: COLORS.imagePlaceholder,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
   },
   body: {
     flex: 1,
-    gap: 3,
+    gap: 5,
     minWidth: 0,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  scoreColumn: {
+    flexShrink: 0,
+    paddingTop: 1,
+    minWidth: 36,
+    alignItems: 'flex-end',
+  },
   name: {
-    fontSize: 17,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 18,
     fontFamily: FONTS.display.semibold,
     color: COLORS.text,
-    letterSpacing: -0.25,
-    lineHeight: 22,
+    letterSpacing: -0.35,
+    lineHeight: 24,
   },
   recommendationReason: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.medium,
+    fontSize: 11,
+    lineHeight: 15,
+    color: COLORS.roastedBrown,
+    fontFamily: FONTS.sans.regular,
+    opacity: 0.9,
+    fontStyle: 'italic',
   },
   location: {
     fontSize: 12,
     color: COLORS.muted,
     lineHeight: 16,
     fontFamily: FONTS.sans.regular,
-  },
-  scoresLine: {
-    marginTop: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  scoreWord: {
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.semibold,
-    fontSize: 12,
+    letterSpacing: -0.05,
+    opacity: 0.88,
   },
   tagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 6,
+    gap: 8,
+    marginTop: 4,
   },
   tagsRowSubtle: {
-    gap: 4,
-    marginTop: 4,
+    gap: 6,
+    marginTop: 3,
     maxWidth: '100%',
   },
   tagChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: COLORS.chipBackground,
+    backgroundColor: COLORS.tagBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
   },
   tagChipSubtle: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     backgroundColor: 'transparent',
     borderColor: COLORS.cardBorder,
   },
   tagChipText: {
-    fontSize: 10,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-  },
-  tagChipTextSubtle: {
-    fontSize: 9,
+    fontSize: 11,
     fontFamily: FONTS.sans.medium,
     color: COLORS.muted,
-    opacity: 0.88,
+    letterSpacing: -0.05,
+  },
+  tagChipTextSubtle: {
+    fontSize: 10,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    opacity: 0.85,
   },
 });
 

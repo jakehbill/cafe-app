@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   listWrap: {
-    gap: 10,
+    gap: 14,
     paddingBottom: 8,
   },
   reorderCol: {
