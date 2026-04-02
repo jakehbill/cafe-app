@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 
 import type { Cafe } from '../../data/cafes';
+import { BrandTopBar } from '@/components/BrandTopBar';
 import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -27,9 +27,6 @@ import {
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { getTopCafeTags, supabase } from '@/lib/supabase';
-
-/** Local brand mark — `Beaned Logo .png` in repo `assets/images/` */
-const BEANED_LOGO = require('../../assets/images/Beaned Logo .png');
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -432,33 +429,7 @@ export default function HomeScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.topSection}>
-          <View style={styles.homeTopBar}>
-            <Image
-              source={BEANED_LOGO}
-              style={styles.homeLogo}
-              resizeMode="contain"
-              accessibilityIgnoresInvertColors
-            />
-            <View style={styles.homeTopBarActions}>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                onPress={() => router.push('/search')}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                accessibilityRole="button"
-                accessibilityLabel="Search"
-              >
-                <Ionicons name="search-outline" size={22} color={COLORS.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.75}
-                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                accessibilityRole="button"
-                accessibilityLabel="Notifications"
-              >
-                <Ionicons name="notifications-outline" size={22} color={COLORS.text} />
-              </TouchableOpacity>
-            </View>
-          </View>
+          <BrandTopBar />
 
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
@@ -516,23 +487,6 @@ const styles = StyleSheet.create({
   },
   topSection: {
     gap: 24,
-  },
-  homeTopBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  homeLogo: {
-    height: 32,
-    width: 135,
-    marginLeft: -14,
-    backgroundColor: 'transparent',
-  },
-  homeTopBarActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
   },
   homeSection: {
     gap: 18,
