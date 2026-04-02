@@ -165,19 +165,15 @@ export default function CafeDetailScreen() {
   }
 
   const localRating = getCafeRating(cafe.id);
-  /** User’s saved rating when present; otherwise listing work/vibe + canonical public coffee from `cafe_public_scores`. */
+  /** Tags/notes + coffee for display; public coffee when no local save (no legacy cafe work/vibe in this path). */
   const ratingSource = localRating
     ? {
         coffee: localRating.coffee,
-        work: localRating.work,
-        vibe: localRating.vibe,
         tags: localRating.tags,
         notes: localRating.notes,
       }
     : {
         coffee: cafe.publicCoffeeScore ?? 0,
-        work: cafe.workScore,
-        vibe: cafe.vibeScore,
         tags: cafe.tags,
         notes: '',
       };

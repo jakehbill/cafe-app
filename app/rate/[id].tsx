@@ -18,7 +18,7 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { ALL_RATING_TAGS, TAG_SECTIONS, formatTagLabel } from '@/lib/cafeTags';
-import { getUserRating, rateCafe } from '@/lib/supabase';
+import { getUserCoffeeRating, rateCafe } from '@/lib/supabase';
 
 function rateDebug(label: string, payload: Record<string, unknown>) {
   if (!__DEV__) return;
@@ -90,21 +90,18 @@ export default function RateCafeScreen() {
     let cancelled = false;
 
     async function loadPreviousRating() {
-      // Load a previously-saved overall rating from Supabase (if one exists) to pre-fill the UI.
+      // Prefill coffee from `user_cafe_ratings.coffee` only (aligned with `ratings.coffee_rating`).
       const numericCafeId = Number.parseInt(targetCafeId, 10);
       if (!Number.isFinite(numericCafeId)) return;
 
-      const prev = await getUserRating(numericCafeId);
+      const prev = await getUserCoffeeRating(numericCafeId);
       if (cancelled || prev === null) return;
 
-      // Only prefill when the user hasn't started rating yet and no per-dimension rating is present.
       if (coffeeScore !== 0 || workScore !== 0 || vibeScore !== 0) return;
       if (existingRating) return;
 
       const v = Math.min(5, Math.max(1, Math.round(prev)));
       setCoffeeScore(v);
-      setWorkScore(v);
-      setVibeScore(v);
     }
 
     void loadPreviousRating();
@@ -165,14 +162,10 @@ export default function RateCafeScreen() {
       notes: notes.trim(),
     };
 
-    // Final 0–10 rating saved to Supabase `ratings` table (simple average of the scores you set).
-    const parts = [coffeeScore, workScore, vibeScore].filter((v) => v > 0);
-    const ratingValue = parts.length > 0 ? parts.reduce((sum, v) => sum + v, 0) / parts.length : 0;
-
+    // Supabase `public.ratings` receives `coffee_rating` only (see `rateCafe`); work/vibe stay in local context.
     rateDebug('computed payload', {
       ...ratingData,
-      ratingValue,
-      partsUsedInAverage: parts,
+      coffeeRatingSentToRatings: coffeeScore,
     });
 
     if (!hasAnyRating) {

@@ -1,4 +1,5 @@
 import type { Cafe } from '@/data/cafes';
+import { rawPublicCoffeeToOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { supabase } from '@/lib/supabase';
 
 /** Set to false to silence temporary catalog debug logs after fixing Supabase. */
@@ -46,23 +47,21 @@ function tagsFromRow(row: Record<string, unknown>): string[] {
   return [];
 }
 
+/**
+ * Work/vibe from `cafes` listing columns only. Coffee is not read from legacy cafe columns —
+ * it comes solely from `public.cafe_public_scores` via `mergePublicIntoCafe` (`coffeeScore` for ranking).
+ */
 function scoreTriple(row: Record<string, unknown>): { coffee: number; work: number; vibe: number } {
-  const c = num(
-    row.coffee_score ?? row.coffeeScore ?? row.coffee_rating ?? row.avg_coffee
-  );
-  const w = num(row.work_score ?? row.workScore ?? row.work_rating ?? row.avg_work);
-  const v = num(
-    row.vibe_score ??
-      row.vibeScore ??
-      row.vibe_rating ??
-      row.atmosphere_score ??
-      row.avg_vibe
-  );
-  const avg = num(row.avg_rating ?? row.overall_rating ?? row.rating);
-  if (c === 0 && w === 0 && v === 0 && avg > 0) {
-    return { coffee: avg, work: avg, vibe: avg };
-  }
-  return { coffee: c, work: w, vibe: v };
+  const w = num(row.work_score ?? row.workScore);
+  const v = num(row.vibe_score ?? row.vibeScore ?? row.atmosphere_score);
+  return { coffee: 0, work: w, vibe: v };
+}
+
+/** Map public aggregate to ~0–10 so existing ranking blends stay on the same scale as work/vibe. */
+function internalCoffeeScoreFromPublic(publicCoffee: number | null | undefined): number {
+  const n = rawPublicCoffeeToOutOf5(publicCoffee);
+  if (n == null) return 0;
+  return n * 2;
 }
 
 /**
@@ -133,12 +132,18 @@ function parsePublicScoreRow(row: unknown): CafePublicScoreRow | null {
 
 function mergePublicIntoCafe(cafe: Cafe, row: CafePublicScoreRow | null): Cafe {
   if (row == null) {
-    return { ...cafe, publicCoffeeScore: null, coffeeRatingCount: 0 };
+    return {
+      ...cafe,
+      publicCoffeeScore: null,
+      coffeeRatingCount: 0,
+      coffeeScore: 0,
+    };
   }
   return {
     ...cafe,
     publicCoffeeScore: row.publicCoffeeScore,
     coffeeRatingCount: row.coffeeRatingCount,
+    coffeeScore: internalCoffeeScoreFromPublic(row.publicCoffeeScore),
   };
 }
 

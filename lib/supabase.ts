@@ -96,14 +96,16 @@ export async function unsaveCafe(cafeId: number): Promise<SupabaseActionResult> 
 
 /**
  * Create or update a cafe rating for the current user.
- * Submit flow writes to `public.ratings` and fully replaces rows in `public.rating_tags`.
+ * Writes only `coffee_rating` on `public.ratings` (no `rating`, `work_rating`, or `vibe_rating`).
+ * Replaces rows in `public.rating_tags` for that rating.
  */
 export async function rateCafe(
   cafeId: string | number,
-  rating: {
+  input: {
     coffee: number;
-    work: number;
-    vibe: number;
+    /** Kept for callers / local `user_cafe_ratings` only — not written to `public.ratings`. */
+    work?: number;
+    vibe?: number;
     tags?: string[];
     notes?: string;
   }
@@ -133,9 +135,7 @@ export async function rateCafe(
   }
 
   const clamp010 = (n: number) => Math.min(10, Math.max(0, n));
-  const coffeeRating = Math.round(clamp010(rating.coffee));
-  const workRating = Math.round(clamp010(rating.work));
-  const vibeRating = Math.round(clamp010(rating.vibe));
+  const coffeeRating = Math.round(clamp010(input.coffee));
   const normalizedCafeId = Number.parseInt(String(cafeId), 10);
 
   if (!Number.isFinite(normalizedCafeId)) {
@@ -148,10 +148,7 @@ export async function rateCafe(
   const ratingPayload = {
     user_id: userId,
     cafe_id: normalizedCafeId,
-    rating: coffeeRating,
     coffee_rating: coffeeRating,
-    work_rating: workRating,
-    vibe_rating: vibeRating,
   };
 
   logStep('step 1: upsert ratings', {
@@ -162,7 +159,7 @@ export async function rateCafe(
   const upsertRes = await supabase
     .from('ratings')
     .upsert(ratingPayload, { onConflict: 'user_id,cafe_id' })
-    .select('id, user_id, cafe_id, coffee_rating, work_rating, vibe_rating')
+    .select('id, user_id, cafe_id, coffee_rating')
     .single();
 
   if (upsertRes.error) {
@@ -203,7 +200,7 @@ export async function rateCafe(
     return { ok: false, error: err.message };
   }
 
-  const normalizedTags = Array.from(new Set((rating.tags ?? []).map((t) => t.trim()).filter(Boolean)));
+  const normalizedTags = Array.from(new Set((input.tags ?? []).map((t) => t.trim()).filter(Boolean)));
   logStep('step 4: insert rating_tags', {
     rating_id: ratingId,
     tagCount: normalizedTags.length,
@@ -232,12 +229,12 @@ export async function rateCafe(
 }
 
 /**
- * Read the current user's overall score for one cafe (average of coffee/work/vibe from `user_cafe_ratings`).
+ * Coffee-only helper for rate-screen prefill from `user_cafe_ratings` (no work/vibe blend).
  */
-export async function getUserRating(cafeId: number | string): Promise<number | null> {
+export async function getUserCoffeeRating(cafeId: number | string): Promise<number | null> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
-    console.error('getUserRating: auth getUser failed:', authError);
+    console.error('getUserCoffeeRating: auth getUser failed:', authError);
     return null;
   }
 
@@ -248,23 +245,20 @@ export async function getUserRating(cafeId: number | string): Promise<number | n
 
   const res = await supabase
     .from('user_cafe_ratings')
-    .select('coffee, work, vibe')
+    .select('coffee')
     .eq('user_id', userId)
     .eq('cafe_id', String(cafeId))
     .maybeSingle();
 
   if (res.error) {
-    console.error('getUserRating: select failed:', res.error);
+    console.error('getUserCoffeeRating: select failed:', res.error);
     return null;
   }
 
   const row = res.data;
   if (!row) return null;
   const c = typeof row.coffee === 'number' ? row.coffee : 0;
-  const w = typeof row.work === 'number' ? row.work : 0;
-  const v = typeof row.vibe === 'number' ? row.vibe : 0;
-  if (c === 0 && w === 0 && v === 0) return null;
-  return (c + w + v) / 3;
+  return c > 0 ? c : null;
 }
 
 /**

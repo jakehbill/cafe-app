@@ -48,62 +48,6 @@ export async function fetchTrendingNearby(params: {
   return res.data ?? [];
 }
 
-/**
- * Fallback: fetch the globally trending cafes (no location).
- *
- * Reads from the `cafe_trending` view, ordered by `trending_score` (highest first),
- * returning the top 10 rows. If anything goes wrong, returns an empty list.
- */
-export async function fetchTrendingGlobal() {
-  let res = await supabase
-    .from('cafe_trending')
-    .select('*')
-    .order('trending_score', { ascending: false })
-    .limit(10);
-
-  if (res.error) {
-    res = await supabase
-      .from('cafe_trending')
-      .select('*')
-      .order('score', { ascending: false })
-      .limit(10);
-  }
-
-  if (res.error) {
-    console.error('fetchTrendingGlobal failed:', res.error);
-    if (__DEV__) {
-      const payload = {
-        error: { message: res.error.message, code: res.error.code },
-        rowCount: 0,
-      };
-      try {
-        console.log(`[DEBUG fetchTrendingGlobal]\n${JSON.stringify(payload, null, 2)}`);
-      } catch {
-        console.log('[DEBUG fetchTrendingGlobal]', payload);
-      }
-    }
-    return [];
-  }
-
-  const rows = res.data ?? [];
-  if (__DEV__) {
-    const payload = {
-      error: null,
-      rawRowCount: rows.length,
-      firstRawRow: rows[0] ?? null,
-      firstRowKeys: rows[0] != null ? Object.keys(rows[0] as object) : [],
-    };
-    try {
-      console.log(
-        `[DEBUG fetchTrendingGlobal: cafe_trending view]\n${JSON.stringify(payload, null, 2)}`
-      );
-    } catch {
-      console.log('[DEBUG fetchTrendingGlobal: cafe_trending view]', payload);
-    }
-  }
-  return rows;
-}
-
 function meanListingScore(cafe: Cafe): number {
   return (cafe.coffeeScore + cafe.workScore + cafe.vibeScore) / 3;
 }

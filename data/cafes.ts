@@ -9,8 +9,8 @@ export type Cafe = {
   latitude: number;
   longitude: number;
   /**
-   * Legacy listing scores from `public.cafes` (used for internal ranking / personalization).
-   * Do not use for visible public coffee — use `publicCoffeeScore`.
+   * Coffee axis for internal ranking (~0–10), derived from `public.cafe_public_scores.public_coffee_score`
+   * after load — not from `cafes.coffee_score` / avg fallbacks. For visible coffee use `publicCoffeeScore`.
    */
   coffeeScore: number;
   workScore: number;

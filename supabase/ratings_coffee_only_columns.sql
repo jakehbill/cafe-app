@@ -1,0 +1,3 @@
+-- Historical note: `public.ratings` is coffee-only in the app (`coffee_rating`).
+-- Legacy columns `rating`, `work_rating`, `vibe_rating` were removed from the schema.
+-- Keep this file only as a reminder; do not reintroduce those columns for the client.

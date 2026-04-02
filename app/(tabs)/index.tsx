@@ -1,50 +1,21 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
-import {
-  ActivityIndicator,
-  Image,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import type { Cafe } from '../../data/cafes';
 import { BrandTopBar } from '@/components/BrandTopBar';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
-import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
 import { formatTagLabel } from '@/lib/cafeTags';
-import {
-  fetchTrendingGlobal,
-  rankCafesForTrending,
-} from '@/lib/cafeTrending';
+import { rankCafesForTrending } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { getTopCafeTags, supabase } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
-
-function getVisibleTags(tags: string[]) {
-  return tags.slice(0, MAX_VISIBLE_TAGS);
-}
-
-/** Ranking views may use `cafe_id` (text/uuid) or numeric `id` — normalize so `byId` lookup matches `cafes`. */
-function cafeIdFromViewRow(r: unknown): string | null {
-  const row = r as Record<string, unknown>;
-  const v =
-    typeof row.cafe_id === 'string'
-      ? row.cafe_id
-      : row.cafe_uuid ?? row.id ?? row.cafe_id;
-  if (v == null) return null;
-  const s = String(v).trim();
-  return s.length > 0 ? s : null;
-}
 
 function HomeCafeCard({
   cafe,
@@ -150,135 +121,23 @@ export default function HomeScreen() {
       console.log('[RouteHeaderDebug Home] segments:', segments, 'err:', e);
     }
   }, [navigation, segments]);
-  const userLocation = useOptionalUserLocation();
-  const { cafes: cafeCatalog, byId } = useCafeCatalog();
+  const { cafes: cafeCatalog } = useCafeCatalog();
 
   const tasteProfile = useMemo(
     () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
     [ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds]
   );
 
-  /**
-   * Top picks for you:
-   * Home ranking is driven by the aggregated Supabase view `cafe_overall_ranking` (ratings, saves,
-   * visits roll up into `overall_score`). Map ids → catalog `Cafe` rows for the card UI.
-   * Fallback: client ranking over the catalog if the fetch fails or returns nothing.
-   */
-  const [topPickIds, setTopPickIds] = useState<string[] | null>(null);
-  const [topPicksLoading, setTopPicksLoading] = useState(false);
+  /** Client-side ranking (same as Search with no query). Public coffee on cards comes from `cafe_public_scores` via catalog merge. */
+  const topPicksForYou = useMemo(
+    () => rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile).slice(0, 10),
+    [cafeCatalog, ratingsByCafeId, tasteProfile]
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadTopPicks() {
-      setTopPicksLoading(true);
-      try {
-        const res = await supabase
-          .from('cafe_overall_ranking')
-          .select('*')
-          .order('overall_score', { ascending: false })
-          .limit(10);
-
-        if (cancelled) return;
-
-        if (res.error) {
-          console.error('Home top picks fetch failed:', res.error);
-          if (__DEV__) {
-            const payload = {
-              error: { message: res.error.message, code: res.error.code },
-            };
-            try {
-              console.log(
-                `[DEBUG Home cafe_overall_ranking]\n${JSON.stringify(payload, null, 2)}`
-              );
-            } catch {
-              console.log('[DEBUG Home cafe_overall_ranking]', payload);
-            }
-          }
-          setTopPickIds(null);
-          return;
-        }
-
-        const ids = (res.data ?? [])
-          .map((r) => cafeIdFromViewRow(r))
-          .filter((id): id is string => id != null);
-
-        if (__DEV__) {
-          const sample = (res.data ?? [])[0];
-          const payload = {
-            error: null,
-            rawRowCount: (res.data ?? []).length,
-            firstRawRow: sample ?? null,
-            firstViewRowKeys: sample != null ? Object.keys(sample as object) : [],
-            resolvedIdStrings: ids.length,
-            resolvedIdsSample: ids.slice(0, 5),
-            diagnosis:
-              (res.data ?? []).length > 0 && ids.length === 0
-                ? 'ID_EXTRACTION_FAIL: view has rows but cafeIdFromViewRow returned none'
-                : null,
-          };
-          try {
-            console.log(
-              `[DEBUG Home topPicks: cafe_overall_ranking query]\n${JSON.stringify(payload, null, 2)}`
-            );
-          } catch {
-            console.log('[DEBUG Home topPicks: cafe_overall_ranking query]', payload);
-          }
-        }
-
-        setTopPickIds(ids.length > 0 ? ids : null);
-      } catch (e) {
-        if (!cancelled) {
-          console.error('Home top picks fetch failed (unexpected):', e);
-          setTopPickIds(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setTopPicksLoading(false);
-        }
-      }
-    }
-
-    void loadTopPicks();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const topPicksForYou = useMemo(() => {
-    if (topPickIds && topPickIds.length > 0) {
-      const picked = topPickIds.map((id) => byId[id]).filter((c): c is Cafe => c != null);
-      if (picked.length > 0) {
-        return picked;
-      }
-    }
-    return rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile);
-  }, [topPickIds, byId, cafeCatalog, ratingsByCafeId, tasteProfile]);
-
-  useEffect(() => {
-    if (!__DEV__ || !topPickIds?.length) return;
-    const missing = topPickIds.filter((id) => !byId[id]);
-    const payload = {
-      rankingViewIdCount: topPickIds.length,
-      catalogByIdKeyCount: Object.keys(byId).length,
-      joinedCardCount: topPickIds.filter((id) => byId[id]).length,
-      missingInCatalogSample: missing.slice(0, 10),
-      catalogIdSample: Object.keys(byId).slice(0, 10),
-      likelyIssue:
-        topPickIds.length > 0 && missing.length === topPickIds.length
-          ? 'ID_MISMATCH: every ranking id missing from catalog (format or wrong table join)'
-          : missing.length > 0
-            ? 'PARTIAL_ID_MISMATCH: some ranking ids not in catalog'
-            : null,
-    };
-    try {
-      console.log(
-        `[DEBUG Home topPicks: view ids ↔ catalog byId]\n${JSON.stringify(payload, null, 2)}`
-      );
-    } catch {
-      console.log('[DEBUG Home topPicks: view ids ↔ catalog byId]', payload);
-    }
-  }, [topPickIds, byId]);
+  const trending = useMemo(
+    () => rankCafesForTrending([...cafeCatalog]).slice(0, 10),
+    [cafeCatalog]
+  );
 
   /**
    * Load the user’s saved cafes so cards can reflect saved state immediately.
@@ -329,20 +188,10 @@ export default function HomeScreen() {
     };
   }, []);
 
-  /**
-   * Trending section:
-   * - Uses the `cafe_trending` view (already ranked by `trending_score`).
-   * - Maps ids → Supabase `cafes` rows for display.
-   */
-  const [trendingNearby, setTrendingNearby] = useState<Cafe[]>([]);
-  // Trending section now renders from the ranked `trending` data source (nearby → global fallback).
-  const trending = trendingNearby;
-
   useEffect(() => {
     if (!__DEV__) return;
     const payload = {
       cafeCatalogCount: cafeCatalog.length,
-      topPickIdsFromView: topPickIds?.length ?? 0,
       topPicksForYouCardCount: topPicksForYou.length,
       trendingCardCount: trending.length,
     };
@@ -351,64 +200,7 @@ export default function HomeScreen() {
     } catch {
       console.log('[DEBUG Home UI: final section counts]', payload);
     }
-  }, [cafeCatalog.length, topPickIds, topPicksForYou.length, trending.length]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadTrending() {
-      try {
-        // Fetch ranked trending rows from Supabase view (no raw `cafes` table read here).
-        const rows = await fetchTrendingGlobal();
-
-        if (cancelled) return;
-
-        const ids = (rows ?? [])
-          .map((r) => cafeIdFromViewRow(r))
-          .filter((id): id is string => id != null);
-
-        const next = ids.map((id: string) => byId[id]).filter((c: Cafe | undefined): c is Cafe => c != null);
-
-        if (__DEV__) {
-          const missingTrend = ids.filter((id) => !byId[id]);
-          const payload = {
-            rawViewRowCount: (rows ?? []).length,
-            resolvedIdStrings: ids.length,
-            idsSample: ids.slice(0, 5),
-            joinedCardCount: next.length,
-            missingInCatalogSample: missingTrend.slice(0, 10),
-            catalogCountAtJoin: cafeCatalog.length,
-            diagnosis:
-              (rows ?? []).length > 0 && ids.length === 0
-                ? 'ID_EXTRACTION_FAIL from trending view rows'
-                : ids.length > 0 && next.length === 0
-                  ? 'ID_MISMATCH: trending ids not in catalog byId'
-                  : null,
-          };
-          try {
-            console.log(
-              `[DEBUG Home trending: cafe_trending ↔ catalog]\n${JSON.stringify(payload, null, 2)}`
-            );
-          } catch {
-            console.log('[DEBUG Home trending: cafe_trending ↔ catalog]', payload);
-          }
-        }
-
-        // If views return ids not yet in catalog, fall back to a catalog-only trending sort.
-        setTrendingNearby(next.length > 0 ? next : rankCafesForTrending([...cafeCatalog]));
-      } catch (e) {
-        if (!cancelled) {
-          console.error('Home trending fetch failed:', e);
-          setTrendingNearby(rankCafesForTrending([...cafeCatalog]));
-        }
-      }
-    }
-
-    void loadTrending();
-    return () => {
-      cancelled = true;
-    };
-  }, [userLocation, byId, cafeCatalog]);
+  }, [cafeCatalog.length, topPicksForYou.length, trending.length]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -424,12 +216,6 @@ export default function HomeScreen() {
               <Text style={styles.homeSectionTitle}>Top picks for you</Text>
               <Text style={styles.homeSectionSubtitle}>Based on your taste</Text>
             </View>
-            {topPicksLoading ? (
-              <View style={styles.sectionLoadingRow}>
-                <ActivityIndicator size="small" color={COLORS.muted} />
-                <Text style={styles.sectionLoadingText}>Loading picks…</Text>
-              </View>
-            ) : null}
             {topPicksForYou.map((cafe) => (
               <HomeCafeCard
                 key={`pick-${cafe.id}`}
@@ -487,19 +273,6 @@ const styles = StyleSheet.create({
     gap: 6,
     marginBottom: 8,
     paddingTop: 2,
-  },
-  sectionLoadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingTop: 2,
-    paddingBottom: 2,
-  },
-  sectionLoadingText: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.semibold,
   },
   homeSectionTitle: {
     fontSize: 28,
