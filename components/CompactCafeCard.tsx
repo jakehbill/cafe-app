@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
@@ -23,6 +24,16 @@ export type CompactCafeCardProps = {
   maxTags?: number;
   /** One short line from taste / tags (Home + Search). */
   recommendationReason?: string;
+  /**
+   * Rendered inside the white card row (e.g. visited reorder arrows).
+   * Not part of the main press target — use `TouchableOpacity` children.
+   */
+  trailing?: ReactNode;
+  /**
+   * When false, the tag row under the coffee score is omitted and tag fetch is skipped.
+   * Use on Visited only; default true everywhere else.
+   */
+  showTagsUI?: boolean;
 };
 
 export function CompactCafeCard({
@@ -33,16 +44,23 @@ export function CompactCafeCard({
   tags,
   maxTags = 3,
   recommendationReason,
+  trailing,
+  showTagsUI = true,
 }: CompactCafeCardProps) {
   const coffee = scores?.coffee ?? cafe.coffeeScore;
+  /** Visited list (with trailing): when tags are shown, cap count and lighter styling. */
+  const effectiveMaxTags = trailing != null ? Math.min(maxTags, 2) : maxTags;
   const [topTags, setTopTags] = useState<string[]>([]);
   const tagSlice = useMemo(() => {
-    if (tags && tags.length > 0) return tags.slice(0, maxTags);
-    return topTags.slice(0, maxTags);
-  }, [tags, topTags, maxTags]);
-  const showTags = tagSlice.length > 0;
+    if (!showTagsUI) return [];
+    if (tags && tags.length > 0) return tags.slice(0, effectiveMaxTags);
+    return topTags.slice(0, effectiveMaxTags);
+  }, [showTagsUI, tags, topTags, effectiveMaxTags]);
+  const showTagRow = showTagsUI && tagSlice.length > 0;
+  const tagsSubtle = trailing != null && showTagsUI;
 
   useEffect(() => {
+    if (!showTagsUI) return;
     let cancelled = false;
     if (tags && tags.length > 0) {
       setTopTags([]);
@@ -51,61 +69,68 @@ export function CompactCafeCard({
       };
     }
     void (async () => {
-      const fetched = await getTopCafeTags(cafe.id, maxTags);
+      const fetched = await getTopCafeTags(cafe.id, effectiveMaxTags);
       if (!cancelled) setTopTags(fetched);
     })();
     return () => {
       cancelled = true;
     };
-  }, [cafe.id, maxTags, tags]);
+  }, [cafe.id, effectiveMaxTags, tags, showTagsUI]);
+
+  const coffeeSize = trailing != null ? 12 : 14;
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Open ${cafe.name}`}
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        showTags && styles.cardWithTags,
-        pressed && styles.cardPressed,
-      ]}
-    >
+    <View style={styles.card}>
       {rank != null ? (
         <View style={styles.rankBadge} accessibilityElementsHidden>
           <Text style={styles.rankBadgeText}>#{rank}</Text>
         </View>
       ) : null}
-      {cafe.imageUrl ? (
-        <Image source={{ uri: cafe.imageUrl }} style={styles.thumbnail} resizeMode="cover" />
-      ) : (
-        <View style={styles.thumbnail} />
-      )}
-      <View style={styles.body}>
-        <Text style={styles.name} numberOfLines={2}>
-          {cafe.name}
-        </Text>
-        {recommendationReason ? (
-          <Text style={styles.recommendationReason} numberOfLines={1}>
-            {recommendationReason}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${cafe.name}`}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.cardMainPressable,
+          showTagRow && styles.cardMainPressableAlignStart,
+          pressed && styles.cardPressed,
+        ]}
+      >
+        {cafe.imageUrl ? (
+          <Image source={{ uri: cafe.imageUrl }} style={styles.thumbnail} resizeMode="cover" />
+        ) : (
+          <View style={styles.thumbnail} />
+        )}
+        <View style={styles.body}>
+          <Text style={styles.name} numberOfLines={2}>
+            {cafe.name}
           </Text>
-        ) : null}
-        <Text style={styles.location} numberOfLines={1}>
-          {cafe.neighborhood}
-        </Text>
-        <View style={styles.scoresLine}>
-          <CoffeeCupRating value={coffee} size={14} />
-        </View>
-        {showTags ? (
-          <View style={styles.tagsRow}>
-            {tagSlice.map((tag) => (
-              <View key={tag} style={styles.tagChip}>
-                <Text style={styles.tagChipText}>{formatTagLabel(tag)}</Text>
-              </View>
-            ))}
+          {recommendationReason ? (
+            <Text style={styles.recommendationReason} numberOfLines={1}>
+              {recommendationReason}
+            </Text>
+          ) : null}
+          <Text style={styles.location} numberOfLines={1}>
+            {cafe.neighborhood}
+          </Text>
+          <View style={styles.scoresLine}>
+            <CoffeeCupRating value={coffee} size={coffeeSize} />
           </View>
-        ) : null}
-      </View>
-    </Pressable>
+          {showTagRow ? (
+            <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
+              {tagSlice.map((tag) => (
+                <View key={tag} style={[styles.tagChip, tagsSubtle && styles.tagChipSubtle]}>
+                  <Text style={[styles.tagChipText, tagsSubtle && styles.tagChipTextSubtle]}>
+                    {formatTagLabel(tag)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
+      {trailing != null ? <View style={styles.trailing}>{trailing}</View> : null}
+    </View>
   );
 }
 
@@ -114,6 +139,7 @@ const styles = StyleSheet.create({
     width: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'center',
   },
   rankBadgeText: {
     fontSize: 15,
@@ -124,21 +150,35 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingRight: 10,
     backgroundColor: COLORS.cardBackground,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
     ...SHADOWS.card,
+    gap: 8,
   },
-  cardWithTags: {
+  cardMainPressable: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cardMainPressableAlignStart: {
     alignItems: 'flex-start',
   },
   cardPressed: {
     opacity: 0.92,
     transform: [{ scale: 0.985 }],
+  },
+  trailing: {
+    flexShrink: 0,
+    justifyContent: 'center',
+    alignSelf: 'stretch',
+    paddingLeft: 2,
   },
   thumbnail: {
     width: 64,
@@ -177,6 +217,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 1,
+    minWidth: 0,
   },
   scoreWord: {
     color: COLORS.muted,
@@ -189,6 +231,11 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 6,
   },
+  tagsRowSubtle: {
+    gap: 4,
+    marginTop: 4,
+    maxWidth: '100%',
+  },
   tagChip: {
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -197,10 +244,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
   },
+  tagChipSubtle: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: 'transparent',
+    borderColor: COLORS.cardBorder,
+  },
   tagChipText: {
     fontSize: 10,
     fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
+  },
+  tagChipTextSubtle: {
+    fontSize: 9,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    opacity: 0.88,
   },
 });
 

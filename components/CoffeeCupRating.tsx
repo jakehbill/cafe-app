@@ -27,9 +27,13 @@ export function CoffeeCupRating({
   const filled = Math.round(normalized);
   const interactive = typeof onChange === 'function';
 
+  /** Tighter wraps + gap for small sizes so a row of 5 fits on narrow screens. */
+  const wrapSize = Math.min(34, Math.max(20, Math.round(size + 10)));
+  const gapBetween = size <= 14 ? 2 : size <= 17 ? 4 : 6;
+
   return (
     <View style={[styles.row, interactive && styles.rowInteractive]}>
-      <View style={styles.cupsRow}>
+      <View style={[styles.cupsRow, { gap: gapBetween }]}>
         {Array.from({ length: max }, (_, i) => {
           const cupNumber = i + 1;
           const isFilled = cupNumber <= filled;
@@ -55,6 +59,7 @@ export function CoffeeCupRating({
               }
               style={({ pressed, hovered }) => [
                 styles.cupWrap,
+                { width: wrapSize, height: wrapSize },
                 isFilled ? styles.cupWrapSelected : styles.cupWrapUnselected,
                 interactive && hovered && styles.cupHover,
                 interactive && pressed && styles.cupPressed,
@@ -86,11 +91,8 @@ const styles = StyleSheet.create({
   cupsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   cupWrap: {
-    width: 34,
-    height: 34,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',

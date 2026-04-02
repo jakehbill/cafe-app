@@ -114,48 +114,51 @@ export default function MyCafesScreen() {
             <Text style={styles.hint}>Rank your visited cafes to improve recommendations</Text>
             <View style={styles.listWrap}>
               {visitedCafes.map((cafe, index) => (
-                <View key={cafe.id} style={styles.row}>
-                  <View style={styles.cardWrap}>
-                    <CompactCafeCard
-                      rank={index + 1}
-                      cafe={cafe}
-                      onPress={() => router.push(`/cafe/${cafe.id}`)}
-                    />
-                  </View>
-                  <View style={styles.reorderCol}>
-                    <TouchableOpacity
-                      accessibilityLabel="Move up"
-                      disabled={reordering || index === 0}
-                      style={[styles.reorderBtn, (reordering || index === 0) && styles.reorderBtnDisabled]}
-                      onPress={() => void move(index, -1)}
-                    >
-                      <Ionicons
-                        name="chevron-up"
-                        size={22}
-                        color={reordering || index === 0 ? COLORS.muted : COLORS.accent}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      accessibilityLabel="Move down"
-                      disabled={reordering || index === visitedCafes.length - 1}
-                      style={[
-                        styles.reorderBtn,
-                        (reordering || index === visitedCafes.length - 1) && styles.reorderBtnDisabled,
-                      ]}
-                      onPress={() => void move(index, 1)}
-                    >
-                      <Ionicons
-                        name="chevron-down"
-                        size={22}
-                        color={
-                          reordering || index === visitedCafes.length - 1
-                            ? COLORS.muted
-                            : COLORS.accent
-                        }
-                      />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                <CompactCafeCard
+                  key={cafe.id}
+                  rank={index + 1}
+                  cafe={cafe}
+                  showTagsUI={false}
+                  onPress={() => router.push(`/cafe/${cafe.id}`)}
+                  trailing={
+                    <View style={styles.reorderCol}>
+                      <TouchableOpacity
+                        accessibilityLabel="Move up"
+                        disabled={reordering || index === 0}
+                        style={[
+                          styles.reorderBtn,
+                          (reordering || index === 0) && styles.reorderBtnDisabled,
+                        ]}
+                        onPress={() => void move(index, -1)}
+                      >
+                        <Ionicons
+                          name="chevron-up"
+                          size={18}
+                          color={reordering || index === 0 ? COLORS.muted : COLORS.accent}
+                        />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        accessibilityLabel="Move down"
+                        disabled={reordering || index === visitedCafes.length - 1}
+                        style={[
+                          styles.reorderBtn,
+                          (reordering || index === visitedCafes.length - 1) && styles.reorderBtnDisabled,
+                        ]}
+                        onPress={() => void move(index, 1)}
+                      >
+                        <Ionicons
+                          name="chevron-down"
+                          size={18}
+                          color={
+                            reordering || index === visitedCafes.length - 1
+                              ? COLORS.muted
+                              : COLORS.accent
+                          }
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  }
+                />
               ))}
             </View>
             {reordering ? (
@@ -264,23 +267,15 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 8,
   },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  cardWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
   reorderCol: {
     justifyContent: 'center',
-    gap: 2,
+    gap: 0,
+    minWidth: 32,
   },
   reorderBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    minWidth: 40,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    minWidth: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
