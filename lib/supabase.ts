@@ -103,9 +103,6 @@ export async function rateCafe(
   cafeId: string | number,
   input: {
     coffee: number;
-    /** Kept for callers / local `user_cafe_ratings` only — not written to `public.ratings`. */
-    work?: number;
-    vibe?: number;
     tags?: string[];
     notes?: string;
   }

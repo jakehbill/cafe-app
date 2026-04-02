@@ -23,8 +23,6 @@ import { COLORS, FONTS } from '@/components/theme';
 type RatingRow = {
   cafe_id: string;
   coffee: number;
-  work: number;
-  vibe: number;
   tags: string[] | null;
 };
 
@@ -65,7 +63,7 @@ export default function MyRatingsScreen() {
 
     const { data, error } = await supabase
       .from('user_cafe_ratings')
-      .select('cafe_id, coffee, work, vibe, tags')
+      .select('cafe_id, coffee, tags')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 

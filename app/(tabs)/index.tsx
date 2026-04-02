@@ -4,6 +4,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import type { Cafe } from '../../data/cafes';
+import type { CafeRating } from '@/contexts/CafeStateContext';
 import { BrandTopBar } from '@/components/BrandTopBar';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -25,11 +26,7 @@ function HomeCafeCard({
   onPress,
 }: {
   cafe: Cafe;
-  localRating?: {
-    coffee: number;
-    work: number;
-    vibe: number;
-  };
+  localRating?: CafeRating;
   /** Shown under the name when set (personalized “why” line). */
   recommendationReason?: string | null;
   /** Used to show the correct saved state on first render. */

@@ -30,8 +30,8 @@ export type UserTasteProfile = {
   highRatingTagAffinity: Record<string, number>;
   /** Tag affinities from top-N visited cafe listings (reference for “similar taste”) */
   referenceTagAffinity: Record<string, number>;
-  /** Raw rating averages (for subtle negative signal); null if no ratings */
-  rawRatingAverages: { coffee: number; work: number; vibe: number } | null;
+  /** Raw coffee average from user ratings (for subtle negative signal); null if no ratings */
+  rawRatingAverages: { coffee: number } | null;
   ratingCount: number;
 };
 
@@ -39,9 +39,9 @@ function normTag(t: string): string {
   return t.trim().toLowerCase();
 }
 
-/** Composite 1–10 for one rating visit */
+/** Strength of one user rating (1–10) for tag learning */
 function composite(r: CafeRating): number {
-  return (r.coffee + r.work + r.vibe) / 3;
+  return r.coffee;
 }
 
 const HIGH_RATING_THRESHOLD = 8;
@@ -129,15 +129,11 @@ export function buildUserTasteProfile(
       : null;
 
   let sumCoffee = 0;
-  let sumWork = 0;
-  let sumVibe = 0;
   const tagWeights: Record<string, number> = {};
   const highRatingTagWeights: Record<string, number> = {};
 
   for (const [cafeId, rating] of ratingEntries) {
     sumCoffee += rating.coffee;
-    sumWork += rating.work;
-    sumVibe += rating.vibe;
 
     const w = visitWeight(rating);
     const isHigh = composite(rating) >= HIGH_RATING_THRESHOLD;
@@ -168,13 +164,7 @@ export function buildUserTasteProfile(
   }
 
   const n = ratingEntries.length;
-  const rawRatingAverages = hasRatings
-    ? {
-        coffee: sumCoffee / n,
-        work: sumWork / n,
-        vibe: sumVibe / n,
-      }
-    : null;
+  const rawRatingAverages = hasRatings ? { coffee: sumCoffee / n } : null;
 
   let avgCoffee: number;
   let avgWork: number;
@@ -182,16 +172,16 @@ export function buildUserTasteProfile(
 
   if (referenceScores && hasRatings) {
     avgCoffee = BLEND_REFERENCE * referenceScores.coffee + BLEND_RATINGS * (sumCoffee / n);
-    avgWork = BLEND_REFERENCE * referenceScores.work + BLEND_RATINGS * (sumWork / n);
-    avgVibe = BLEND_REFERENCE * referenceScores.vibe + BLEND_RATINGS * (sumVibe / n);
+    avgWork = referenceScores.work;
+    avgVibe = referenceScores.vibe;
   } else if (referenceScores) {
     avgCoffee = referenceScores.coffee;
     avgWork = referenceScores.work;
     avgVibe = referenceScores.vibe;
   } else if (hasRatings) {
     avgCoffee = sumCoffee / n;
-    avgWork = sumWork / n;
-    avgVibe = sumVibe / n;
+    avgWork = 5;
+    avgVibe = 5;
   } else {
     avgCoffee = 5;
     avgWork = 5;
@@ -296,16 +286,9 @@ function negativeAxisPenalty(
   }
 
   let penalty = 0;
-  const dims: Array<{ u: number; c: number }> = [
-    { u: raw.coffee, c: scores.coffee },
-    { u: raw.work, c: scores.work },
-    { u: raw.vibe, c: scores.vibe },
-  ];
-
-  for (const { u, c } of dims) {
-    if (u >= PERSONALIZE.lowAxisThreshold) continue;
-    const low = (PERSONALIZE.lowAxisThreshold - u) / PERSONALIZE.lowAxisThreshold;
-    penalty -= PERSONALIZE.negativeAxisMax * low * (c / 10);
+  if (raw.coffee < PERSONALIZE.lowAxisThreshold) {
+    const low = (PERSONALIZE.lowAxisThreshold - raw.coffee) / PERSONALIZE.lowAxisThreshold;
+    penalty -= PERSONALIZE.negativeAxisMax * low * (scores.coffee / 10);
   }
 
   return penalty;

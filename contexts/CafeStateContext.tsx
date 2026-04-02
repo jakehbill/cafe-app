@@ -12,10 +12,9 @@ import { supabase } from '@/lib/supabase';
 
 import { useAuth } from './AuthContext';
 
+/** Per-user row in `user_cafe_ratings` — coffee-only in app logic; DB may still store legacy columns (written as 0). */
 export type CafeRating = {
   coffee: number;
-  work: number;
-  vibe: number;
   tags: string[];
   notes: string;
 };
@@ -37,13 +36,13 @@ type CafeStateContextValue = {
 
 const CafeStateContext = createContext<CafeStateContextValue | undefined>(undefined);
 
-function rowsToRatingsMap(rows: { cafe_id: string; coffee: number; work: number; vibe: number; tags: string[] | null; notes: string | null }[]) {
+function rowsToRatingsMap(
+  rows: { cafe_id: string; coffee: number; tags: string[] | null; notes: string | null }[]
+) {
   const next: Record<string, CafeRating> = {};
   for (const row of rows) {
     next[row.cafe_id] = {
       coffee: row.coffee,
-      work: row.work,
-      vibe: row.vibe,
       tags: row.tags ?? [],
       notes: row.notes ?? '',
     };
@@ -92,7 +91,7 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
       supabase.from('user_visited_cafes').select('cafe_id, rank_position').eq('user_id', userId),
       supabase
         .from('user_cafe_ratings')
-        .select('cafe_id, coffee, work, vibe, tags, notes')
+        .select('cafe_id, coffee, tags, notes')
         .eq('user_id', userId),
     ]);
 
@@ -238,8 +237,8 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
           user_id: userId,
           cafe_id: id,
           coffee: ratingData.coffee,
-          work: ratingData.work,
-          vibe: ratingData.vibe,
+          work: 0,
+          vibe: 0,
           tags: ratingData.tags,
           notes: ratingData.notes,
         },

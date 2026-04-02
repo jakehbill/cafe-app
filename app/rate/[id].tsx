@@ -74,10 +74,7 @@ export default function RateCafeScreen() {
     });
   }, [cafe?.name, navigation]);
 
-  // Local state keeps the screen interactive without backend wiring.
   const [coffeeScore, setCoffeeScore] = useState(existingRating?.coffee ?? 0);
-  const [workScore, setWorkScore] = useState(existingRating?.work ?? 0);
-  const [vibeScore, setVibeScore] = useState(existingRating?.vibe ?? 0);
   const [selectedTags, setSelectedTags] = useState<string[]>(
     (existingRating?.tags ?? []).filter((tag) => ALL_RATING_TAGS.includes(tag as (typeof ALL_RATING_TAGS)[number])).slice(0, 3)
   );
@@ -97,7 +94,7 @@ export default function RateCafeScreen() {
       const prev = await getUserCoffeeRating(numericCafeId);
       if (cancelled || prev === null) return;
 
-      if (coffeeScore !== 0 || workScore !== 0 || vibeScore !== 0) return;
+      if (coffeeScore !== 0) return;
       if (existingRating) return;
 
       const v = Math.min(5, Math.max(1, Math.round(prev)));
@@ -108,7 +105,7 @@ export default function RateCafeScreen() {
     return () => {
       cancelled = true;
     };
-  }, [targetCafeId, existingRating, coffeeScore, workScore, vibeScore]);
+  }, [targetCafeId, existingRating, coffeeScore]);
 
   const hasAnyRating = coffeeScore > 0;
 
@@ -130,11 +127,9 @@ export default function RateCafeScreen() {
       submitted,
       submitDisabled,
       coffeeScore,
-      workScore,
-      vibeScore,
       targetCafeId,
     });
-  }, [hasAnyRating, submitted, submitDisabled, coffeeScore, workScore, vibeScore, targetCafeId]);
+  }, [hasAnyRating, submitted, submitDisabled, coffeeScore, targetCafeId]);
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => {
@@ -149,20 +144,15 @@ export default function RateCafeScreen() {
       platform: Platform.OS,
       targetCafeId,
       coffeeScore,
-      workScore,
-      vibeScore,
       submitDisabledExpected: !hasAnyRating || submitted,
     });
 
     const ratingData = {
       coffee: coffeeScore,
-      work: workScore,
-      vibe: vibeScore,
       tags: selectedTags,
       notes: notes.trim(),
     };
 
-    // Supabase `public.ratings` receives `coffee_rating` only (see `rateCafe`); work/vibe stay in local context.
     rateDebug('computed payload', {
       ...ratingData,
       coffeeRatingSentToRatings: coffeeScore,
@@ -188,8 +178,6 @@ export default function RateCafeScreen() {
       rateDebug('calling rateCafe', { targetCafeId });
       const rateRes = await rateCafe(targetCafeId, {
         coffee: coffeeScore,
-        work: workScore,
-        vibe: vibeScore,
         tags: selectedTags,
         notes: notes.trim(),
       });
@@ -237,10 +225,7 @@ export default function RateCafeScreen() {
               label="How was it?"
               value={coffeeScore}
               onSelect={(value) => {
-                // Keep backend payload shape unchanged for now.
                 setCoffeeScore(value);
-                setWorkScore(value);
-                setVibeScore(value);
               }}
             />
           </View>

@@ -52,11 +52,8 @@ const PERSONALIZE_RANK_SCALE = 1.12;
 
 export function scoresForCafe(cafe: Cafe, ratingsByCafeId: Record<string, CafeRating>) {
   const r = ratingsByCafeId[cafe.id];
-  if (r) {
-    return { coffee: r.coffee, work: r.work, vibe: r.vibe };
-  }
   return {
-    coffee: cafe.coffeeScore,
+    coffee: r ? r.coffee : cafe.coffeeScore,
     work: cafe.workScore,
     vibe: cafe.vibeScore,
   };

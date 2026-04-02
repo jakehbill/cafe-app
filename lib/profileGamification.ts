@@ -91,13 +91,17 @@ export type ProfileBadge = {
 };
 
 /**
- * Tune badge difficulty here (all use existing Supabase-backed counts + `ratingsByCafeId`).
+ * Tune badge difficulty here (counts + coffee-only `ratingsByCafeId`; “Work Mode” / “Vibe Curator” use tag/elite-coffee heuristics).
  */
 export const BADGE_THRESHOLDS = {
-  /** Work / coffee / vibe must be ≥ this (1–10) to count toward taste badges */
+  /** Coffee score must be ≥ this (1–10) for “Coffee Standards” */
   highDimensionScore: 8,
-  /** How many such ratings unlock Work Mode / Coffee Standards / Vibe Curator */
+  /** How many high-coffee ratings unlock “Coffee Standards” */
   minHighDimensionRatings: 5,
+  /** “Vibe Curator” — count of ratings at or above elite coffee */
+  eliteCoffeeScore: 9,
+  /** Min ratings at elite coffee for that badge */
+  minEliteCoffeeRatings: 3,
   /** Visited count for “Regular” */
   visitRegular: 5,
   /** Visited count for “Explorer” (badge name; separate from level title) */
@@ -108,14 +112,26 @@ export const BADGE_THRESHOLDS = {
   quietTagSelections: 3,
 } as const;
 
-function countRatingsAtOrAbove(
+function countRatingsCoffeeAtOrAbove(
   ratingsByCafeId: Record<string, CafeRating>,
-  dimension: 'work' | 'coffee' | 'vibe',
   minScore: number
 ): number {
   let n = 0;
   for (const r of Object.values(ratingsByCafeId)) {
-    if (r[dimension] >= minScore) {
+    if (r.coffee >= minScore) {
+      n += 1;
+    }
+  }
+  return n;
+}
+
+function countRatingsWithAtLeastTags(
+  ratingsByCafeId: Record<string, CafeRating>,
+  minTags: number
+): number {
+  let n = 0;
+  for (const r of Object.values(ratingsByCafeId)) {
+    if (r.tags.length >= minTags) {
       n += 1;
     }
   }
@@ -138,11 +154,13 @@ export function computeProfileBadges(
   ratingsByCafeId: Record<string, CafeRating>
 ): ProfileBadge[] {
   const hi = BADGE_THRESHOLDS.highDimensionScore;
-  const highWork = countRatingsAtOrAbove(ratingsByCafeId, 'work', hi);
-  const highCoffee = countRatingsAtOrAbove(ratingsByCafeId, 'coffee', hi);
-  const highVibe = countRatingsAtOrAbove(ratingsByCafeId, 'vibe', hi);
+  const elite = BADGE_THRESHOLDS.eliteCoffeeScore;
+  const tagRichRatings = countRatingsWithAtLeastTags(ratingsByCafeId, 2);
+  const highCoffee = countRatingsCoffeeAtOrAbove(ratingsByCafeId, hi);
+  const eliteCoffee = countRatingsCoffeeAtOrAbove(ratingsByCafeId, elite);
   const quietN = quietTaggedRatingCount(ratingsByCafeId);
   const minHi = BADGE_THRESHOLDS.minHighDimensionRatings;
+  const minElite = BADGE_THRESHOLDS.minEliteCoffeeRatings;
 
   const catalog: ProfileBadge[] = [
     {
@@ -173,7 +191,7 @@ export function computeProfileBadges(
       id: 'work-mode',
       label: 'Work Mode',
       icon: '▪',
-      unlocked: highWork >= minHi,
+      unlocked: tagRichRatings >= minHi,
     },
     {
       id: 'coffee-standards',
@@ -185,7 +203,7 @@ export function computeProfileBadges(
       id: 'vibe-curator',
       label: 'Vibe Curator',
       icon: '◆',
-      unlocked: highVibe >= minHi,
+      unlocked: eliteCoffee >= minElite,
     },
     {
       id: 'local-scout',
