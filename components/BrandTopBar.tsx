@@ -17,8 +17,8 @@ export function BrandTopBar({ showSearchIcon = true }: BrandTopBarProps) {
   return (
     <View style={styles.row}>
       <BeanedLogo
-        width={135}
-        height={32}
+        width={194}
+        height={46}
         style={styles.logo}
         accessibilityIgnoresInvertColors
       />
@@ -55,9 +55,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   logo: {
-    height: 32,
-    width: 135,
-    marginLeft: -14,
+    height: 46,
+    width: 194,
+    marginLeft: -30,
     backgroundColor: 'transparent',
   },
   actions: {
