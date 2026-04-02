@@ -431,6 +431,7 @@ export default function HomeScreen() {
         <View style={styles.topSection}>
           <BrandTopBar />
 
+          <View style={styles.homeSectionsInset}>
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
               <Text style={styles.homeSectionTitle}>Top picks for you</Text>
@@ -469,6 +470,7 @@ export default function HomeScreen() {
               />
             ))}
           </View>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -481,12 +483,17 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingLeft: 0,
+    paddingRight: 20,
     paddingTop: 24,
     paddingBottom: 42,
   },
   topSection: {
     gap: 24,
+  },
+  /** Restores horizontal inset for body sections only; BrandTopBar can align nearer the left edge. */
+  homeSectionsInset: {
+    paddingLeft: 20,
   },
   homeSection: {
     gap: 18,
