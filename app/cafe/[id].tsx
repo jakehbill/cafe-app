@@ -1,8 +1,14 @@
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
+import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { formatTagLabel } from '@/lib/cafeTags';
+import { buildTasteProfileFromState } from '@/lib/cafeRanking';
+import { getRecommendationReason } from '@/lib/recommendationReason';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,27 +21,57 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 import type { Cafe } from '../../data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
-import { formatPrivateCoffeeOneDecimal, formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
-import { formatTagLabel } from '@/lib/cafeTags';
-import { COLORS, FONTS, SHADOWS } from '@/components/theme';
+
 const MAX_VISIBLE_TAGS = 3;
 
-function ScorePill({ valueText }: { valueText: string }) {
+function heroGradientId(cafeId: string): string {
+  return `detailHero_${cafeId.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+}
+
+function ImageHeroTopFade({ cafeId, width, height }: { cafeId: string; width: number; height: number }) {
+  const gid = `${heroGradientId(cafeId)}_top`;
+  if (width <= 0 || height <= 0) return null;
   return (
-    <View style={styles.scorePill}>
-      <Text style={styles.scorePillNumeric}>{valueText}</Text>
-    </View>
+    <Svg width={width} height={height} pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+      <Defs>
+        <SvgLinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#0a0a0a" stopOpacity="0.38" />
+          <Stop offset="0.58" stopColor="#0a0a0a" stopOpacity="0.07" />
+          <Stop offset="1" stopColor="#0a0a0a" stopOpacity="0" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect x={0} y={0} width={width} height={height} fill={`url(#${gid})`} />
+    </Svg>
   );
 }
 
-function Tag({ label }: { label: string }) {
+function ImageHeroBottomFade({ cafeId, width, height }: { cafeId: string; width: number; height: number }) {
+  const gid = `${heroGradientId(cafeId)}_bot`;
+  if (width <= 0 || height <= 0) return null;
   return (
-    <View style={styles.tag}>
-      <Text style={styles.tagText}>{formatTagLabel(label)}</Text>
-    </View>
+    <Svg width={width} height={height} pointerEvents="none" style={StyleSheet.absoluteFillObject}>
+      <Defs>
+        <SvgLinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#0a0a0a" stopOpacity="0" />
+          <Stop offset="0.45" stopColor="#0a0a0a" stopOpacity="0.28" />
+          <Stop offset="1" stopColor="#0a0a0a" stopOpacity="0.72" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect x={0} y={0} width={width} height={height} fill={`url(#${gid})`} />
+    </Svg>
   );
+}
+
+function tagLeadingIcon(tag: string): keyof typeof Ionicons.glyphMap {
+  const t = tag.toLowerCase();
+  if (t.includes('quiet')) return 'volume-mute-outline';
+  if (t.includes('quick') || t.includes('fast')) return 'flash-outline';
+  if (t.includes('specialty') || t.includes('roast')) return 'cafe-outline';
+  if (t.includes('outdoor') || t.includes('patio')) return 'sunny-outline';
+  return 'pricetag-outline';
 }
 
 function ActionButton({
@@ -46,7 +82,6 @@ function ActionButton({
 }: {
   label: string;
   variant?: 'primary' | 'secondary';
-  /** Subtle accent when state is on (e.g. Saved / Visited) — not a solid orange block */
   accentActive?: boolean;
   onPress?: () => void;
 }) {
@@ -83,10 +118,25 @@ export default function CafeDetailScreen() {
     isSaved,
     isVisited,
     getCafeRating,
+    ratingsByCafeId,
+    visitedCafeIds,
+    savedCafeIds,
   } = useCafeState();
+  const { cafes: cafeCatalog } = useCafeCatalog();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [cafeLoading, setCafeLoading] = useState(true);
+  const [heroGSize, setHeroGSize] = useState({ w: 0, h: 0 });
+
+  const tasteProfile = useMemo(
+    () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
+    [ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds]
+  );
+
+  const recommendationReason = useMemo(
+    () => (cafe ? getRecommendationReason(cafe, tasteProfile) : null),
+    [cafe, tasteProfile]
+  );
 
   useEffect(() => {
     if (!cafeId) {
@@ -116,7 +166,6 @@ export default function CafeDetailScreen() {
     }
   }, [navigation, router]);
 
-  /** In-page back above the hero; stack header hidden so the control is visible on all platforms. */
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: false,
@@ -156,16 +205,13 @@ export default function CafeDetailScreen() {
         {heroBackRow}
         <View style={styles.notFoundWrap}>
           <Text style={styles.notFoundTitle}>Cafe not found</Text>
-          <Text style={styles.notFoundText}>
-            We could not find a cafe for this id.
-          </Text>
+          <Text style={styles.notFoundText}>We could not find a cafe for this id.</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   const localRating = getCafeRating(cafe.id);
-  /** Tags/notes + coffee for display; public coffee when no local save (no legacy cafe work/vibe in this path). */
   const ratingSource = localRating
     ? {
         coffee: localRating.coffee,
@@ -178,12 +224,8 @@ export default function CafeDetailScreen() {
         notes: '',
       };
   const displayTags = ratingSource.tags.slice(0, MAX_VISIBLE_TAGS);
-  const mainCoffeeDisplay = localRating
-    ? formatPrivateCoffeeOneDecimal(localRating.coffee)
-    : formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   const mapsUrl = cafe.googleMapsUrl;
-  const hasGoogleMapsUrl =
-    typeof mapsUrl === 'string' && mapsUrl.trim().length > 0;
+  const hasGoogleMapsUrl = typeof mapsUrl === 'string' && mapsUrl.trim().length > 0;
 
   async function handleOpenGoogleMaps() {
     if (!hasGoogleMapsUrl) {
@@ -201,7 +243,6 @@ export default function CafeDetailScreen() {
     await Linking.openURL(mapsUrl);
   }
 
-  /** Persists to `user_saved_cafes` via context (same source as the Saved tab), not legacy `saves`. */
   async function handleSavePress() {
     if (!cafe) return;
     if (__DEV__) {
@@ -220,67 +261,99 @@ export default function CafeDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.heroWrap}>
-          {heroBackRow}
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View
+          style={styles.heroWrap}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            setHeroGSize((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
+          }}
+        >
           {cafe.imageUrl ? (
             <Image source={{ uri: cafe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
           ) : (
-            <View style={styles.heroImage} />
+            <View style={[styles.heroImage, styles.heroImageFallback]} />
           )}
-        </View>
 
-        <View style={styles.header}>
-          <Text style={styles.cafeName}>{cafe.name}</Text>
-          <Text style={styles.neighborhood}>{cafe.neighborhood}</Text>
-          {localRating ? (
-            <View style={styles.ratedBadge}>
-              <Text style={styles.ratedBadgeText}>Rated by you</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Rating</Text>
-          <View style={styles.scoresGrid}>
-            <ScorePill valueText={mainCoffeeDisplay} />
+          <View style={styles.heroGradientSlot} pointerEvents="none">
+            {heroGSize.h > 0 && heroGSize.w > 0 ? (
+              <>
+                <View style={[styles.heroTopFadeSlot, { height: heroGSize.h * 0.38 }]}>
+                  <ImageHeroTopFade cafeId={cafe.id} width={heroGSize.w} height={heroGSize.h * 0.38} />
+                </View>
+                <View style={[styles.heroBottomFadeSlot, { height: heroGSize.h * 0.54 }]}>
+                  <ImageHeroBottomFade cafeId={cafe.id} width={heroGSize.w} height={heroGSize.h * 0.54} />
+                </View>
+              </>
+            ) : null}
           </View>
-          {cafe.coffeeRatingCount > 0 && cafe.publicCoffeeScore != null ? (
-            <View style={styles.avgWrap}>
-              <Text style={styles.avgLabel}>Average from ratings</Text>
-              <View style={styles.avgLine}>
-                <Text style={styles.avgNumeric}>{formatPublicCoffeeOutOf5(cafe.publicCoffeeScore)}</Text>
-              </View>
+
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={handleBack}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={styles.heroBackFab}
+          >
+            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.95)" />
+          </TouchableOpacity>
+
+          {(isSaved(cafe.id) || localRating) && (
+            <View style={styles.heroStatusPills} pointerEvents="none">
+              {isSaved(cafe.id) ? (
+                <View style={styles.heroMiniPill}>
+                  <Text style={styles.heroMiniPillText}>Saved</Text>
+                </View>
+              ) : null}
+              {localRating ? (
+                <View style={styles.heroMiniPill}>
+                  <Text style={styles.heroMiniPillText}>Rated by you</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
-        </View>
+          )}
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Tags</Text>
-          <View style={styles.tagsRow}>
-            {displayTags.map((t) => (
-              <Tag key={t} label={t} />
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Summary</Text>
-          <Text numberOfLines={3} style={styles.summaryText}>
-            {cafe.summary}
-          </Text>
-        </View>
-        {ratingSource.notes ? (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Notes</Text>
-            <Text numberOfLines={3} style={styles.summaryText}>
-              {ratingSource.notes}
+          <View style={styles.heroTextBlock} pointerEvents="none">
+            <Text style={styles.heroTitle} numberOfLines={2}>
+              {cafe.name}
+            </Text>
+            <Text style={styles.heroLocation} numberOfLines={1}>
+              {cafe.neighborhood}
             </Text>
           </View>
-        ) : null}
+        </View>
+
+        <View style={styles.featuredBody}>
+          <View style={styles.tagsScoreRow}>
+            <View style={styles.tagsWithIcons}>
+              {displayTags.map((tag) => (
+                <View key={tag} style={styles.tagWithIcon}>
+                  <Ionicons name={tagLeadingIcon(tag)} size={16} color={COLORS.roastedBrown} />
+                  <Text style={styles.tagWithIconLabel}>{formatTagLabel(tag)}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.publicScoreWrap}>
+              <PublicCoffeeScoreText cafe={cafe} />
+            </View>
+          </View>
+
+          <Text numberOfLines={6} style={styles.featuredSummary}>
+            {cafe.summary}
+          </Text>
+
+          {recommendationReason ? (
+            <Text style={styles.insightLine} numberOfLines={3}>
+              {recommendationReason}
+            </Text>
+          ) : null}
+
+          {ratingSource.notes ? (
+            <Text numberOfLines={4} style={styles.notesText}>
+              {ratingSource.notes}
+            </Text>
+          ) : null}
+        </View>
 
         <View style={styles.actionsWrap}>
           <ActionButton
@@ -320,59 +393,167 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   heroWrap: {
-    paddingHorizontal: 20,
-    paddingTop: 6,
+    width: '100%',
+    aspectRatio: 3 / 2,
+    backgroundColor: COLORS.imagePlaceholder,
+    overflow: 'hidden',
+  },
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  heroImageFallback: {
+    backgroundColor: COLORS.imagePlaceholder,
+  },
+  heroGradientSlot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  heroTopFadeSlot: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+  },
+  heroBottomFadeSlot: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    overflow: 'hidden',
+  },
+  heroBackFab: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    zIndex: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  heroStatusPills: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 2,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    maxWidth: '52%',
+    justifyContent: 'flex-end',
+  },
+  heroMiniPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.26)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  heroMiniPillText: {
+    fontSize: 11,
+    fontFamily: FONTS.sans.semibold,
+    color: 'rgba(255,255,255,0.93)',
+    letterSpacing: -0.08,
+  },
+  heroTextBlock: {
+    position: 'absolute',
+    left: 14,
+    right: 14,
+    bottom: 14,
+    zIndex: 2,
+    gap: 4,
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontFamily: FONTS.display.semibold,
+    color: '#faf8f5',
+    lineHeight: 32,
+    letterSpacing: -0.4,
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
+  },
+  heroLocation: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.medium,
+    color: 'rgba(250,248,245,0.88)',
+    letterSpacing: -0.05,
+  },
+  featuredBody: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 4,
+    gap: 12,
+    backgroundColor: COLORS.background,
+  },
+  tagsScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  tagsWithIcons: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  tagWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  tagWithIconLabel: {
+    fontSize: 15,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.15,
+  },
+  publicScoreWrap: {
+    paddingTop: 2,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    minWidth: 56,
+  },
+  featuredSummary: {
+    color: COLORS.muted,
+    fontSize: 14,
+    lineHeight: 21,
+    fontFamily: FONTS.sans.regular,
+    letterSpacing: -0.05,
+  },
+  notesText: {
+    color: COLORS.muted,
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
+    fontStyle: 'italic',
+    letterSpacing: -0.05,
+  },
+  insightLine: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: FONTS.sans.regular,
+    fontStyle: 'italic',
+    color: COLORS.roastedBrown,
+    opacity: 0.92,
   },
   heroBackRow: {
     alignSelf: 'stretch',
     marginBottom: 10,
+    paddingHorizontal: 20,
   },
   heroBackHit: {
     alignSelf: 'flex-start',
     paddingVertical: 2,
-  },
-  heroImage: {
-    width: '100%',
-    aspectRatio: 3 / 2,
-    backgroundColor: COLORS.imagePlaceholder,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    ...SHADOWS.none,
-  },
-
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 8,
-    gap: 6,
-  },
-  cafeName: {
-    fontSize: 32,
-    fontFamily: FONTS.display.bold,
-    color: COLORS.text,
-    letterSpacing: -0.6,
-    lineHeight: 38,
-  },
-  neighborhood: {
-    fontSize: 15,
-    color: COLORS.muted,
-    lineHeight: 20,
-    fontFamily: FONTS.sans.regular,
-  },
-  ratedBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: COLORS.coffeePillBackground,
-    borderWidth: 1,
-    borderColor: COLORS.coffeePillBorder,
-  },
-  ratedBadgeText: {
-    fontSize: 12,
-    color: COLORS.accent,
-    fontFamily: FONTS.sans.semibold,
   },
   notFoundWrap: {
     flex: 1,
@@ -394,111 +575,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: FONTS.sans.regular,
   },
-
-  sectionCard: {
-    marginTop: 18,
-    marginHorizontal: 20,
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    padding: 16,
-    gap: 12,
-    ...SHADOWS.card,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    letterSpacing: 0.2,
-  },
-
-  scoresGrid: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  scorePill: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.inputBackground,
-    alignItems: 'center',
-    gap: 2,
-  },
-  scorePillNumeric: {
-    fontSize: 22,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    letterSpacing: -0.3,
-  },
-  scoreLabel: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-  },
-  scoreValue: {
-    fontSize: 28,
-    fontFamily: FONTS.sans.bold,
-    color: COLORS.text,
-    lineHeight: 30,
-    letterSpacing: -0.3,
-  },
-  avgWrap: {
-    marginTop: 2,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.cardBorder,
-    gap: 4,
-  },
-  avgLabel: {
-    fontSize: 11,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-    letterSpacing: 0.2,
-  },
-  avgLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avgNumeric: {
-    fontSize: 22,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    letterSpacing: -0.3,
-  },
-
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingTop: 2,
-  },
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: COLORS.chipBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-  },
-  tagText: {
-    color: COLORS.muted,
-    fontSize: 12,
-    fontFamily: FONTS.sans.medium,
-  },
-
-  summaryText: {
-    color: COLORS.muted,
-    fontSize: 14,
-    lineHeight: 22,
-    fontFamily: FONTS.sans.regular,
-  },
-
   actionsWrap: {
-    marginTop: 20,
+    marginTop: 12,
     paddingHorizontal: 20,
     gap: 10,
   },
@@ -531,4 +609,3 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
   },
 });
-
