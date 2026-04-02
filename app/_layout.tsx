@@ -14,6 +14,7 @@ import { useEffect } from 'react';
 import { SafeAreaView, StyleSheet, Text } from 'react-native';
 import 'react-native-reanimated';
 
+import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { CafeStateProvider } from '@/contexts/CafeStateContext';
@@ -86,10 +87,12 @@ function RootNavigator() {
    * Default: no stack header. Expo Router + nested Tabs otherwise inherit `headerShown: true`
    * from native-stack defaults and can show the raw route group name "(tabs)" as the title.
    * Headers are enabled only on stack screens that need them (cafe, rate, saved, …).
+   *
+   * Custom `headerLeft` ensures a visible Ionicons back control on pushed screens (minimal
+   * native mode can hide the default chevron on some iOS versions; web benefits from explicit control).
    */
-  const stackScreenOptions = {
+  const stackScreenBase = {
     headerShown: false,
-    headerBackButtonDisplayMode: 'minimal' as const,
     headerBackTitle: '',
     headerBackButtonMenuEnabled: false,
     headerTintColor: COLORS.accent,
@@ -107,7 +110,18 @@ function RootNavigator() {
   const stackHeaderOn = { headerShown: true as const };
 
   return (
-    <Stack screenOptions={stackScreenOptions}>
+    <Stack
+      screenOptions={({ navigation }) => ({
+        ...stackScreenBase,
+        headerLeft: ({ canGoBack, tintColor }) => (
+          <StackHeaderBackButton
+            canGoBack={canGoBack}
+            tintColor={tintColor}
+            onPress={() => navigation.goBack()}
+          />
+        ),
+      })}
+    >
       {user && !FORCE_SHOW_AUTH_FOR_TESTING ? (
         <>
           <Stack.Screen

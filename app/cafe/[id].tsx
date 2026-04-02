@@ -1,8 +1,9 @@
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { supabase } from '@/lib/supabase';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -115,16 +116,34 @@ export default function CafeDetailScreen() {
     };
   }, [cafeId]);
 
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      router.replace('/');
+    }
+  }, [navigation, router]);
+
+  /** In-page back above the hero; stack header hidden so the control is visible on all platforms. */
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: cafe?.name ?? 'Cafe',
-      headerTitleStyle: {
-        fontFamily: FONTS.sans.semibold,
-        fontSize: 17,
-        color: COLORS.text,
-      },
+      headerShown: false,
     });
-  }, [cafe?.name, navigation]);
+  }, [navigation]);
+
+  const heroBackRow = (
+    <View style={styles.heroBackRow}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        onPress={handleBack}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={styles.heroBackHit}
+      >
+        <Ionicons name="chevron-back" size={24} color={COLORS.text} />
+      </TouchableOpacity>
+    </View>
+  );
 
   const routeCafeId = cafeId ? String(cafeId) : '';
 
@@ -169,7 +188,8 @@ export default function CafeDetailScreen() {
 
   if (cafeLoading) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+        {heroBackRow}
         <View style={styles.notFoundWrap}>
           <ActivityIndicator size="large" color={COLORS.muted} />
         </View>
@@ -179,7 +199,8 @@ export default function CafeDetailScreen() {
 
   if (!cafe) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+        {heroBackRow}
         <View style={styles.notFoundWrap}>
           <Text style={styles.notFoundTitle}>Cafe not found</Text>
           <Text style={styles.notFoundText}>
@@ -246,12 +267,13 @@ export default function CafeDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.heroWrap}>
+          {heroBackRow}
           {cafe.imageUrl ? (
             <Image source={{ uri: cafe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
           ) : (
@@ -347,7 +369,15 @@ const styles = StyleSheet.create({
   },
   heroWrap: {
     paddingHorizontal: 20,
-    paddingTop: 14,
+    paddingTop: 6,
+  },
+  heroBackRow: {
+    alignSelf: 'stretch',
+    marginBottom: 10,
+  },
+  heroBackHit: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
   },
   heroImage: {
     width: '100%',
