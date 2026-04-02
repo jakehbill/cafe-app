@@ -1,7 +1,9 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  Image,
   Platform,
   ScrollView,
   StyleSheet,
@@ -13,7 +15,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS, FONTS } from '@/components/theme';
-import { CoffeeCupRating } from '@/components/CoffeeCupRating';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
@@ -30,19 +31,33 @@ function rateDebug(label: string, payload: Record<string, unknown>) {
   }
 }
 
-function RatingRow({
-  label,
+function StarRatingRow({
   value,
   onSelect,
 }: {
-  label: string;
   value: number;
   onSelect: (rating: number) => void;
 }) {
+  const filled = Math.min(5, Math.max(0, Math.round(value)));
   return (
-    <View style={styles.ratingRow}>
-      <Text style={styles.ratingRowLabel}>{label}</Text>
-      <CoffeeCupRating value={value} onChange={onSelect} size={24} />
+    <View style={styles.starsRow}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <TouchableOpacity
+          key={n}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`${n} out of 5 stars`}
+          accessibilityState={{ selected: n <= filled }}
+          hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+          onPress={() => onSelect(n)}
+        >
+          <Ionicons
+            name={n <= filled ? 'star' : 'star-outline'}
+            size={34}
+            color={n <= filled ? COLORS.accent : 'rgba(92, 86, 80, 0.38)'}
+          />
+        </TouchableOpacity>
+      ))}
     </View>
   );
 }
@@ -202,15 +217,22 @@ export default function RateCafeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.leadText}>Help others find great places to work</Text>
+        <View style={styles.titleBlock}>
+          <Text style={styles.pageTitle}>Rate this cafe</Text>
+          <Text style={styles.pageSubtitle}>Help others find great places to work</Text>
+        </View>
 
         <View style={styles.previewCard}>
-          <View style={styles.previewImage} />
+          {cafe?.imageUrl ? (
+            <Image source={{ uri: cafe.imageUrl }} style={styles.previewImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.previewImage, styles.previewImagePlaceholder]} />
+          )}
           <View style={styles.previewTextWrap}>
             <Text style={styles.previewName}>{cafe?.name ?? 'Cafe'}</Text>
             <Text style={styles.previewNeighborhood}>
@@ -221,9 +243,9 @@ export default function RateCafeScreen() {
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionTitle}>Rating</Text>
+          <Text style={styles.ratingPrompt}>How was it?</Text>
           <View style={styles.ratingRowsWrap}>
-            <RatingRow
-              label="How was it?"
+            <StarRatingRow
               value={coffeeScore}
               onSelect={(value) => {
                 setCoffeeScore(value);
@@ -319,15 +341,27 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 28,
-    gap: 14,
+    paddingTop: 8,
+    paddingBottom: 32,
+    gap: 20,
   },
-  leadText: {
+  titleBlock: {
+    gap: 8,
+    marginBottom: 2,
+  },
+  pageTitle: {
+    fontSize: 28,
+    lineHeight: 34,
+    fontFamily: FONTS.display.bold,
+    color: COLORS.text,
+    letterSpacing: -0.5,
+  },
+  pageSubtitle: {
     fontSize: 14,
     lineHeight: 20,
     color: COLORS.muted,
-    marginBottom: 4,
+    fontFamily: FONTS.sans.regular,
+    letterSpacing: -0.1,
   },
 
   previewCard: {
@@ -337,13 +371,16 @@ const styles = StyleSheet.create({
     borderColor: COLORS.cardBorder,
     padding: 12,
     flexDirection: 'row',
-    gap: 12,
+    gap: 14,
     alignItems: 'center',
   },
   previewImage: {
-    width: 68,
-    height: 68,
-    borderRadius: 12,
+    width: 80,
+    height: 80,
+    borderRadius: 14,
+    backgroundColor: COLORS.imagePlaceholder,
+  },
+  previewImagePlaceholder: {
     backgroundColor: COLORS.imagePlaceholder,
   },
   previewTextWrap: {
@@ -351,15 +388,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   previewName: {
-    fontSize: 17,
+    fontSize: 18,
     color: COLORS.text,
-    fontWeight: '700',
-    lineHeight: 22,
+    fontFamily: FONTS.sans.semibold,
+    lineHeight: 24,
+    letterSpacing: -0.2,
   },
   previewNeighborhood: {
-    fontSize: 13,
+    fontSize: 14,
     color: COLORS.muted,
-    lineHeight: 18,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
   },
 
   sectionCard: {
@@ -367,57 +406,33 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    padding: 14,
-    gap: 10,
+    padding: 16,
+    gap: 12,
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
     letterSpacing: 0.2,
   },
+  ratingPrompt: {
+    fontSize: 15,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.text,
+    letterSpacing: -0.1,
+    marginBottom: 2,
+  },
 
   ratingRowsWrap: {
-    gap: 10,
+    marginTop: 4,
   },
-  ratingRow: {
-    gap: 8,
-  },
-  ratingRowLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  ratingOptions: {
+  starsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  ratingOption: {
-    minWidth: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: COLORS.inputBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  ratingOptionSelected: {
-    backgroundColor: COLORS.accentSubtleFill,
-    borderColor: COLORS.accentSubtleBorder,
-  },
-  ratingOptionPressed: {
-    opacity: 0.88,
-  },
-  ratingOptionText: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  ratingOptionTextSelected: {
-    color: COLORS.accent,
+    justifyContent: 'space-between',
+    maxWidth: 320,
+    alignSelf: 'stretch',
+    paddingVertical: 4,
   },
   notesInput: {
     minHeight: 68,
