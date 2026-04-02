@@ -224,7 +224,7 @@ export default function RateCafeScreen() {
       >
         <View style={styles.titleBlock}>
           <Text style={styles.pageTitle}>Rate this cafe</Text>
-          <Text style={styles.pageSubtitle}>Help others find great places to work</Text>
+          <Text style={styles.pageSubtitle}>Help others find great cafes</Text>
         </View>
 
         <View style={styles.previewCard}>
@@ -526,9 +526,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    backgroundColor: COLORS.text,
+    backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: 'rgba(26, 26, 26, 0.25)',
+    borderColor: COLORS.accentSubtleBorder,
     marginTop: 2,
   },
   submitButtonDisabled: {
