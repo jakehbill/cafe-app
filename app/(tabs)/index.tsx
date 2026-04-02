@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
@@ -26,6 +27,9 @@ import {
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { getTopCafeTags, supabase } from '@/lib/supabase';
+
+/** Local brand mark — `Beaned Logo .png` in repo `assets/images/` */
+const BEANED_LOGO = require('../../assets/images/Beaned Logo .png');
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -429,13 +433,31 @@ export default function HomeScreen() {
       >
         <View style={styles.topSection}>
           <View style={styles.homeTopBar}>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => router.push('/search')}
-              hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
-            >
-              <Text style={styles.searchAllLink}>Search all cafes</Text>
-            </TouchableOpacity>
+            <Image
+              source={BEANED_LOGO}
+              style={styles.homeLogo}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+            <View style={styles.homeTopBarActions}>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                onPress={() => router.push('/search')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Search"
+              >
+                <Ionicons name="search-outline" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.75}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Notifications"
+              >
+                <Ionicons name="notifications-outline" size={22} color={COLORS.text} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.homeSection}>
@@ -496,14 +518,21 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   homeTopBar: {
-    alignItems: 'flex-end',
-    marginBottom: -4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
-  searchAllLink: {
-    fontSize: 14,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.accent,
-    letterSpacing: -0.15,
+  homeLogo: {
+    height: 32,
+    width: 135,
+    marginLeft: -14,
+    backgroundColor: 'transparent',
+  },
+  homeTopBarActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   homeSection: {
     gap: 18,
