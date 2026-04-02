@@ -48,19 +48,32 @@ function Tag({ label }: { label: string }) {
 function ActionButton({
   label,
   variant = 'primary',
+  accentActive = false,
   onPress,
 }: {
   label: string;
   variant?: 'primary' | 'secondary';
+  /** Subtle accent when state is on (e.g. Saved / Visited) — not a solid orange block */
+  accentActive?: boolean;
   onPress?: () => void;
 }) {
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      style={[styles.actionButton, variant === 'secondary' && styles.actionButtonSecondary]}
+      style={[
+        styles.actionButton,
+        variant === 'secondary' && styles.actionButtonSecondary,
+        accentActive && styles.actionButtonAccent,
+      ]}
       onPress={onPress}
     >
-      <Text style={[styles.actionButtonText, variant === 'secondary' && styles.actionButtonTextSecondary]}>
+      <Text
+        style={[
+          styles.actionButtonText,
+          variant === 'secondary' && !accentActive && styles.actionButtonTextSecondary,
+          accentActive && styles.actionButtonTextAccent,
+        ]}
+      >
         {label}
       </Text>
     </TouchableOpacity>
@@ -299,12 +312,14 @@ export default function CafeDetailScreen() {
         <View style={styles.actionsWrap}>
           <ActionButton
             label={isSaved(cafe.id) ? 'Saved' : 'Save'}
-            variant="primary"
+            variant="secondary"
+            accentActive={isSaved(cafe.id)}
             onPress={() => void handleSavePress()}
           />
           <ActionButton
             label={isVisited(cafe.id) ? 'Visited' : 'Mark Visited'}
             variant="secondary"
+            accentActive={isVisited(cafe.id)}
             onPress={() => toggleVisited(cafe.id)}
           />
           <ActionButton
@@ -375,13 +390,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: COLORS.workPillBackground,
+    backgroundColor: COLORS.coffeePillBackground,
     borderWidth: 1,
-    borderColor: COLORS.workPillBorder,
+    borderColor: COLORS.coffeePillBorder,
   },
   ratedBadgeText: {
     fontSize: 12,
-    color: COLORS.text,
+    color: COLORS.accent,
     fontFamily: FONTS.sans.semibold,
   },
   notFoundWrap: {
@@ -512,6 +527,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.inputBackground,
     borderColor: COLORS.cardBorder,
   },
+  actionButtonAccent: {
+    backgroundColor: COLORS.accentSubtleFill,
+    borderColor: COLORS.accentSubtleBorder,
+  },
   actionButtonText: {
     color: '#ffffff',
     fontSize: 14,
@@ -520,6 +539,9 @@ const styles = StyleSheet.create({
   },
   actionButtonTextSecondary: {
     color: COLORS.text,
+  },
+  actionButtonTextAccent: {
+    color: COLORS.accent,
   },
 });
 

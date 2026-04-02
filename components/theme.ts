@@ -27,6 +27,9 @@ export const COLORS = {
 
   coffeePillBackground: 'rgba(225, 92, 49, 0.08)',
   coffeePillBorder: 'rgba(225, 92, 49, 0.22)',
+  /** Soft fill for selected chips / toggles (not solid accent blocks) */
+  accentSubtleFill: 'rgba(225, 92, 49, 0.1)',
+  accentSubtleBorder: 'rgba(225, 92, 49, 0.28)',
   workPillBackground: 'rgba(138, 154, 126, 0.12)',
   workPillBorder: 'rgba(138, 154, 126, 0.28)',
 } as const;

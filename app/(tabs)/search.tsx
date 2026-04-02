@@ -300,9 +300,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   viewTogglePillActive: {
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: COLORS.accentSubtleFill,
     borderWidth: 1,
-    borderColor: 'rgba(225, 92, 49, 0.25)',
+    borderColor: COLORS.accentSubtleBorder,
   },
   viewToggleLabel: {
     fontSize: 13,

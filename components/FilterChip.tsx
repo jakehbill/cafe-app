@@ -26,13 +26,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: '#EFE9DF',
+    backgroundColor: COLORS.chipBackground,
     borderWidth: 1,
-    borderColor: '#E8DECE',
+    borderColor: COLORS.cardBorder,
   },
   chipSelected: {
-    backgroundColor: COLORS.accent,
-    borderColor: 'rgba(225, 92, 49, 0.35)',
+    backgroundColor: COLORS.accentSubtleFill,
+    borderColor: COLORS.accentSubtleBorder,
   },
   chipText: {
     color: COLORS.text,
@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.semibold,
   },
   chipTextSelected: {
-    color: '#ffffff',
+    color: COLORS.accent,
   },
 });
 

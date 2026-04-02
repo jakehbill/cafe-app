@@ -430,8 +430,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   ratingOptionSelected: {
-    backgroundColor: COLORS.text,
-    borderColor: 'rgba(26, 26, 26, 0.35)',
+    backgroundColor: COLORS.accentSubtleFill,
+    borderColor: COLORS.accentSubtleBorder,
   },
   ratingOptionPressed: {
     opacity: 0.88,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   ratingOptionTextSelected: {
-    color: COLORS.background,
+    color: COLORS.accent,
   },
   notesInput: {
     minHeight: 68,
@@ -482,8 +482,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.cardBorder,
   },
   tagChipSelected: {
-    backgroundColor: 'rgba(163, 177, 138, 0.24)',
-    borderColor: 'rgba(163, 177, 138, 0.5)',
+    backgroundColor: COLORS.accentSubtleFill,
+    borderColor: COLORS.accentSubtleBorder,
   },
   tagChipText: {
     color: COLORS.text,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tagChipTextSelected: {
-    color: '#4A5A49',
+    color: COLORS.accent,
   },
 
   feedbackBanner: {

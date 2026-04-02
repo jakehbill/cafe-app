@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: 'rgba(26, 26, 26, 0.14)',
+    backgroundColor: COLORS.accent,
   },
   pointsToNext: {
     fontSize: 12,

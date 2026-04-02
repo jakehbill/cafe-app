@@ -594,14 +594,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: COLORS.workPillBackground,
+    backgroundColor: COLORS.coffeePillBackground,
     borderWidth: 1,
-    borderColor: COLORS.workPillBorder,
+    borderColor: COLORS.coffeePillBorder,
     marginTop: -4,
   },
   ratedBadgeText: {
     fontSize: 12,
-    color: COLORS.text,
+    color: COLORS.accent,
     fontFamily: FONTS.sans.semibold,
   },
   equalScoresRow: {
