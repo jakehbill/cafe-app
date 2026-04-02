@@ -1,5 +1,6 @@
+import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
 import {
   ActivityIndicator,
   Image,
@@ -142,7 +143,24 @@ function HomeCafeCard({
 
 export default function HomeScreen() {
   const router = useRouter();
+  const segments = useSegments();
+  const navigation = useNavigation();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    try {
+      const parent = navigation.getParent();
+      const rootState = parent?.getState?.();
+      const rootRoute = rootState?.routes?.[rootState?.index ?? 0];
+      console.log('[RouteHeaderDebug Home]', {
+        segments,
+        rootStackFocusedRouteName: rootRoute?.name,
+      });
+    } catch (e) {
+      console.log('[RouteHeaderDebug Home] segments:', segments, 'err:', e);
+    }
+  }, [navigation, segments]);
   const userLocation = useOptionalUserLocation();
   const { cafes: cafeCatalog, byId } = useCafeCatalog();
 
@@ -420,14 +438,6 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.testAuthButton}
-            onPress={() => router.push('/auth')}
-          >
-            <Text style={styles.testAuthButtonText}>Test Auth</Text>
-          </TouchableOpacity>
-
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
               <Text style={styles.homeSectionTitle}>Top picks for you</Text>
@@ -534,21 +544,6 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     letterSpacing: -0.1,
   },
-  testAuthButton: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    backgroundColor: COLORS.inputBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  testAuthButtonText: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.bold,
-    color: COLORS.text,
-  },
-
   featuredCard: {
     marginTop: 6,
     backgroundColor: COLORS.cardBackground,

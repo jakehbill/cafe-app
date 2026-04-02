@@ -82,11 +82,16 @@ function RootNavigator() {
     );
   }
 
-  /** Native stack: chevron-only back on iOS (`minimal`); avoids "(tabs)" from the tab group route name. */
+  /**
+   * Default: no stack header. Expo Router + nested Tabs otherwise inherit `headerShown: true`
+   * from native-stack defaults and can show the raw route group name "(tabs)" as the title.
+   * Headers are enabled only on stack screens that need them (cafe, rate, saved, …).
+   */
   const stackScreenOptions = {
-    headerShown: true,
+    headerShown: false,
     headerBackButtonDisplayMode: 'minimal' as const,
     headerBackTitle: '',
+    headerBackButtonMenuEnabled: false,
     headerTintColor: COLORS.accent,
     headerStyle: { backgroundColor: COLORS.background },
     headerTitleStyle: {
@@ -99,6 +104,8 @@ function RootNavigator() {
     contentStyle: { backgroundColor: COLORS.background },
   };
 
+  const stackHeaderOn = { headerShown: true as const };
+
   return (
     <Stack screenOptions={stackScreenOptions}>
       {user && !FORCE_SHOW_AUTH_FOR_TESTING ? (
@@ -107,16 +114,59 @@ function RootNavigator() {
             name="(tabs)"
             options={{
               headerShown: false,
-              /** Shown as previous screen title if iOS ever falls back from `minimal` mode */
-              title: 'Home',
+              title: '',
+              headerTitle: '',
             }}
           />
-          <Stack.Screen name="cafe/[id]" options={{ title: 'Cafe' }} />
-          <Stack.Screen name="rate/[id]" options={{ title: 'Rate Cafe' }} />
-          <Stack.Screen name="saved" options={{ title: 'Saved' }} />
-          <Stack.Screen name="ratings" options={{ title: 'Ratings' }} />
-          <Stack.Screen name="my-cafes" options={{ title: 'Visited' }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen
+            name="cafe/[id]"
+            options={{
+              ...stackHeaderOn,
+              title: 'Cafe',
+              headerTitle: 'Cafe',
+            }}
+          />
+          <Stack.Screen
+            name="rate/[id]"
+            options={{
+              ...stackHeaderOn,
+              title: 'Rate Cafe',
+              headerTitle: 'Rate Cafe',
+            }}
+          />
+          <Stack.Screen
+            name="saved"
+            options={{
+              ...stackHeaderOn,
+              title: 'Saved',
+              headerTitle: 'Saved',
+            }}
+          />
+          <Stack.Screen
+            name="ratings"
+            options={{
+              ...stackHeaderOn,
+              title: 'Ratings',
+              headerTitle: 'Ratings',
+            }}
+          />
+          <Stack.Screen
+            name="my-cafes"
+            options={{
+              ...stackHeaderOn,
+              title: 'Visited',
+              headerTitle: 'Visited',
+            }}
+          />
+          <Stack.Screen
+            name="modal"
+            options={{
+              presentation: 'modal',
+              ...stackHeaderOn,
+              title: 'Modal',
+              headerTitle: 'Modal',
+            }}
+          />
         </>
       ) : (
         <>

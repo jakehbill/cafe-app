@@ -267,7 +267,6 @@ export default function CafeDetailScreen() {
               <Text style={styles.ratedBadgeText}>Rated by you</Text>
             </View>
           ) : null}
-          {cafeId ? <Text style={styles.routeHint}>Cafe id: {cafeId}</Text> : null}
         </View>
 
         <View style={styles.sectionCard}>
@@ -377,12 +376,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.muted,
     lineHeight: 20,
-    fontFamily: FONTS.sans.regular,
-  },
-  routeHint: {
-    fontSize: 12,
-    color: COLORS.muted,
-    lineHeight: 18,
     fontFamily: FONTS.sans.regular,
   },
   ratedBadge: {

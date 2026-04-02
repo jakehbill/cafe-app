@@ -234,7 +234,6 @@ export default function RateCafeScreen() {
             <Text style={styles.previewNeighborhood}>
               {cafe?.neighborhood ?? 'Neighborhood'}
             </Text>
-            <Text style={styles.previewId}>Cafe #{targetCafeId}</Text>
           </View>
         </View>
 
@@ -380,11 +379,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.muted,
     lineHeight: 18,
-  },
-  previewId: {
-    fontSize: 12,
-    color: COLORS.muted,
-    lineHeight: 16,
   },
 
   sectionCard: {

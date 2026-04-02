@@ -11,6 +11,8 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        /** Prevent any default header title from surfacing the route group name "(tabs)". */
+        headerTitle: '',
         tabBarButton: HapticTab,
         tabBarActiveTintColor: COLORS.accent,
         tabBarInactiveTintColor: COLORS.muted,
@@ -30,6 +32,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
+          headerTitle: 'Home',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size ?? 24} color={color} />
           ),
@@ -39,6 +43,8 @@ export default function TabLayout() {
         name="search"
         options={{
           title: 'Search',
+          headerTitle: 'Search',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="search-outline" size={size ?? 24} color={color} />
           ),
@@ -48,6 +54,8 @@ export default function TabLayout() {
         name="bookmarks"
         options={{
           title: 'Saved',
+          headerTitle: 'Saved',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="bookmark-outline" size={size ?? 24} color={color} />
           ),
@@ -57,6 +65,8 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'Profile',
+          headerTitle: 'Profile',
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person-outline" size={size ?? 24} color={color} />
           ),
@@ -66,6 +76,9 @@ export default function TabLayout() {
         name="map"
         options={{
           href: null,
+          headerShown: false,
+          headerTitle: '',
+          title: '',
         }}
       />
     </Tabs>
