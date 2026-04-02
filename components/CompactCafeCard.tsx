@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
+import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { formatTagLabel } from '@/lib/cafeTags';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags } from '@/lib/supabase';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -41,7 +41,6 @@ export function CompactCafeCard({
   trailing,
   showTagsUI = true,
 }: CompactCafeCardProps) {
-  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   /** Visited list (with trailing): when tags are shown, cap count and lighter styling. */
   const effectiveMaxTags = trailing != null ? Math.min(maxTags, 2) : maxTags;
   const [topTags, setTopTags] = useState<string[]>([]);
@@ -106,16 +105,7 @@ export function CompactCafeCard({
             {cafe.neighborhood}
           </Text>
           <View style={styles.scoresLine}>
-            <Text
-              style={styles.publicCoffeeText}
-              accessibilityLabel={
-                publicCoffeeLabel === '—'
-                  ? 'No public coffee score'
-                  : `Coffee score ${publicCoffeeLabel} out of 5`
-              }
-            >
-              {publicCoffeeLabel}
-            </Text>
+            <PublicCoffeeScoreText cafe={cafe} />
           </View>
           {showTagRow ? (
             <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
@@ -220,12 +210,6 @@ const styles = StyleSheet.create({
     gap: 8,
     flexShrink: 1,
     minWidth: 0,
-  },
-  publicCoffeeText: {
-    fontSize: 13,
-    fontFamily: FONTS.sans.medium,
-    color: COLORS.muted,
-    letterSpacing: -0.2,
   },
   scoreWord: {
     color: COLORS.muted,

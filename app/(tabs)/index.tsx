@@ -25,7 +25,7 @@ import {
 } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { getTopCafeTags, supabase } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
@@ -65,7 +65,6 @@ function HomeCafeCard({
   isSaved?: boolean;
   onPress: () => void;
 }) {
-  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   const [topTags, setTopTags] = useState<string[]>([]);
 
   useEffect(() => {
@@ -110,19 +109,9 @@ function HomeCafeCard({
           </View>
         ) : null}
 
-        <View style={styles.equalScoresRow}>
-          <View style={styles.equalScoreBlock}>
-            <Text
-              style={styles.featuredPublicCoffee}
-              accessibilityLabel={
-                publicCoffeeLabel === '—'
-                  ? 'No public coffee score'
-                  : `Coffee score ${publicCoffeeLabel} out of 5`
-              }
-            >
-              {publicCoffeeLabel}
-            </Text>
-          </View>
+        {/* Same numeric line as CompactCafeCard (`PublicCoffeeScoreText`); avoid boxed flex row that hid the score on some layouts */}
+        <View style={styles.homeScoresLine}>
+          <PublicCoffeeScoreText cafe={cafe} />
         </View>
 
         <View style={styles.featuredTagsRow}>
@@ -581,38 +570,9 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontFamily: FONTS.sans.semibold,
   },
-  equalScoresRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  equalScoreBlock: {
-    flex: 1,
-    backgroundColor: COLORS.inputBackground,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    gap: 2,
-  },
-  featuredPublicCoffee: {
-    fontSize: 13,
-    fontFamily: FONTS.sans.medium,
-    color: COLORS.muted,
-    letterSpacing: -0.2,
-  },
-  equalScoreLabel: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-  },
-  equalScoreValue: {
-    fontSize: 27,
-    fontFamily: FONTS.sans.bold,
-    color: COLORS.text,
-    lineHeight: 30,
-    letterSpacing: -0.4,
+  homeScoresLine: {
+    marginTop: 2,
+    alignSelf: 'stretch',
   },
   featuredTagsRow: {
     flexDirection: 'row',
