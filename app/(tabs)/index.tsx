@@ -232,7 +232,6 @@ export default function HomeScreen() {
             <View style={styles.homeSectionHeader}>
               <Text style={styles.homeSectionTitle}>Top picks for you</Text>
               <Text style={styles.homeSectionSubtitle}>Based on your taste</Text>
-              <Text style={styles.swipeHint}>Swipe sideways for more</Text>
             </View>
             <ScrollView
               horizontal
@@ -304,14 +303,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
     letterSpacing: -0.1,
-  },
-  swipeHint: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontFamily: FONTS.sans.medium,
-    color: COLORS.muted,
-    opacity: 0.85,
-    marginTop: 2,
   },
   picksRow: {
     marginHorizontal: -20,
