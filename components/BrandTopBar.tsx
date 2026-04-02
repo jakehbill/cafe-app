@@ -1,12 +1,10 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { COLORS } from '@/components/theme';
-
-/** Same asset and sizing as Home (`app/(tabs)/index.tsx`). */
-const BEANED_LOGO = require('../assets/images/Beaned Logo .png');
+import { BeanedLogo } from '@/lib/brandAssets';
 
 export type BrandTopBarProps = {
   /** When false, only the notification bell is shown (Search tab). */
@@ -18,10 +16,10 @@ export function BrandTopBar({ showSearchIcon = true }: BrandTopBarProps) {
 
   return (
     <View style={styles.row}>
-      <Image
-        source={BEANED_LOGO}
+      <BeanedLogo
+        width={135}
+        height={32}
         style={styles.logo}
-        resizeMode="contain"
         accessibilityIgnoresInvertColors
       />
       <View style={styles.actions}>
