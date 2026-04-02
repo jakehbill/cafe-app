@@ -25,7 +25,7 @@ import { formatTagLabel } from '@/lib/cafeTags';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
-import { getTopCafeTags, supabase } from '@/lib/supabase';
+import { getTopCafeTags } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -83,6 +83,7 @@ function HomeCafeCard({
   localRating,
   recommendationReason,
   isSaved,
+  onSavePress,
   distanceLabel,
   hoursLabel,
   onPress,
@@ -92,6 +93,7 @@ function HomeCafeCard({
   localRating?: CafeRating;
   recommendationReason?: string | null;
   isSaved?: boolean;
+  onSavePress: () => void;
   /** E.g. "0.4 mi" when user location is available; omit when null. */
   distanceLabel?: string | null;
   /** Opening / open-until copy when backend provides it; omit when null. */
@@ -155,32 +157,42 @@ function HomeCafeCard({
           ) : null}
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Share this cafe"
-          hitSlop={12}
-          style={styles.heroShareBtn}
-          onPress={() => {
-            void onShare();
-          }}
-        >
-          <Ionicons name="share-outline" size={22} color="rgba(255,255,255,0.95)" />
-        </Pressable>
+        <View style={styles.heroTopRight} pointerEvents="box-none">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isSaved ? 'Saved' : 'Save cafe'}
+            hitSlop={10}
+            style={styles.heroIconFab}
+            onPress={() => {
+              onSavePress();
+            }}
+          >
+            <Ionicons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={20}
+              color="rgba(255,255,255,0.95)"
+            />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Share this cafe"
+            hitSlop={10}
+            style={styles.heroIconFab}
+            onPress={() => {
+              void onShare();
+            }}
+          >
+            <Ionicons name="share-outline" size={20} color="rgba(255,255,255,0.95)" />
+          </Pressable>
+        </View>
 
-        {(isSaved || localRating) && (
+        {localRating ? (
           <View style={styles.heroStatusPills} pointerEvents="none">
-            {isSaved ? (
-              <View style={styles.heroMiniPill}>
-                <Text style={styles.heroMiniPillText}>Saved</Text>
-              </View>
-            ) : null}
-            {localRating ? (
-              <View style={styles.heroMiniPill}>
-                <Text style={styles.heroMiniPillText}>Rated by you</Text>
-              </View>
-            ) : null}
+            <View style={styles.heroMiniPill}>
+              <Text style={styles.heroMiniPillText}>Rated by you</Text>
+            </View>
           </View>
-        )}
+        ) : null}
 
         <View style={styles.heroTextBlock} pointerEvents="none">
           <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
@@ -240,7 +252,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const segments = useSegments();
   const navigation = useNavigation();
-  const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
+  const { ratingsByCafeId, visitedCafeIds, savedCafeIds, isSaved, toggleSaved } = useCafeState();
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -277,55 +289,6 @@ export default function HomeScreen() {
     const snapInterval = cardWidth + gap;
     return { cardWidth, gap, snapInterval };
   }, [windowWidth]);
-
-  /**
-   * Load the user’s saved cafes so cards can reflect saved state immediately.
-   * We only select `cafe_id` and store it as a Set for fast lookups.
-   */
-  const [savedCafeIdSet, setSavedCafeIdSet] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadSaved() {
-      try {
-        const { data: userRes, error: userErr } = await supabase.auth.getUser();
-        if (userErr) {
-          console.error('Home saved cafes: auth getUser failed:', userErr);
-          return;
-        }
-
-        const userId = userRes.user?.id;
-        if (!userId) {
-          // Not signed in — leave the Set empty and keep the UI calm.
-          if (!cancelled) setSavedCafeIdSet(new Set());
-          return;
-        }
-
-        const res = await supabase.from('saves').select('cafe_id').eq('user_id', userId);
-        if (res.error) {
-          console.error('Home saved cafes: fetch failed:', res.error);
-          return;
-        }
-
-        const next = new Set(
-          (res.data ?? [])
-            .map((r: any) => r?.cafe_id)
-            .filter((v: any) => v !== null && v !== undefined)
-            .map((v: any) => String(v))
-        );
-
-        if (!cancelled) setSavedCafeIdSet(next);
-      } catch (e) {
-        console.error('Home saved cafes: fetch failed (unexpected):', e);
-      }
-    }
-
-    void loadSaved();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -377,7 +340,8 @@ export default function HomeScreen() {
                     layout="carousel"
                     localRating={ratingsByCafeId[cafe.id]}
                     recommendationReason={getRecommendationReason(cafe, tasteProfile)}
-                    isSaved={savedCafeIdSet.has(cafe.id)}
+                    isSaved={isSaved(cafe.id)}
+                    onSavePress={() => void toggleSaved(cafe.id)}
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
                 </View>
@@ -480,11 +444,16 @@ const styles = StyleSheet.create({
     right: 0,
     overflow: 'hidden',
   },
-  heroShareBtn: {
+  heroTopRight: {
     position: 'absolute',
     top: 12,
     right: 12,
     zIndex: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroIconFab: {
     width: 40,
     height: 40,
     borderRadius: 20,
