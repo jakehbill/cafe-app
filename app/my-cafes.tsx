@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -16,10 +17,11 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
 import { CompactCafeCard } from '@/components/CompactCafeCard';
-import { COLORS } from '@/components/theme';
+import { COLORS, FONTS } from '@/components/theme';
 
 export default function MyCafesScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { visitedCafeIds, reorderVisitedCafes } = useCafeState();
   const [reordering, setReordering] = useState(false);
   const [visitedCafes, setVisitedCafes] = useState<Cafe[]>([]);
@@ -41,6 +43,20 @@ export default function MyCafesScreen() {
     };
   }, [visitedCafeIds]);
 
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      router.replace('/profile');
+    }
+  }, [navigation, router]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
+
   const move = useCallback(
     async (fromIndex: number, direction: -1 | 1) => {
       const toIndex = fromIndex + direction;
@@ -59,9 +75,25 @@ export default function MyCafesScreen() {
     [visitedCafeIds, reorderVisitedCafes]
   );
 
+  const backRow = (
+    <View style={styles.backRow}>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+        onPress={handleBack}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={styles.backHit}
+      >
+        <Ionicons name="chevron-back" size={24} color={COLORS.text} />
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
+        {backRow}
+        <Text style={styles.screenTitle}>Visited</Text>
         {visitedCafes.length === 0 ? (
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIconWrap}>
@@ -146,9 +178,24 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 28,
     gap: 12,
+  },
+  backRow: {
+    alignSelf: 'stretch',
+    marginBottom: 4,
+  },
+  backHit: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  screenTitle: {
+    fontSize: 28,
+    fontFamily: FONTS.display.bold,
+    color: COLORS.text,
+    letterSpacing: -0.4,
+    marginBottom: 2,
   },
   hint: {
     fontSize: 14,

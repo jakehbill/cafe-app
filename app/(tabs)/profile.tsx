@@ -304,7 +304,7 @@ export default function ProfileScreen() {
             <TouchableOpacity
               activeOpacity={0.88}
               style={styles.activityRow}
-              onPress={() => router.push('/saved')}
+              onPress={() => router.navigate('/bookmarks')}
             >
               <View style={styles.activityTextWrap}>
                 <Text style={styles.activityTitle}>Saved Cafes</Text>
