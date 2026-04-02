@@ -1,7 +1,16 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
-import { Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import type { Cafe } from '../../data/cafes';
 import type { CafeRating } from '@/contexts/CafeStateContext';
@@ -10,7 +19,6 @@ import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { formatTagLabel } from '@/lib/cafeTags';
-import { rankCafesForTrending } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
@@ -24,6 +32,7 @@ function HomeCafeCard({
   recommendationReason,
   isSaved,
   onPress,
+  layout = 'stack',
 }: {
   cafe: Cafe;
   localRating?: CafeRating;
@@ -32,6 +41,8 @@ function HomeCafeCard({
   /** Used to show the correct saved state on first render. */
   isSaved?: boolean;
   onPress: () => void;
+  /** Carousel: slightly larger type + image for editorial strip. */
+  layout?: 'stack' | 'carousel';
 }) {
   const [topTags, setTopTags] = useState<string[]>([]);
 
@@ -46,20 +57,26 @@ function HomeCafeCard({
     };
   }, [cafe.id]);
 
+  const isCarousel = layout === 'carousel';
+
   return (
-    <TouchableOpacity activeOpacity={0.92} style={styles.featuredCard} onPress={onPress}>
+    <TouchableOpacity
+      activeOpacity={0.92}
+      style={[styles.featuredCard, isCarousel && styles.featuredCardCarousel]}
+      onPress={onPress}
+    >
       {cafe.imageUrl ? (
         <Image
           source={{ uri: cafe.imageUrl }}
-          style={styles.featuredImagePlaceholder}
+          style={[styles.featuredImagePlaceholder, isCarousel && styles.featuredImageCarousel]}
           resizeMode="cover"
         />
       ) : (
-        <View style={styles.featuredImagePlaceholder} />
+        <View style={[styles.featuredImagePlaceholder, isCarousel && styles.featuredImageCarousel]} />
       )}
 
-      <View style={styles.featuredBody}>
-        <Text style={styles.featuredName}>{cafe.name}</Text>
+      <View style={[styles.featuredBody, isCarousel && styles.featuredBodyCarousel]}>
+        <Text style={[styles.featuredName, isCarousel && styles.featuredNameCarousel]}>{cafe.name}</Text>
         {recommendationReason ? (
           <Text style={styles.featuredReason} numberOfLines={1}>
             {recommendationReason}
@@ -127,14 +144,18 @@ export default function HomeScreen() {
 
   /** Client-side ranking (same as Search with no query). Public coffee on cards comes from `cafe_public_scores` via catalog merge. */
   const topPicksForYou = useMemo(
-    () => rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile).slice(0, 10),
+    () => rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile).slice(0, 5),
     [cafeCatalog, ratingsByCafeId, tasteProfile]
   );
 
-  const trending = useMemo(
-    () => rankCafesForTrending([...cafeCatalog]).slice(0, 10),
-    [cafeCatalog]
-  );
+  const { width: windowWidth } = useWindowDimensions();
+  const picksCarousel = useMemo(() => {
+    const peek = 28;
+    const gap = 14;
+    const cardWidth = Math.max(280, Math.min(windowWidth - 40 - peek, windowWidth * 0.88));
+    const snapInterval = cardWidth + gap;
+    return { cardWidth, gap, snapInterval };
+  }, [windowWidth]);
 
   /**
    * Load the user’s saved cafes so cards can reflect saved state immediately.
@@ -190,14 +211,13 @@ export default function HomeScreen() {
     const payload = {
       cafeCatalogCount: cafeCatalog.length,
       topPicksForYouCardCount: topPicksForYou.length,
-      trendingCardCount: trending.length,
     };
     try {
       console.log(`[DEBUG Home UI: final section counts]\n${JSON.stringify(payload, null, 2)}`);
     } catch {
       console.log('[DEBUG Home UI: final section counts]', payload);
     }
-  }, [cafeCatalog.length, topPicksForYou.length, trending.length]);
+  }, [cafeCatalog.length, topPicksForYou.length]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -212,33 +232,37 @@ export default function HomeScreen() {
             <View style={styles.homeSectionHeader}>
               <Text style={styles.homeSectionTitle}>Top picks for you</Text>
               <Text style={styles.homeSectionSubtitle}>Based on your taste</Text>
+              <Text style={styles.swipeHint}>Swipe sideways for more</Text>
             </View>
-            {topPicksForYou.map((cafe) => (
-              <HomeCafeCard
-                key={`pick-${cafe.id}`}
-                cafe={cafe}
-                localRating={ratingsByCafeId[cafe.id]}
-                recommendationReason={getRecommendationReason(cafe, tasteProfile)}
-                isSaved={savedCafeIdSet.has(cafe.id)}
-                onPress={() => router.push(`/cafe/${cafe.id}`)}
-              />
-            ))}
-          </View>
-
-          <View style={[styles.homeSection, styles.homeSectionTrending]}>
-            <View style={styles.homeSectionHeader}>
-              <Text style={styles.homeSectionTitle}>Trending nearby</Text>
-              <Text style={styles.homeSectionSubtitle}>Popular right now</Text>
-            </View>
-            {trending.map((cafe) => (
-              <HomeCafeCard
-                key={`trend-${cafe.id}`}
-                cafe={cafe}
-                localRating={ratingsByCafeId[cafe.id]}
-                isSaved={savedCafeIdSet.has(cafe.id)}
-                onPress={() => router.push(`/cafe/${cafe.id}`)}
-              />
-            ))}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator
+              decelerationRate="fast"
+              snapToInterval={picksCarousel.snapInterval}
+              snapToAlignment="start"
+              disableIntervalMomentum
+              contentContainerStyle={styles.picksRowContent}
+              style={styles.picksRow}
+            >
+              {topPicksForYou.map((cafe, index) => (
+                <View
+                  key={`pick-${cafe.id}`}
+                  style={{
+                    width: picksCarousel.cardWidth,
+                    marginRight: index === topPicksForYou.length - 1 ? 0 : picksCarousel.gap,
+                  }}
+                >
+                  <HomeCafeCard
+                    cafe={cafe}
+                    layout="carousel"
+                    localRating={ratingsByCafeId[cafe.id]}
+                    recommendationReason={getRecommendationReason(cafe, tasteProfile)}
+                    isSaved={savedCafeIdSet.has(cafe.id)}
+                    onPress={() => router.push(`/cafe/${cafe.id}`)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
           </View>
         </View>
       </ScrollView>
@@ -262,10 +286,6 @@ const styles = StyleSheet.create({
   homeSection: {
     gap: 18,
   },
-  homeSectionTrending: {
-    marginTop: 6,
-    paddingTop: 26,
-  },
   homeSectionHeader: {
     gap: 6,
     marginBottom: 8,
@@ -285,6 +305,23 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     letterSpacing: -0.1,
   },
+  swipeHint: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    opacity: 0.85,
+    marginTop: 2,
+  },
+  picksRow: {
+    marginHorizontal: -20,
+    marginTop: 4,
+  },
+  picksRowContent: {
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingBottom: 4,
+  },
   featuredCard: {
     marginTop: 6,
     backgroundColor: COLORS.cardBackground,
@@ -294,10 +331,16 @@ const styles = StyleSheet.create({
     borderColor: COLORS.cardBorder,
     ...SHADOWS.card,
   },
+  featuredCardCarousel: {
+    marginTop: 0,
+  },
   featuredImagePlaceholder: {
     width: '100%',
     aspectRatio: 3 / 2,
     backgroundColor: COLORS.imagePlaceholder,
+  },
+  featuredImageCarousel: {
+    aspectRatio: 4 / 3,
   },
   featuredBody: {
     paddingHorizontal: 16,
@@ -305,12 +348,21 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     gap: 16,
   },
+  featuredBodyCarousel: {
+    paddingTop: 20,
+    paddingBottom: 22,
+    gap: 14,
+  },
   featuredName: {
     fontSize: 22,
     fontFamily: FONTS.display.semibold,
     color: COLORS.text,
     lineHeight: 28,
     letterSpacing: -0.3,
+  },
+  featuredNameCarousel: {
+    fontSize: 24,
+    lineHeight: 30,
   },
   featuredReason: {
     fontSize: 12,
