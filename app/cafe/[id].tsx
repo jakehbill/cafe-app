@@ -217,8 +217,6 @@ export default function CafeDetailScreen() {
   const hasGoogleMapsUrl = typeof mapsUrl === 'string' && mapsUrl.trim().length > 0;
 
   const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
-  const identityScoreLine =
-    publicCoffeeLabel === '—' ? '— / 5' : `${publicCoffeeLabel} / 5`;
 
   async function handleOpenGoogleMaps() {
     if (!hasGoogleMapsUrl) {
@@ -343,12 +341,12 @@ export default function CafeDetailScreen() {
               <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
             </View>
             <Text
-              style={styles.identityScore}
+              style={styles.identityScoreText}
               accessibilityLabel={
                 publicCoffeeLabel === '—' ? 'No public coffee score' : `Coffee ${publicCoffeeLabel} out of 5`
               }
             >
-              {identityScoreLine}
+              {publicCoffeeLabel}
             </Text>
           </View>
 
@@ -499,11 +497,11 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     letterSpacing: -0.1,
   },
-  identityScore: {
-    fontSize: 13,
-    fontFamily: FONTS.sans.medium,
+  identityScoreText: {
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
-    letterSpacing: 0.15,
+    letterSpacing: 0.2,
     marginTop: 4,
     minWidth: 52,
     textAlign: 'right',
