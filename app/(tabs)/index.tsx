@@ -189,14 +189,9 @@ function HomeCafeCard({
         ) : null}
 
         <View style={styles.heroTextBlock} pointerEvents="none">
-          <View style={styles.heroTitleRow}>
-            <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
-              {cafe.name}
-            </Text>
-            <View style={[styles.heroScoreWrap, isCarousel && styles.heroScoreWrapCarousel]}>
-              <PublicCoffeeScoreText cafe={cafe} variant="overlay" />
-            </View>
-          </View>
+          <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
+            {cafe.name}
+          </Text>
           <Text style={styles.heroLocation} numberOfLines={1}>
             {cafe.neighborhood}
           </Text>
@@ -214,7 +209,7 @@ function HomeCafeCard({
       </View>
 
         <View style={[styles.featuredBody, isCarousel && styles.featuredBodyCarousel]}>
-        <View style={styles.tagsRow}>
+        <View style={styles.tagsScoreRow}>
           <View style={styles.tagsWithIcons}>
             {topTags.map((tag) => (
               <View key={tag} style={styles.tagWithIcon}>
@@ -227,6 +222,9 @@ function HomeCafeCard({
                 />
               </View>
             ))}
+          </View>
+          <View style={styles.homeTagsScoreWrap}>
+            <PublicCoffeeScoreText cafe={cafe} variant="homeTagsRow" />
           </View>
         </View>
 
@@ -495,23 +493,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     gap: 4,
   },
-  /** First-row alignment: title + score share the hero’s primary headline band. */
-  heroTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    width: '100%',
-  },
-  heroScoreWrap: {
-    flexShrink: 0,
-    marginTop: 3,
-  },
-  heroScoreWrapCarousel: {
-    marginTop: 4,
-  },
   heroTitle: {
-    flex: 1,
-    minWidth: 0,
     fontSize: 22,
     fontFamily: FONTS.display.semibold,
     color: '#faf8f5',
@@ -548,16 +530,23 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     gap: 12,
   },
-  tagsRow: {
+  /** Tags left, Home score right — same row under the hero. */
+  tagsScoreRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   tagsWithIcons: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
+  },
+  homeTagsScoreWrap: {
+    flexShrink: 0,
+    marginTop: 2,
   },
   tagWithIcon: {
     flexDirection: 'row',

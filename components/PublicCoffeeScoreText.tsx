@@ -10,17 +10,17 @@ type Props = {
   cafe: Cafe;
   /**
    * Placement / density — shared lockup, tokens per context.
-   * `overlay` — Home hero title row. `overlayThumb` — compact card image corner.
-   * `overlaySearch` — Search title row. `identity` — detail header.
+   * `homeTagsRow` — Home featured card: tag row under hero (Home only).
+   * `overlayThumb` — compact card image corner. `overlaySearch` — Search/Saved title row. `identity` — detail.
    */
-  variant?: 'default' | 'list' | 'identity' | 'overlay' | 'overlayThumb' | 'overlaySearch';
+  variant?: 'default' | 'list' | 'identity' | 'homeTagsRow' | 'overlayThumb' | 'overlaySearch';
 };
 
 /** Bean size, type scale, and gap (bean → numerals) per context — first-row alignment system. */
 const TOKENS = {
   list: { bean: 12, fontSize: 12, lineHeight: 16, gap: 3 },
-  /** Home hero: title row; pairs with Playfair headline. */
-  overlay: { bean: 16, fontSize: 15, lineHeight: 20, gap: 4 },
+  /** Home: tags row under hero (right-aligned vs tags). */
+  homeTagsRow: { bean: 16, fontSize: 15, lineHeight: 20, gap: 4 },
   /** Saved/Visited/etc. thumbnail corner — smaller than hero. */
   overlayThumb: { bean: 15, fontSize: 14, lineHeight: 18, gap: 4 },
   /** Search: title row with list card name. */
@@ -51,7 +51,8 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
         styles.lockup,
         { gap: t.gap },
         variant === 'list' && styles.rowList,
-        (variant === 'overlay' || variant === 'overlayThumb' || variant === 'overlaySearch') && styles.rowOverlay,
+        (variant === 'homeTagsRow' || variant === 'overlayThumb' || variant === 'overlaySearch') &&
+          styles.rowOverlay,
         variant === 'identity' && styles.rowIdentity,
       ]}
       accessibilityLabel={accessibilityLabel}
@@ -74,7 +75,7 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
           },
           hasScore ? styles.scoreTextAccent : styles.scoreTextMuted,
           variant === 'list' && styles.scoreTextList,
-          (variant === 'overlay' || variant === 'overlayThumb') && styles.scoreTextOverlay,
+          (variant === 'homeTagsRow' || variant === 'overlayThumb') && styles.scoreTextOverlay,
           variant === 'overlaySearch' && styles.scoreTextOverlaySearch,
           variant === 'identity' && styles.scoreTextIdentity,
         ]}
