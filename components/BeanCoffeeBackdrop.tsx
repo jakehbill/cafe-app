@@ -27,7 +27,7 @@ export function isBeanCoffeeSvgAvailable(): boolean {
   return SvgComponent != null;
 }
 
-/** Compact bean shape for the public coffee score badge (background only). */
+/** `Bean.svg` for public coffee score lockups (icon beside numerals). */
 export function BeanCoffeeBackdrop(props: SvgProps) {
   if (!SvgComponent) {
     return null;
