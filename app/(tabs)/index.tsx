@@ -188,14 +188,15 @@ function HomeCafeCard({
           </View>
         ) : null}
 
-        <View style={styles.heroCoffeeScoreWrap} pointerEvents="none">
-          <PublicCoffeeScoreText cafe={cafe} variant="overlay" />
-        </View>
-
         <View style={styles.heroTextBlock} pointerEvents="none">
-          <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
-            {cafe.name}
-          </Text>
+          <View style={styles.heroTitleRow}>
+            <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
+              {cafe.name}
+            </Text>
+            <View style={[styles.heroScoreWrap, isCarousel && styles.heroScoreWrapCarousel]}>
+              <PublicCoffeeScoreText cafe={cafe} variant="overlay" />
+            </View>
+          </View>
           <Text style={styles.heroLocation} numberOfLines={1}>
             {cafe.neighborhood}
           </Text>
@@ -486,12 +487,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.93)',
     letterSpacing: -0.08,
   },
-  heroCoffeeScoreWrap: {
-    position: 'absolute',
-    right: 15,
-    bottom: 15,
-    zIndex: 2,
-  },
   heroTextBlock: {
     position: 'absolute',
     left: 14,
@@ -499,10 +494,24 @@ const styles = StyleSheet.create({
     bottom: 14,
     zIndex: 2,
     gap: 4,
-    /** Keeps long titles from running under the floating score badge (bottom-right). */
-    paddingRight: 60,
+  },
+  /** First-row alignment: title + score share the hero’s primary headline band. */
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    width: '100%',
+  },
+  heroScoreWrap: {
+    flexShrink: 0,
+    marginTop: 3,
+  },
+  heroScoreWrapCarousel: {
+    marginTop: 4,
   },
   heroTitle: {
+    flex: 1,
+    minWidth: 0,
     fontSize: 22,
     fontFamily: FONTS.display.semibold,
     color: '#faf8f5',

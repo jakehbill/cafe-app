@@ -359,7 +359,9 @@ export default function CafeDetailScreen() {
               <Text style={styles.identityName}>{cafe.name}</Text>
               <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
             </View>
-            <PublicCoffeeScoreText cafe={cafe} variant="identity" />
+            <View style={styles.identityScoreColumn}>
+              <PublicCoffeeScoreText cafe={cafe} variant="identity" />
+            </View>
           </View>
 
           {cafe.summary ? (
@@ -503,6 +505,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: 6,
+  },
+  /** Aligns lockup with the name’s first line vs Playfair cap height. */
+  identityScoreColumn: {
+    flexShrink: 0,
+    alignSelf: 'flex-start',
+    paddingTop: 3,
   },
   identityName: {
     fontSize: 28,

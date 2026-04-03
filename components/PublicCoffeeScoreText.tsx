@@ -9,19 +9,25 @@ import { BeanCoffeeBackdrop, isBeanCoffeeSvgAvailable } from '@/components/BeanC
 type Props = {
   cafe: Cafe;
   /**
-   * Placement / density only — each screen wraps this component; visuals stay consistent.
-   * `overlay` — Home hero. `overlaySearch` — Search card corner. `identity` — detail header.
+   * Placement / density — shared lockup, tokens per context.
+   * `overlay` — Home hero title row. `overlayThumb` — compact card image corner.
+   * `overlaySearch` — Search title row. `identity` — detail header.
    */
-  variant?: 'default' | 'list' | 'identity' | 'overlay' | 'overlaySearch';
+  variant?: 'default' | 'list' | 'identity' | 'overlay' | 'overlayThumb' | 'overlaySearch';
 };
 
-/** Bean size, type scale, and gap (bean → numerals) per context. */
+/** Bean size, type scale, and gap (bean → numerals) per context — first-row alignment system. */
 const TOKENS = {
   list: { bean: 12, fontSize: 12, lineHeight: 16, gap: 3 },
-  overlay: { bean: 15, fontSize: 14, lineHeight: 18, gap: 4 },
-  overlaySearch: { bean: 12, fontSize: 12, lineHeight: 16, gap: 3 },
+  /** Home hero: title row; pairs with Playfair headline. */
+  overlay: { bean: 16, fontSize: 15, lineHeight: 20, gap: 4 },
+  /** Saved/Visited/etc. thumbnail corner — smaller than hero. */
+  overlayThumb: { bean: 15, fontSize: 14, lineHeight: 18, gap: 4 },
+  /** Search: title row with list card name. */
+  overlaySearch: { bean: 15, fontSize: 15, lineHeight: 20, gap: 3 },
   default: { bean: 13, fontSize: 13, lineHeight: 17, gap: 4 },
-  identity: { bean: 14, fontSize: 14, lineHeight: 18, gap: 5 },
+  /** Detail identity row: pairs with name + address block. */
+  identity: { bean: 15, fontSize: 15, lineHeight: 20, gap: 4 },
 } as const;
 
 /**
@@ -45,7 +51,7 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
         styles.lockup,
         { gap: t.gap },
         variant === 'list' && styles.rowList,
-        (variant === 'overlay' || variant === 'overlaySearch') && styles.rowOverlay,
+        (variant === 'overlay' || variant === 'overlayThumb' || variant === 'overlaySearch') && styles.rowOverlay,
         variant === 'identity' && styles.rowIdentity,
       ]}
       accessibilityLabel={accessibilityLabel}
@@ -68,7 +74,7 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
           },
           hasScore ? styles.scoreTextAccent : styles.scoreTextMuted,
           variant === 'list' && styles.scoreTextList,
-          variant === 'overlay' && styles.scoreTextOverlay,
+          (variant === 'overlay' || variant === 'overlayThumb') && styles.scoreTextOverlay,
           variant === 'overlaySearch' && styles.scoreTextOverlaySearch,
           variant === 'identity' && styles.scoreTextIdentity,
         ]}
@@ -100,7 +106,6 @@ const styles = StyleSheet.create({
   },
   rowIdentity: {
     alignSelf: 'flex-start',
-    marginTop: 4,
     marginRight: 2,
   },
   scoreText: {
