@@ -2,7 +2,7 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { COLORS, FONTS } from '@/components/theme';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { formatTagLabel } from '@/lib/cafeTags';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { getCafeCommunityTagInsight, getTopCafeTags, type CafeCommunityTagInsight } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -18,11 +18,12 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
-import type { Cafe } from '../../data/cafes';
+import { getCafePhotoUrls, type Cafe } from '../../data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 
 const FEATURE_TAG_COUNT = 6;
@@ -102,6 +103,11 @@ export default function CafeDetailScreen() {
   const [heroGSize, setHeroGSize] = useState({ w: 0, h: 0 });
   const [featureTags, setFeatureTags] = useState<string[]>([]);
   const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
+
+  const { width: windowWidth } = useWindowDimensions();
+  const photoUrls = cafe ? getCafePhotoUrls(cafe) : [];
+  const heroPageW = heroGSize.w > 0 ? heroGSize.w : windowWidth;
+  const heroPageH = heroGSize.h > 0 ? heroGSize.h : heroPageW / (3 / 2);
 
   useEffect(() => {
     if (!cafeId) {
@@ -208,8 +214,6 @@ export default function CafeDetailScreen() {
   const mapsUrl = cafe.googleMapsUrl;
   const hasGoogleMapsUrl = typeof mapsUrl === 'string' && mapsUrl.trim().length > 0;
 
-  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
-
   async function handleOpenGoogleMaps() {
     if (!hasGoogleMapsUrl) {
       Alert.alert('Map link unavailable', 'No Google Maps link is available for this cafe.');
@@ -265,7 +269,11 @@ export default function CafeDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
         <View
           style={styles.heroWrap}
           onLayout={(e) => {
@@ -273,10 +281,29 @@ export default function CafeDetailScreen() {
             setHeroGSize((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
           }}
         >
-          {cafe.imageUrl ? (
-            <Image source={{ uri: cafe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
-          ) : (
+          {photoUrls.length === 0 ? (
             <View style={[styles.heroImage, styles.heroImageFallback]} />
+          ) : photoUrls.length === 1 ? (
+            <Image source={{ uri: photoUrls[0] }} style={styles.heroImage} resizeMode="cover" />
+          ) : (
+            <ScrollView
+              horizontal
+              pagingEnabled
+              bounces={false}
+              showsHorizontalScrollIndicator={false}
+              style={styles.heroImagePager}
+              contentContainerStyle={{ width: heroPageW * photoUrls.length }}
+              nestedScrollEnabled
+            >
+              {photoUrls.map((uri, index) => (
+                <Image
+                  key={`${cafe.id}-gallery-${index}`}
+                  source={{ uri }}
+                  style={{ width: heroPageW, height: heroPageH }}
+                  resizeMode="cover"
+                />
+              ))}
+            </ScrollView>
           )}
 
           <View style={styles.heroGradientSlot} pointerEvents="none">
@@ -332,14 +359,7 @@ export default function CafeDetailScreen() {
               <Text style={styles.identityName}>{cafe.name}</Text>
               <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
             </View>
-            <Text
-              style={styles.identityScoreText}
-              accessibilityLabel={
-                publicCoffeeLabel === '—' ? 'No public coffee score' : `Coffee ${publicCoffeeLabel} out of 5`
-              }
-            >
-              {publicCoffeeLabel}
-            </Text>
+            <PublicCoffeeScoreText cafe={cafe} variant="identity" />
           </View>
 
           {cafe.summary ? (
@@ -410,6 +430,10 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+  },
+  heroImagePager: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
   heroImageFallback: {
     backgroundColor: COLORS.imagePlaceholder,
@@ -493,15 +517,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
     letterSpacing: -0.1,
-  },
-  identityScoreText: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-    letterSpacing: 0.2,
-    marginTop: 4,
-    minWidth: 52,
-    textAlign: 'right',
   },
   summaryText: {
     color: COLORS.muted,

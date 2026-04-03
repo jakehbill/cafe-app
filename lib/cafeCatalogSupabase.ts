@@ -33,6 +33,31 @@ function str(v: unknown): string {
   return v == null ? '' : String(v);
 }
 
+/**
+ * Parses multi-photo fields from `cafes` rows: `image_urls` (array / JSON / CSV), `gallery_urls`, etc.
+ */
+function imageUrlsFromRow(row: Record<string, unknown>): string[] {
+  const raw = row.image_urls ?? row.gallery_urls ?? row.photo_urls ?? row.photos;
+  if (Array.isArray(raw)) {
+    return raw.map((x) => str(x).trim()).filter((s) => s.length > 0);
+  }
+  if (typeof raw === 'string' && raw.trim().length > 0) {
+    try {
+      const p = JSON.parse(raw) as unknown;
+      if (Array.isArray(p)) {
+        return p.map((x) => str(x).trim()).filter((s) => s.length > 0);
+      }
+    } catch {
+      /* not JSON */
+    }
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+  }
+  return [];
+}
+
 function tagsFromRow(row: Record<string, unknown>): string[] {
   const t = row.tags ?? row.tag_list ?? row.tag_slugs;
   if (Array.isArray(t)) return t.map((x) => String(x));
@@ -82,7 +107,11 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
 
   const { coffee, work, vibe } = scoreTriple(row);
   const imageRaw = row.image_url ?? row.photo_url ?? row.cover_image_url ?? row.image ?? row.thumbnail_url;
-  const imageUrl = str(imageRaw).trim();
+  const legacySingle = str(imageRaw).trim();
+  const fromGallery = imageUrlsFromRow(row);
+  const photoUrls =
+    fromGallery.length > 0 ? fromGallery : legacySingle.length > 0 ? [legacySingle] : [];
+  const primaryUrl = photoUrls[0] ?? '';
   const addressRaw = str(
     row.address ?? row.address_line ?? row.formatted_address ?? row.street_address ?? row.full_address ?? ''
   ).trim();
@@ -103,7 +132,11 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     googleMapsUrl: str(
       row.google_maps_url ?? row.googleMapsUrl ?? row.google_maps_link ?? row.maps_url
     ),
-    ...(imageUrl.length > 0 ? { imageUrl } : {}),
+    ...(primaryUrl.length > 0
+      ? photoUrls.length > 1
+        ? { imageUrl: primaryUrl, imageUrls: photoUrls }
+        : { imageUrl: primaryUrl }
+      : {}),
     ...(addressRaw.length > 0 ? { addressLine: addressRaw } : {}),
     communityStats,
   };

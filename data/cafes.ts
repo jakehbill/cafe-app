@@ -25,8 +25,16 @@ export type Cafe = {
   tags: string[];
   summary: string;
   googleMapsUrl: string;
-  /** When set from Supabase `image_url` / `photo_url` / etc. */
+  /**
+   * Primary photo for list cards — first gallery URL when `imageUrls` is set, else legacy single URL.
+   * Populated from Supabase `image_url` / `photo_url` / etc., or from `image_urls[0]`.
+   */
   imageUrl?: string;
+  /**
+   * Ordered gallery URLs when the backend exposes multiple (e.g. `cafes.image_urls`).
+   * Omitted when only a single legacy `image_url` exists.
+   */
+  imageUrls?: string[];
   /** Full street / formatted address when the catalog exposes it (optional). */
   addressLine?: string;
   /** Optional community counts when exposed by the backend (e.g. for trending). */
@@ -35,3 +43,20 @@ export type Cafe = {
     visits: number;
   };
 };
+
+/** All photo URLs for a cafe (gallery or single legacy `imageUrl`). */
+export function getCafePhotoUrls(cafe: Cafe): string[] {
+  if (cafe.imageUrls && cafe.imageUrls.length > 0) {
+    return cafe.imageUrls;
+  }
+  if (cafe.imageUrl) {
+    return [cafe.imageUrl];
+  }
+  return [];
+}
+
+/** Single image for Home / Search / Saved cards — first in the gallery. */
+export function getPrimaryPhotoUrl(cafe: Cafe): string | undefined {
+  const urls = getCafePhotoUrls(cafe);
+  return urls[0];
+}

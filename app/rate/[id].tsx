@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
-import type { Cafe } from '@/data/cafes';
+import { getPrimaryPhotoUrl, type Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
@@ -225,6 +225,8 @@ export default function RateCafeScreen() {
     }
   }
 
+  const ratePreviewPhoto = cafe ? getPrimaryPhotoUrl(cafe) : undefined;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.heroBackRow}>
@@ -249,8 +251,8 @@ export default function RateCafeScreen() {
         </View>
 
         <View style={styles.previewCard}>
-          {cafe?.imageUrl ? (
-            <Image source={{ uri: cafe.imageUrl }} style={styles.previewImage} resizeMode="cover" />
+          {ratePreviewPhoto ? (
+            <Image source={{ uri: ratePreviewPhoto }} style={styles.previewImage} resizeMode="cover" />
           ) : (
             <View style={[styles.previewImage, styles.previewImagePlaceholder]} />
           )}

@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 
-import type { Cafe } from '../../data/cafes';
+import { getPrimaryPhotoUrl, type Cafe } from '../../data/cafes';
 import type { CafeRating } from '@/contexts/CafeStateContext';
 import { BrandTopBar } from '@/components/BrandTopBar';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -24,7 +24,7 @@ import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { getTopCafeTags } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
@@ -63,8 +63,8 @@ function ImageHeroBottomFade({ cafeId, width, height }: { cafeId: string; width:
       <Defs>
         <SvgLinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor="#0a0a0a" stopOpacity="0" />
-          <Stop offset="0.45" stopColor="#0a0a0a" stopOpacity="0.28" />
-          <Stop offset="1" stopColor="#0a0a0a" stopOpacity="0.72" />
+          <Stop offset="0.45" stopColor="#0a0a0a" stopOpacity="0.3" />
+          <Stop offset="1" stopColor="#0a0a0a" stopOpacity="0.78" />
         </SvgLinearGradient>
       </Defs>
       <Rect x={0} y={0} width={width} height={height} fill={`url(#${gid})`} />
@@ -110,7 +110,7 @@ function HomeCafeCard({
   }, [cafe.id]);
 
   const isCarousel = layout === 'carousel';
-  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
+  const primaryPhoto = getPrimaryPhotoUrl(cafe);
 
   const onShare = async () => {
     try {
@@ -133,8 +133,8 @@ function HomeCafeCard({
           setHeroGSize((prev) => (prev.w === width && prev.h === height ? prev : { w: width, h: height }));
         }}
       >
-        {cafe.imageUrl ? (
-          <Image source={{ uri: cafe.imageUrl }} style={styles.heroImage} resizeMode="cover" />
+        {primaryPhoto ? (
+          <Image source={{ uri: primaryPhoto }} style={styles.heroImage} resizeMode="cover" />
         ) : (
           <View style={[styles.heroImage, styles.heroImageFallback]} />
         )}
@@ -188,6 +188,10 @@ function HomeCafeCard({
           </View>
         ) : null}
 
+        <View style={styles.heroCoffeeScoreWrap} pointerEvents="none">
+          <PublicCoffeeScoreText cafe={cafe} variant="overlay" />
+        </View>
+
         <View style={styles.heroTextBlock} pointerEvents="none">
           <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
             {cafe.name}
@@ -208,8 +212,8 @@ function HomeCafeCard({
         </View>
       </View>
 
-      <View style={[styles.featuredBody, isCarousel && styles.featuredBodyCarousel]}>
-        <View style={styles.tagsScoreRow}>
+        <View style={[styles.featuredBody, isCarousel && styles.featuredBodyCarousel]}>
+        <View style={styles.tagsRow}>
           <View style={styles.tagsWithIcons}>
             {topTags.map((tag) => (
               <View key={tag} style={styles.tagWithIcon}>
@@ -223,14 +227,6 @@ function HomeCafeCard({
               </View>
             ))}
           </View>
-          <Text
-            style={styles.inlineCoffeeScore}
-            accessibilityLabel={
-              publicCoffeeLabel === '—' ? 'No public coffee score' : `Coffee ${publicCoffeeLabel} out of 5`
-            }
-          >
-            {publicCoffeeLabel}
-          </Text>
         </View>
 
         <Text numberOfLines={3} style={styles.featuredSummary}>
@@ -416,6 +412,7 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 3 / 2,
     backgroundColor: COLORS.imagePlaceholder,
+    overflow: 'hidden',
   },
   heroWrapCarousel: {
     aspectRatio: 4 / 3,
@@ -489,6 +486,12 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.93)',
     letterSpacing: -0.08,
   },
+  heroCoffeeScoreWrap: {
+    position: 'absolute',
+    right: 14,
+    bottom: 14,
+    zIndex: 2,
+  },
   heroTextBlock: {
     position: 'absolute',
     left: 14,
@@ -496,6 +499,8 @@ const styles = StyleSheet.create({
     bottom: 14,
     zIndex: 2,
     gap: 4,
+    /** Keeps long titles from running under the floating score badge (bottom-right). */
+    paddingRight: 54,
   },
   heroTitle: {
     fontSize: 22,
@@ -534,11 +539,10 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     gap: 12,
   },
-  tagsScoreRow: {
+  tagsRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
+    flexWrap: 'wrap',
   },
   tagsWithIcons: {
     flex: 1,
@@ -556,13 +560,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.medium,
     color: COLORS.text,
     letterSpacing: -0.1,
-  },
-  inlineCoffeeScore: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-    letterSpacing: 0.2,
-    marginTop: 1,
   },
   featuredSummary: {
     color: COLORS.muted,

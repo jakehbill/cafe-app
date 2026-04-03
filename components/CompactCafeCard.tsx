@@ -1,13 +1,35 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 
-import type { Cafe } from '@/data/cafes';
+import { getPrimaryPhotoUrl, type Cafe } from '@/data/cafes';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { getTopCafeTags } from '@/lib/supabase';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
+
+const THUMB = 72;
+
+/** Bottom scrim on list thumbnails so the coffee score badge stays readable on any photo. */
+function CompactThumbnailBottomFade({ cafeId }: { cafeId: string }) {
+  const gid = `ct_${cafeId.replace(/[^a-zA-Z0-9_]/g, '_')}_bf`;
+  const w = THUMB;
+  const h = 38;
+  return (
+    <Svg width={w} height={h} pointerEvents="none" style={styles.thumbnailBottomFade}>
+      <Defs>
+        <SvgLinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#0a0a0a" stopOpacity="0" />
+          <Stop offset="0.55" stopColor="#0a0a0a" stopOpacity="0.22" />
+          <Stop offset="1" stopColor="#0a0a0a" stopOpacity="0.5" />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect x={0} y={0} width={w} height={h} fill={`url(#${gid})`} />
+    </Svg>
+  );
+}
 
 export type CompactCafeCardProps = {
   cafe: Cafe;
@@ -51,6 +73,7 @@ export function CompactCafeCard({
   }, [showTagsUI, tags, topTags, effectiveMaxTags]);
   const showTagRow = showTagsUI && tagSlice.length > 0;
   const tagsSubtle = trailing != null && showTagsUI;
+  const primaryPhoto = getPrimaryPhotoUrl(cafe);
 
   useEffect(() => {
     if (!showTagsUI) return;
@@ -87,19 +110,22 @@ export function CompactCafeCard({
           pressed && styles.cardPressed,
         ]}
       >
-        {cafe.imageUrl ? (
-          <Image source={{ uri: cafe.imageUrl }} style={styles.thumbnail} resizeMode="cover" />
-        ) : (
-          <View style={styles.thumbnail} />
-        )}
+        <View style={styles.thumbnailWrap}>
+          {primaryPhoto ? (
+            <Image source={{ uri: primaryPhoto }} style={styles.thumbnailImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.thumbnailImage} />
+          )}
+          <CompactThumbnailBottomFade cafeId={cafe.id} />
+          <View style={styles.thumbnailScoreWrap} pointerEvents="none">
+            <PublicCoffeeScoreText cafe={cafe} variant="overlay" />
+          </View>
+        </View>
         <View style={styles.body}>
           <View style={styles.titleRow}>
             <Text style={styles.name} numberOfLines={2}>
               {cafe.name}
             </Text>
-            <View style={styles.scoreColumn}>
-              <PublicCoffeeScoreText cafe={cafe} variant="list" />
-            </View>
           </View>
           {recommendationReason ? (
             <Text style={styles.recommendationReason} numberOfLines={1}>
@@ -176,13 +202,32 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     paddingLeft: 2,
   },
-  thumbnail: {
-    width: 72,
-    height: 72,
+  thumbnailWrap: {
+    width: THUMB,
+    height: THUMB,
     borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
     backgroundColor: COLORS.imagePlaceholder,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
+  },
+  thumbnailImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+  },
+  thumbnailBottomFade: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    zIndex: 1,
+  },
+  thumbnailScoreWrap: {
+    position: 'absolute',
+    right: 12,
+    bottom: 12,
+    zIndex: 2,
   },
   body: {
     flex: 1,
@@ -192,14 +237,6 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  scoreColumn: {
-    flexShrink: 0,
-    paddingTop: 1,
-    minWidth: 36,
-    alignItems: 'flex-end',
   },
   name: {
     flex: 1,
