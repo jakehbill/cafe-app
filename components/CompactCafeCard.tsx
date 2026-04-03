@@ -53,8 +53,8 @@ export type CompactCafeCardProps = {
   showTagsUI?: boolean;
   /**
    * Where the public coffee score appears (compact list cards only).
-   * `bottomRight` (default) — on the thumbnail; Saved, Visited, etc.
-   * `cardTopRight` — Search only: end of the title row (aligned with cafe name); not on the image.
+   * `bottomRight` (default) — on the thumbnail; Visited, Ratings, My Cafes, etc.
+   * `cardTopRight` — Search + Saved: end of the title row (aligned with cafe name); not on the image.
    */
   scorePosition?: 'bottomRight' | 'cardTopRight';
 };

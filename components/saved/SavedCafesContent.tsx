@@ -86,6 +86,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
               <CompactCafeCard
                 key={cafe.id}
                 cafe={cafe}
+                scorePosition="cardTopRight"
                 onPress={() => router.push(`/cafe/${cafe.id}`)}
               />
             );
