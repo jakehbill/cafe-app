@@ -570,7 +570,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontFamily: FONTS.sans.regular,
     fontStyle: 'italic',
-    color: COLORS.roastedBrown,
+    color: COLORS.accent,
     opacity: 0.92,
   },
 });

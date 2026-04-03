@@ -591,8 +591,9 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontFamily: FONTS.sans.regular,
     fontStyle: 'italic',
-    color: COLORS.roastedBrown,
+    color: COLORS.accent,
     letterSpacing: -0.05,
+    opacity: 0.92,
   },
   heroBackRow: {
     alignSelf: 'stretch',

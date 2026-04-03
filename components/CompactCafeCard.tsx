@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
   recommendationReason: {
     fontSize: 11,
     lineHeight: 15,
-    color: COLORS.roastedBrown,
+    color: COLORS.accent,
     fontFamily: FONTS.sans.regular,
     opacity: 0.9,
     fontStyle: 'italic',
