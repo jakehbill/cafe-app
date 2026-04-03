@@ -6,6 +6,17 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '@/components/theme';
 import { BeanedLogo } from '@/lib/brandAssets';
 
+/**
+ * Rendered logo size (~12% larger than prior 168×38). Wordmark is vector/PNG, not live text.
+ * `Beaned Logo .svg` viewBox width 1424.25; wordmark group begins at x ≈ 384 so the left edge of
+ * "beaned." aligns with the screen grid when we shift the whole asset left by that ratio.
+ */
+const LOGO_VIEWBOX_W = 1424.25;
+const LOGO_WORDMARK_X = 384;
+const LOGO_WIDTH = 188;
+const LOGO_HEIGHT = 43;
+const LOGO_TEXT_ALIGN_SHIFT = Math.round(LOGO_WIDTH * (LOGO_WORDMARK_X / LOGO_VIEWBOX_W));
+
 export type BrandTopBarProps = {
   /** When false, only the notification bell is shown (Search tab). */
   showSearchIcon?: boolean;
@@ -15,13 +26,15 @@ export function BrandTopBar({ showSearchIcon = true }: BrandTopBarProps) {
   const router = useRouter();
 
   return (
-    <View style={styles.row}>
-      <BeanedLogo
-        width={194}
-        height={46}
-        style={styles.logo}
-        accessibilityIgnoresInvertColors
-      />
+    <View style={styles.header}>
+      <View style={styles.logoLockup}>
+        <BeanedLogo
+          width={LOGO_WIDTH}
+          height={LOGO_HEIGHT}
+          style={[styles.logo, { marginLeft: -LOGO_TEXT_ALIGN_SHIFT }]}
+          accessibilityIgnoresInvertColors
+        />
+      </View>
       <View style={styles.actions}>
         {showSearchIcon ? (
           <TouchableOpacity
@@ -48,21 +61,36 @@ export function BrandTopBar({ showSearchIcon = true }: BrandTopBarProps) {
 }
 
 const styles = StyleSheet.create({
-  row: {
+  header: {
+    width: '100%',
+    height: 56,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+  },
+  /**
+   * Single branded asset (icon + wordmark inside SVG/PNG). `gap` applies if the lockup is split later.
+   * ~6px between icon and wordmark when using separate views.
+   */
+  logoLockup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 6,
+    height: LOGO_HEIGHT,
+    flexShrink: 1,
+    overflow: 'visible',
   },
   logo: {
-    height: 46,
-    width: 194,
-    marginLeft: -30,
     backgroundColor: 'transparent',
   },
   actions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    justifyContent: 'center',
+    gap: 14,
+    flexShrink: 0,
+    height: LOGO_HEIGHT,
   },
 });

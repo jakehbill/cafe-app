@@ -5,7 +5,6 @@ import { useRouter, useSegments } from 'expo-router';
 import {
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   Share,
   StyleSheet,
@@ -13,6 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 
 import type { Cafe } from '../../data/cafes';
@@ -28,6 +28,9 @@ import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
+
+/** Matches horizontal padding for header, section titles, and card content below. */
+const SCREEN_HORIZONTAL_PADDING = 20;
 
 function heroGradientId(cafeId: string): string {
   return `homeHero_${cafeId.replace(/[^a-zA-Z0-9_]/g, '_')}`;
@@ -281,7 +284,10 @@ export default function HomeScreen() {
   const picksCarousel = useMemo(() => {
     const peek = 28;
     const gap = 14;
-    const cardWidth = Math.max(280, Math.min(windowWidth - 40 - peek, windowWidth * 0.88));
+    const cardWidth = Math.max(
+      280,
+      Math.min(windowWidth - SCREEN_HORIZONTAL_PADDING * 2 - peek, windowWidth * 0.88)
+    );
     const snapInterval = cardWidth + gap;
     return { cardWidth, gap, snapInterval };
   }, [windowWidth]);
@@ -300,7 +306,7 @@ export default function HomeScreen() {
   }, [cafeCatalog.length, topPicksForYou.length]);
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -356,12 +362,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingHorizontal: SCREEN_HORIZONTAL_PADDING,
+    paddingTop: 12,
     paddingBottom: 42,
   },
   topSection: {
-    gap: 24,
+    gap: 14,
   },
   homeSection: {
     gap: 18,
@@ -369,7 +375,7 @@ const styles = StyleSheet.create({
   homeSectionHeader: {
     gap: 6,
     marginBottom: 8,
-    paddingTop: 2,
+    paddingTop: 0,
   },
   homeSectionTitle: {
     fontSize: 28,
@@ -386,12 +392,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   picksRow: {
-    marginHorizontal: -20,
+    marginHorizontal: -SCREEN_HORIZONTAL_PADDING,
     marginTop: 4,
   },
   picksRowContent: {
-    paddingLeft: 20,
-    paddingRight: 20,
+    paddingLeft: SCREEN_HORIZONTAL_PADDING,
+    paddingRight: SCREEN_HORIZONTAL_PADDING,
     paddingBottom: 4,
   },
   featuredCard: {
