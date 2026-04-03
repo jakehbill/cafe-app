@@ -145,9 +145,11 @@ export function CompactCafeCard({
             ) : null}
           </View>
           {recommendationReason ? (
-            <Text style={styles.recommendationReason} numberOfLines={1}>
-              {recommendationReason}
-            </Text>
+            <View style={styles.recommendationReasonWrap}>
+              <Text style={styles.recommendationReason} numberOfLines={1}>
+                {recommendationReason}
+              </Text>
+            </View>
           ) : null}
           <Text style={styles.location} numberOfLines={1}>
             {cafe.neighborhood}
@@ -270,6 +272,15 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.35,
     lineHeight: 24,
+  },
+  recommendationReasonWrap: {
+    alignSelf: 'stretch',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.coffeePillBorder,
+    backgroundColor: COLORS.coffeePillBackground,
   },
   recommendationReason: {
     fontSize: 11,

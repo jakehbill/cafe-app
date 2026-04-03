@@ -233,9 +233,11 @@ function HomeCafeCard({
         </Text>
 
         {recommendationReason ? (
-          <Text style={styles.insightLine} numberOfLines={2}>
-            {recommendationReason}
-          </Text>
+          <View style={styles.insightLineWrap}>
+            <Text style={styles.insightLine} numberOfLines={2}>
+              {recommendationReason}
+            </Text>
+          </View>
         ) : null}
       </View>
     </Pressable>
@@ -564,6 +566,16 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontFamily: FONTS.sans.regular,
     letterSpacing: -0.05,
+  },
+  insightLineWrap: {
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    paddingVertical: 8,
+    paddingHorizontal: 11,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.coffeePillBorder,
+    backgroundColor: COLORS.coffeePillBackground,
   },
   insightLine: {
     fontSize: 12,

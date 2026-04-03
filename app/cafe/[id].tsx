@@ -579,12 +579,12 @@ const styles = StyleSheet.create({
   },
   insightBubble: {
     marginTop: 4,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: COLORS.cardBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.coffeePillBorder,
+    backgroundColor: COLORS.coffeePillBackground,
   },
   insightBubbleText: {
     fontSize: 14,

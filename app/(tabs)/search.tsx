@@ -17,8 +17,6 @@ import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
 import { rankTrendingNearbyForSearch } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForSearch, type RankKey } from '@/lib/cafeRanking';
-import { getRecommendationReason } from '@/lib/recommendationReason';
-
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { FilterChip } from '@/components/FilterChip';
 import { getSearchFilterIcon } from '@/lib/tagIcons';
@@ -199,11 +197,6 @@ export default function SearchScreen() {
                     key={cafe.id}
                     cafe={cafe}
                     scorePosition="cardTopRight"
-                    recommendationReason={
-                      selectedChip === 'trending'
-                        ? undefined
-                        : getRecommendationReason(cafe, tasteProfile)
-                    }
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
                 );
