@@ -51,6 +51,12 @@ export type CompactCafeCardProps = {
    * Use on Visited only; default true everywhere else.
    */
   showTagsUI?: boolean;
+  /**
+   * Where the public coffee score appears (compact list cards only).
+   * `bottomRight` (default) — on the thumbnail; Saved, Visited, etc.
+   * `cardTopRight` — top-right of the full card (Search only); not on the image.
+   */
+  scorePosition?: 'bottomRight' | 'cardTopRight';
 };
 
 export function CompactCafeCard({
@@ -62,6 +68,7 @@ export function CompactCafeCard({
   recommendationReason,
   trailing,
   showTagsUI = true,
+  scorePosition = 'bottomRight',
 }: CompactCafeCardProps) {
   /** Visited list (with trailing): when tags are shown, cap count and lighter styling. */
   const effectiveMaxTags = trailing != null ? Math.min(maxTags, 2) : maxTags;
@@ -74,6 +81,7 @@ export function CompactCafeCard({
   const showTagRow = showTagsUI && tagSlice.length > 0;
   const tagsSubtle = trailing != null && showTagsUI;
   const primaryPhoto = getPrimaryPhotoUrl(cafe);
+  const scoreOnCardTopRight = scorePosition === 'cardTopRight';
 
   useEffect(() => {
     if (!showTagsUI) return;
@@ -94,7 +102,7 @@ export function CompactCafeCard({
   }, [cafe.id, effectiveMaxTags, tags, showTagsUI]);
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, scoreOnCardTopRight && styles.cardWithCornerScore]}>
       {rank != null ? (
         <View style={styles.rankBadge} accessibilityElementsHidden>
           <Text style={styles.rankBadgeText}>#{rank}</Text>
@@ -116,12 +124,16 @@ export function CompactCafeCard({
           ) : (
             <View style={styles.thumbnailImage} />
           )}
-          <CompactThumbnailBottomFade cafeId={cafe.id} />
-          <View style={styles.thumbnailScoreWrap} pointerEvents="none">
-            <PublicCoffeeScoreText cafe={cafe} variant="overlay" />
-          </View>
+          {!scoreOnCardTopRight ? (
+            <>
+              <CompactThumbnailBottomFade cafeId={cafe.id} />
+              <View style={styles.thumbnailScoreWrap} pointerEvents="none">
+                <PublicCoffeeScoreText cafe={cafe} variant="overlay" />
+              </View>
+            </>
+          ) : null}
         </View>
-        <View style={styles.body}>
+        <View style={[styles.body, scoreOnCardTopRight && styles.bodyWithCardCornerScore]}>
           <View style={styles.titleRow}>
             <Text style={styles.name} numberOfLines={2}>
               {cafe.name}
@@ -153,6 +165,11 @@ export function CompactCafeCard({
         </View>
       </Pressable>
       {trailing != null ? <View style={styles.trailing}>{trailing}</View> : null}
+      {scoreOnCardTopRight ? (
+        <View style={styles.cardScoreWrapTopRight} pointerEvents="none">
+          <PublicCoffeeScoreText cafe={cafe} variant="overlaySearch" />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -182,6 +199,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.cardBorder,
     ...SHADOWS.none,
     gap: 12,
+  },
+  /** Anchor absolute score badge; keeps rounded rect clipping predictable. */
+  cardWithCornerScore: {
+    position: 'relative',
   },
   cardMainPressable: {
     flex: 1,
@@ -225,14 +246,25 @@ const styles = StyleSheet.create({
   },
   thumbnailScoreWrap: {
     position: 'absolute',
-    right: 12,
-    bottom: 12,
+    right: 14,
+    bottom: 14,
     zIndex: 2,
+  },
+  /** Search: score on card chrome, above row content; inset within 12–16px band. */
+  cardScoreWrapTopRight: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    zIndex: 4,
   },
   body: {
     flex: 1,
     gap: 5,
     minWidth: 0,
+  },
+  /** Reserve space so the title line does not sit under the corner badge. */
+  bodyWithCardCornerScore: {
+    paddingRight: 52,
   },
   titleRow: {
     flexDirection: 'row',

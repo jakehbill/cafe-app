@@ -10,10 +10,11 @@ type Props = {
   cafe: Cafe;
   /**
    * `list` — legacy inline row (unused on cards when overlaid on image).
-   * `overlay` — floating on image (same size as list; no outer margins).
+   * `overlay` — floating on image (featured Home cards, list cards bottom-right).
+   * `overlaySearch` — Search list thumbnails; ~12% smaller than `overlay`, stronger shadow.
    * `default` / `identity` — other contexts.
    */
-  variant?: 'default' | 'list' | 'identity' | 'overlay';
+  variant?: 'default' | 'list' | 'identity' | 'overlay' | 'overlaySearch';
 };
 
 /** Outer badge size (includes 2px inner padding around the bean). ~25% larger than prior 30/32. */
@@ -24,11 +25,22 @@ const BADGE = {
     fontSize: 12,
     lineHeight: 15,
   },
+  /** Image overlay on cards: slightly larger shell + padding for readability. */
   overlay: {
+    outer: 48,
+    borderRadius: 17,
+    fontSize: 13,
+    lineHeight: 17,
+    /** ~25% more than base `SHELL_PAD` (2 → 2.5). */
+    shellPad: 2.5,
+  },
+  /** Search compact cards: scaled down ~12% vs `overlay`, proportions preserved. */
+  overlaySearch: {
     outer: 42,
     borderRadius: 15,
     fontSize: 12,
     lineHeight: 15,
+    shellPad: 2,
   },
   default: {
     outer: 44,
@@ -46,6 +58,10 @@ const BADGE = {
 
 const SHELL_PAD = 2;
 
+function shellPadFor(spec: (typeof BADGE)[keyof typeof BADGE]): number {
+  return 'shellPad' in spec && typeof spec.shellPad === 'number' ? spec.shellPad : SHELL_PAD;
+}
+
 /**
  * Public coffee score (`cafe.publicCoffeeScore` ← `public.cafe_public_scores`).
  * When a score exists and the bean SVG loads, shows a compact bean badge with white numerals.
@@ -53,7 +69,8 @@ const SHELL_PAD = 2;
 export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
   const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   const spec = BADGE[variant];
-  const innerSize = spec.outer - SHELL_PAD * 2;
+  const shellPad = shellPadFor(spec);
+  const innerSize = spec.outer - shellPad * 2;
   const useBean =
     publicCoffeeLabel !== '—' && isBeanCoffeeSvgAvailable();
 
@@ -68,7 +85,7 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
         style={[
           styles.row,
           variant === 'list' && styles.rowList,
-          variant === 'overlay' && styles.rowOverlay,
+          (variant === 'overlay' || variant === 'overlaySearch') && styles.rowOverlay,
           variant === 'identity' && styles.rowIdentity,
         ]}
       >
@@ -77,6 +94,7 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
             styles.fallbackText,
             variant === 'list' && styles.fallbackTextList,
             variant === 'overlay' && styles.fallbackTextOverlay,
+            variant === 'overlaySearch' && styles.fallbackTextOverlaySearch,
             variant === 'identity' && styles.fallbackTextIdentity,
           ]}
           accessibilityLabel={accessibilityLabel}
@@ -91,13 +109,15 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
     <View
       style={[
         styles.badgeOuter,
+        variant === 'overlaySearch' && styles.badgeOuterSearch,
         {
           width: spec.outer,
           height: spec.outer,
           borderRadius: spec.borderRadius,
+          padding: shellPad,
         },
         variant === 'list' && styles.rowList,
-        variant === 'overlay' && styles.rowOverlay,
+        (variant === 'overlay' || variant === 'overlaySearch') && styles.rowOverlay,
         variant === 'identity' && styles.rowIdentity,
       ]}
       accessibilityLabel={accessibilityLabel}
@@ -109,7 +129,7 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
           {
             width: innerSize,
             height: innerSize,
-            borderRadius: spec.borderRadius - 2,
+            borderRadius: Math.max(0, spec.borderRadius - shellPad),
           },
         ]}
       >
@@ -167,10 +187,17 @@ const styles = StyleSheet.create({
     opacity: 0.92,
   },
   fallbackTextOverlay: {
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: FONTS.sans.semibold,
     color: COLORS.muted,
     letterSpacing: 0.15,
+    opacity: 0.92,
+  },
+  fallbackTextOverlaySearch: {
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+    letterSpacing: 0.12,
     opacity: 0.92,
   },
   fallbackTextIdentity: {
@@ -182,7 +209,6 @@ const styles = StyleSheet.create({
     minWidth: 52,
   },
   badgeOuter: {
-    padding: SHELL_PAD,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.04)',
@@ -197,6 +223,21 @@ const styles = StyleSheet.create({
       },
       android: {
         elevation: 3,
+      },
+      default: {},
+    }),
+  },
+  /** Search thumbnail badge: slightly stronger lift for readability on varied photos. */
+  badgeOuterSearch: {
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1a1a1a',
+        shadowOpacity: 0.2,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+      },
+      android: {
+        elevation: 5,
       },
       default: {},
     }),

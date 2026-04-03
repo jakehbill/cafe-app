@@ -198,6 +198,7 @@ export default function SearchScreen() {
                   <CompactCafeCard
                     key={cafe.id}
                     cafe={cafe}
+                    scorePosition="cardTopRight"
                     recommendationReason={
                       selectedChip === 'trending'
                         ? undefined

@@ -488,8 +488,8 @@ const styles = StyleSheet.create({
   },
   heroCoffeeScoreWrap: {
     position: 'absolute',
-    right: 14,
-    bottom: 14,
+    right: 15,
+    bottom: 15,
     zIndex: 2,
   },
   heroTextBlock: {
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     gap: 4,
     /** Keeps long titles from running under the floating score badge (bottom-right). */
-    paddingRight: 54,
+    paddingRight: 60,
   },
   heroTitle: {
     fontSize: 22,
