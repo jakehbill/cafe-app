@@ -227,6 +227,12 @@ export default function RateCafeScreen() {
 
   const ratePreviewPhoto = cafe ? getPrimaryPhotoUrl(cafe) : undefined;
 
+  /** Full street address when catalog has it; else area/neighborhood. */
+  const rateLocationLine =
+    (cafe?.addressLine && cafe.addressLine.trim().length > 0
+      ? cafe.addressLine.trim()
+      : cafe?.neighborhood?.trim()) || 'Neighborhood';
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <View style={styles.heroBackRow}>
@@ -258,8 +264,8 @@ export default function RateCafeScreen() {
           )}
           <View style={styles.previewTextWrap}>
             <Text style={styles.previewName}>{cafe?.name ?? 'Cafe'}</Text>
-            <Text style={styles.previewNeighborhood}>
-              {cafe?.neighborhood ?? 'Neighborhood'}
+            <Text style={styles.previewNeighborhood} numberOfLines={1} ellipsizeMode="tail">
+              {rateLocationLine}
             </Text>
           </View>
         </View>
