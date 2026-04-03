@@ -7,10 +7,10 @@ import {
   useFonts,
 } from '@expo-google-fonts/inter';
 import { PlayfairDisplay_600SemiBold, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { SafeAreaView, StyleSheet, Text } from 'react-native';
 import 'react-native-reanimated';
 
@@ -21,9 +21,6 @@ import { CafeStateProvider } from '@/contexts/CafeStateContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 SplashScreen.preventAutoHideAsync();
-
-// Temporary testing toggle: set to true to force showing auth screen.
-const FORCE_SHOW_AUTH_FOR_TESTING = false;
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -73,7 +70,18 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { user, loading } = useAuth();
+  const router = useRouter();
+  const { user, session, loading } = useAuth();
+  const prevSessionRef = useRef<typeof session>(null);
+
+  useEffect(() => {
+    if (loading) return;
+    const hadSession = prevSessionRef.current != null;
+    prevSessionRef.current = session;
+    if (hadSession && session == null) {
+      router.replace('/onboarding');
+    }
+  }, [loading, session, router]);
 
   if (loading) {
     return (
@@ -122,7 +130,7 @@ function RootNavigator() {
         ),
       })}
     >
-      {user && !FORCE_SHOW_AUTH_FOR_TESTING ? (
+      {user ? (
         <>
           <Stack.Screen
             name="(tabs)"
@@ -184,6 +192,7 @@ function RootNavigator() {
         </>
       ) : (
         <>
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="auth" options={{ headerShown: false }} />
           <Stack.Screen name="login" options={{ headerShown: false }} />
         </>

@@ -1,14 +1,15 @@
 import { StyleSheet } from 'react-native';
 
-import { COLORS as THEME_COLORS, FONTS, SHADOWS } from '@/components/theme';
+import { COLORS as THEME_COLORS, FONTS, SPACING } from '@/components/theme';
 
-/** Auth screens — aligned with global theme tokens */
+/** Auth surfaces use the same canvas + inputs as the rest of the app. */
 export const COLORS = {
   background: THEME_COLORS.background,
   text: THEME_COLORS.text,
   muted: THEME_COLORS.muted,
   border: THEME_COLORS.cardBorder,
   input: THEME_COLORS.inputBackground,
+  link: THEME_COLORS.accent,
 } as const;
 
 export const authStyles = StyleSheet.create({
@@ -22,98 +23,97 @@ export const authStyles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingBottom: 28,
+    paddingBottom: 36,
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    gap: 14,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    gap: SPACING.sectionGap,
   },
   backRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 30,
+    minHeight: 44,
+    marginBottom: 8,
   },
   backArrow: {
     color: THEME_COLORS.muted,
-    fontSize: 26,
-    lineHeight: 30,
-    width: 30,
+    fontSize: 28,
+    lineHeight: 32,
+    width: 40,
+    fontFamily: FONTS.sans.regular,
   },
   backArrowHidden: {
     opacity: 0,
   },
   headerWrap: {
-    marginTop: 12,
-    marginBottom: 10,
-    gap: 6,
+    marginBottom: 4,
+    gap: 12,
+    alignItems: 'center',
   },
+  /** Editorial display — Playfair, aligned with onboarding & cafe headings. */
   title: {
-    fontSize: 44,
+    fontSize: 36,
     fontFamily: FONTS.display.bold,
     color: COLORS.text,
-    letterSpacing: -0.8,
-    lineHeight: 50,
+    letterSpacing: -0.7,
+    lineHeight: 42,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 17,
+    fontSize: 16,
     color: THEME_COLORS.muted,
-    lineHeight: 22,
+    lineHeight: 24,
     fontFamily: FONTS.sans.regular,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+  },
+  formBlock: {
+    gap: 20,
+    marginTop: 8,
   },
   fieldWrap: {
     gap: 8,
   },
   fieldLabel: {
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.text,
     fontFamily: FONTS.sans.semibold,
   },
   inputWrap: {
-    backgroundColor: THEME_COLORS.inputBackground,
+    backgroundColor: COLORS.input,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: THEME_COLORS.cardBorder,
+    borderColor: COLORS.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
   input: {
-    fontSize: 18,
+    fontSize: 17,
     color: COLORS.text,
     fontFamily: FONTS.sans.regular,
     padding: 0,
-    height: 28,
+    minHeight: 24,
   },
-  primaryButton: {
-    marginTop: 4,
-    borderRadius: 16,
-    paddingVertical: 18,
-    backgroundColor: THEME_COLORS.text,
-    borderWidth: 1,
-    borderColor: 'rgba(26, 26, 26, 0.2)',
-    ...SHADOWS.none,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontFamily: FONTS.sans.bold,
-    textAlign: 'center',
+  primaryButtonSlot: {
+    marginTop: 8,
   },
   footerRow: {
-    marginTop: 8,
+    marginTop: 20,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     flexWrap: 'wrap',
+    gap: 6,
   },
   footerText: {
     color: THEME_COLORS.muted,
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: FONTS.sans.regular,
   },
   footerLink: {
-    color: COLORS.text,
-    fontSize: 16,
-    fontFamily: FONTS.sans.bold,
+    color: COLORS.link,
+    fontSize: 15,
+    fontFamily: FONTS.sans.semibold,
   },
 });

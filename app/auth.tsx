@@ -5,6 +5,7 @@ import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { COLORS, authStyles } from '@/components/auth/authStyles';
+import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 
 /**
  * Main auth entry: sign up (`/auth`).
@@ -17,29 +18,43 @@ export default function AuthScreen() {
 
   async function handleSignUp() {
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
-    setLoading(false);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+      });
 
-    if (error) {
-      Alert.alert('Sign up failed', error.message);
-      return;
+      if (error) {
+        Alert.alert('Sign up failed', error.message);
+        return;
+      }
+
+      if (data.session) {
+        router.replace('/');
+        return;
+      }
+
+      Alert.alert(
+        'Check your email',
+        'If email confirmation is enabled, verify your email to finish sign up.'
+      );
+    } catch (e) {
+      Alert.alert('Sign up failed', e instanceof Error ? e.message : 'Something went wrong');
+    } finally {
+      setLoading(false);
     }
-
-    Alert.alert('Check your email', 'If email confirmation is enabled, verify your email to finish sign up.');
   }
 
   return (
     <AuthScreenShell
       title="Create your account"
-      subtitle="Start discovering great cafes"
+      subtitle="Start discovering cafes that fit how you work and unwind"
+      onBackPress={() => router.replace('/onboarding')}
       footer={
         <View style={authStyles.footerRow}>
           <Text style={authStyles.footerText}>Already have an account?</Text>
           <TouchableOpacity onPress={() => router.push('/login')} disabled={loading}>
-            <Text style={authStyles.footerLink}>{loading ? ' Please wait…' : ' Log in'}</Text>
+            <Text style={authStyles.footerLink}>{loading ? 'Please wait…' : 'Log in'}</Text>
           </TouchableOpacity>
         </View>
       }
@@ -74,9 +89,13 @@ export default function AuthScreen() {
         </View>
       </View>
 
-      <TouchableOpacity activeOpacity={0.9} style={authStyles.primaryButton} onPress={handleSignUp} disabled={loading}>
-        <Text style={authStyles.primaryButtonText}>{loading ? 'Please wait…' : 'Sign up'}</Text>
-      </TouchableOpacity>
+      <View style={authStyles.primaryButtonSlot}>
+        <FlowPrimaryButton
+          label={loading ? 'Please wait…' : 'Sign up'}
+          onPress={handleSignUp}
+          disabled={loading}
+        />
+      </View>
     </AuthScreenShell>
   );
 }

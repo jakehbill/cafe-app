@@ -3,13 +3,13 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 /**
  * Web: do not wrap the form in TouchableWithoutFeedback — it often steals pointer events so
@@ -49,7 +49,9 @@ export function AuthScreenShell({ title, subtitle, children, footer, onBackPress
           <Text style={authStyles.subtitle}>{subtitle}</Text>
         </View>
 
-        {children}
+        <View style={authStyles.formBlock}>
+          {children}
+        </View>
 
         {footer}
       </View>
@@ -57,7 +59,7 @@ export function AuthScreenShell({ title, subtitle, children, footer, onBackPress
   );
 
   return (
-    <SafeAreaView style={authStyles.safeArea}>
+    <SafeAreaView style={authStyles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
       <KeyboardAvoidingView
         style={authStyles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : Platform.OS === 'web' ? undefined : 'height'}

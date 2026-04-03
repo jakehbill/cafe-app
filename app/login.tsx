@@ -5,6 +5,7 @@ import { Alert, Platform, Text, TextInput, TouchableOpacity, View } from 'react-
 
 import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { COLORS, authStyles } from '@/components/auth/authStyles';
+import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 
 function authDebug(label: string, payload: Record<string, unknown>) {
   if (!__DEV__) return;
@@ -82,13 +83,13 @@ export default function LogInScreen() {
   return (
     <AuthScreenShell
       title="Welcome back"
-      subtitle="Sign in to keep exploring cafes"
+      subtitle="Sign in to pick up where you left off"
       onBackPress={() => router.push('/auth')}
       footer={
         <View style={authStyles.footerRow}>
           <Text style={authStyles.footerText}>{"Don't have an account?"}</Text>
           <TouchableOpacity onPress={() => router.push('/auth')} disabled={loading}>
-            <Text style={authStyles.footerLink}>{loading ? ' Please wait…' : ' Sign up'}</Text>
+            <Text style={authStyles.footerLink}>{loading ? 'Please wait…' : 'Sign up'}</Text>
           </TouchableOpacity>
         </View>
       }
@@ -123,9 +124,13 @@ export default function LogInScreen() {
         </View>
       </View>
 
-      <TouchableOpacity activeOpacity={0.9} style={authStyles.primaryButton} onPress={handleLogIn} disabled={loading}>
-        <Text style={authStyles.primaryButtonText}>{loading ? 'Please wait…' : 'Log in'}</Text>
-      </TouchableOpacity>
+      <View style={authStyles.primaryButtonSlot}>
+        <FlowPrimaryButton
+          label={loading ? 'Please wait…' : 'Log in'}
+          onPress={handleLogIn}
+          disabled={loading}
+        />
+      </View>
     </AuthScreenShell>
   );
 }

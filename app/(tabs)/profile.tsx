@@ -156,7 +156,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      router.replace('/auth');
+      router.replace('/onboarding');
     } catch (e) {
       console.error('Log out failed (unexpected):', e);
       Alert.alert(
