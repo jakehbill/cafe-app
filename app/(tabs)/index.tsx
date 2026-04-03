@@ -546,7 +546,6 @@ const styles = StyleSheet.create({
   },
   homeTagsScoreWrap: {
     flexShrink: 0,
-    marginTop: 2,
   },
   tagWithIcon: {
     flexDirection: 'row',

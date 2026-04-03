@@ -19,8 +19,8 @@ type Props = {
 /** Bean size, type scale, and gap (bean → numerals) per context — first-row alignment system. */
 const TOKENS = {
   list: { bean: 12, fontSize: 12, lineHeight: 16, gap: 3 },
-  /** Home: tags row under hero (right-aligned vs tags). */
-  homeTagsRow: { bean: 16, fontSize: 15, lineHeight: 20, gap: 4 },
+  /** Home: tags row — lineHeight matches bean height for one clean inline row. */
+  homeTagsRow: { bean: 16, fontSize: 15, lineHeight: 16, gap: 4 },
   /** Saved/Visited/etc. thumbnail corner — smaller than hero. */
   overlayThumb: { bean: 15, fontSize: 14, lineHeight: 18, gap: 4 },
   /** Search: title row with list card name. */
