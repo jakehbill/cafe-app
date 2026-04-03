@@ -131,6 +131,8 @@ export function getLevelProgress(totalPoints: number): LevelProgress {
 export type ProfileBadge = {
   id: string;
   label: string;
+  /** Short line shown under the name on the profile grid (display only). */
+  description: string;
   icon: string;
   unlocked: boolean;
 };
@@ -141,36 +143,42 @@ export function computeProfileBadges(snapshot: ActivitySnapshot): ProfileBadge[]
     {
       id: 'first-sip',
       label: 'First Sip',
+      description: 'Rated your first cafe',
       icon: '○',
       unlocked: snapshot.ratingsCount >= 1,
     },
     {
       id: 'dialled-in',
       label: 'Dialled In',
+      description: 'Rated 5 cafes',
       icon: '◉',
       unlocked: snapshot.ratingsCount >= 5,
     },
     {
       id: 'shot-caller',
       label: 'Shot Caller',
+      description: 'Rated 10 cafes',
       icon: '★',
       unlocked: snapshot.ratingsCount >= 10,
     },
     {
       id: 'tasting-notes',
       label: 'Tasting Notes',
+      description: 'Added 10 tags across cafes',
       icon: '✎',
       unlocked: snapshot.tagCount >= 10,
     },
     {
       id: 'cafe-scout',
       label: 'Cafe Scout',
+      description: 'Saved or visited 10 cafes',
       icon: '△',
       unlocked: snapshot.savedVisitedUnionCount >= 10,
     },
     {
       id: 'house-favourite',
       label: 'House Favourite',
+      description: 'Visited the same cafe 3 times',
       icon: '♥',
       unlocked: snapshot.hasTripleEngagementCafe,
     },

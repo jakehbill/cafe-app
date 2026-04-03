@@ -331,7 +331,7 @@ export default function ProfileScreen() {
 
         <Text style={[styles.sectionHeading, styles.achievementsHeading]}>Achievements</Text>
         <Text style={styles.badgesExplainer}>
-          Badges are milestones on the same journey as your points. Unlocked badges appear first.
+          Milestones along your points journey. Unlocked badges appear first.
         </Text>
         <View style={styles.badgeGrid}>
           {badges.map((b) => (
@@ -342,12 +342,19 @@ export default function ProfileScreen() {
               <Text style={[styles.badgeIcon, !b.unlocked && styles.badgeIconLocked]}>
                 {b.icon}
               </Text>
-              <Text
-                style={[styles.badgeLabel, !b.unlocked && styles.badgeLabelLocked]}
-                numberOfLines={2}
-              >
-                {b.label}
-              </Text>
+              <View style={styles.badgeTextBlock}>
+                <Text
+                  style={[styles.badgeLabel, !b.unlocked && styles.badgeLabelLocked]}
+                  numberOfLines={2}
+                >
+                  {b.label}
+                </Text>
+                <Text
+                  style={[styles.badgeDescription, !b.unlocked && styles.badgeDescriptionLocked]}
+                >
+                  {b.description}
+                </Text>
+              </View>
             </View>
           ))}
         </View>
@@ -514,15 +521,21 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: '28%',
     maxWidth: '32%',
-    aspectRatio: 1,
+    minHeight: 112,
     borderRadius: 14,
     backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     padding: 8,
+    paddingTop: 10,
     gap: 6,
+  },
+  badgeTextBlock: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 3,
   },
   badgeCellLocked: {
     opacity: 0.45,
@@ -544,6 +557,17 @@ const styles = StyleSheet.create({
   },
   badgeLabelLocked: {
     color: COLORS.muted,
+  },
+  badgeDescription: {
+    fontSize: 9,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  badgeDescriptionLocked: {
+    color: COLORS.muted,
+    opacity: 0.85,
   },
   leaderboardHint: {
     fontSize: 11,
