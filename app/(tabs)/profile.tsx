@@ -16,11 +16,14 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import {
-  computeActivityPoints,
   computeProfileBadges,
+  computeSavedVisitedUnionCount,
+  computeTotalPoints,
+  countTagsInRatings,
   getLevelProgress,
+  hasCafeSavedVisitedAndRated,
   POINTS,
-  type ActivityCounts,
+  type ActivitySnapshot,
 } from '@/lib/profileGamification';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -75,7 +78,7 @@ function formatPoints(n: number): string {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { ratingsByCafeId } = useCafeState();
+  const { ratingsByCafeId, savedCafeIds, visitedCafeIds } = useCafeState();
   const email = user?.email ?? '';
 
   const [counts, setCounts] = useState<ProfileCounts | null>(null);
@@ -109,21 +112,32 @@ export default function ProfileScreen() {
 
   const displayCounts = counts ?? { saved: 0, visited: 0, ratings: 0 };
 
-  const activityCounts: ActivityCounts = useMemo(
-    () => ({
-      saved: displayCounts.saved,
-      visited: displayCounts.visited,
-      ratings: displayCounts.ratings,
-    }),
-    [displayCounts.saved, displayCounts.visited, displayCounts.ratings]
-  );
+  const activitySnapshot: ActivitySnapshot = useMemo(() => {
+    const tagCount = countTagsInRatings(ratingsByCafeId);
+    return {
+      savedCount: displayCounts.saved,
+      visitedCount: displayCounts.visited,
+      ratingsCount: displayCounts.ratings,
+      tagCount,
+      savedVisitedUnionCount: computeSavedVisitedUnionCount(savedCafeIds, visitedCafeIds),
+      hasTripleEngagementCafe: hasCafeSavedVisitedAndRated(
+        savedCafeIds,
+        visitedCafeIds,
+        ratingsByCafeId
+      ),
+    };
+  }, [
+    displayCounts.saved,
+    displayCounts.visited,
+    displayCounts.ratings,
+    ratingsByCafeId,
+    savedCafeIds,
+    visitedCafeIds,
+  ]);
 
-  const totalPoints = useMemo(() => computeActivityPoints(activityCounts), [activityCounts]);
+  const totalPoints = useMemo(() => computeTotalPoints(activitySnapshot), [activitySnapshot]);
   const levelProgress = useMemo(() => getLevelProgress(totalPoints), [totalPoints]);
-  const badges = useMemo(
-    () => computeProfileBadges(activityCounts, ratingsByCafeId),
-    [activityCounts, ratingsByCafeId]
-  );
+  const badges = useMemo(() => computeProfileBadges(activitySnapshot), [activitySnapshot]);
 
   async function handleLogOut() {
     try {
@@ -180,7 +194,7 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Points + level progress — counts feed badges below after activity */}
+        {/* Points + progress toward next level (same model as achievements) */}
         <View style={styles.pointsCard}>
           <View style={styles.pointsHeaderRow}>
             <Text style={styles.pointsLabel}>Total points</Text>
@@ -194,10 +208,10 @@ export default function ProfileScreen() {
           {!countsLoading ? (
             <>
               <View style={styles.progressMetaRow}>
-                <Text style={styles.progressMetaText} numberOfLines={1}>
+                <Text style={styles.progressMetaText} numberOfLines={2}>
                   {levelProgress.isMaxLevel
-                    ? 'You’ve reached the top level'
-                    : `${levelProgress.currentTitle} → ${levelProgress.nextTitle}`}
+                    ? 'You’ve reached Cult Favourite — the top level.'
+                    : `Progress toward ${levelProgress.nextTitle}`}
                 </Text>
                 {!levelProgress.isMaxLevel && levelProgress.nextTierMinPoints !== null ? (
                   <Text style={styles.progressFraction}>
@@ -230,8 +244,8 @@ export default function ProfileScreen() {
               )}
 
               <Text style={styles.pointsHint}>
-                Earn points: {POINTS.perSaved} per save · {POINTS.perVisited} per visit ·{' '}
-                {POINTS.perRating} per rating
+                {POINTS.perRating} pts per rating · {POINTS.perVisited} per visit · {POINTS.perSaved} per
+                save · {POINTS.perTag} per tag
               </Text>
             </>
           ) : null}
@@ -317,8 +331,7 @@ export default function ProfileScreen() {
 
         <Text style={[styles.sectionHeading, styles.achievementsHeading]}>Achievements</Text>
         <Text style={styles.badgesExplainer}>
-          Unlocked badges appear first. The rest unlock as you save, visit, rate highly, and tag what
-          you love.
+          Badges are milestones on the same journey as your points. Unlocked badges appear first.
         </Text>
         <View style={styles.badgeGrid}>
           {badges.map((b) => (
