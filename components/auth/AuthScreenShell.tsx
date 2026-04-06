@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
  * TextInputs and buttons never receive clicks/focus (RN Web). Native keeps tap-to-dismiss.
  */
 
+import { AuthBrandBean } from '@/components/auth/AuthBrandBean';
 import { authStyles } from '@/components/auth/authStyles';
 
 type AuthScreenShellProps = {
@@ -24,9 +25,18 @@ type AuthScreenShellProps = {
   children: ReactNode;
   footer: ReactNode;
   onBackPress?: () => void;
+  /** Subtle `Bean.svg` above the main heading (auth / sign-up surfaces). */
+  brandAccent?: boolean;
 };
 
-export function AuthScreenShell({ title, subtitle, children, footer, onBackPress }: AuthScreenShellProps) {
+export function AuthScreenShell({
+  title,
+  subtitle,
+  children,
+  footer,
+  onBackPress,
+  brandAccent = false,
+}: AuthScreenShellProps) {
   const scroll = (
     <ScrollView
       contentContainerStyle={authStyles.scrollContent}
@@ -45,6 +55,7 @@ export function AuthScreenShell({ title, subtitle, children, footer, onBackPress
         </View>
 
         <View style={authStyles.headerWrap}>
+          {brandAccent ? <AuthBrandBean /> : null}
           <Text style={authStyles.title}>{title}</Text>
           <Text style={authStyles.subtitle}>{subtitle}</Text>
         </View>

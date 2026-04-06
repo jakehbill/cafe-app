@@ -46,6 +46,7 @@ export default function AuthScreen() {
 
   return (
     <AuthScreenShell
+      brandAccent
       title="Create your account"
       subtitle="Start discovering cafes that fit how you work and unwind"
       onBackPress={() => router.replace('/onboarding')}

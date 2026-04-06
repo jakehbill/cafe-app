@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AuthBrandBean } from '@/components/auth/AuthBrandBean';
 import { COLORS, FONTS, SPACING } from '@/components/theme';
 import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 import { FlowSecondaryButton } from '@/components/ui/FlowSecondaryButton';
@@ -142,7 +143,8 @@ function SlideBody({ index, slideWidth }: SlideRenderProps) {
 
   return (
     <View style={[styles.slideInner, innerPad, styles.ctaSlide]}>
-      <Text style={styles.headline}>Ready when you are</Text>
+      <AuthBrandBean />
+      <Text style={[styles.headline, styles.headlineBelowBean]}>Ready when you are</Text>
       <Text style={styles.bodyCopy}>
         Create an account or log in to start discovering cafes tailored to you.
       </Text>
@@ -272,6 +274,10 @@ const styles = StyleSheet.create({
   },
   headlineBelowArt: {
     marginTop: SPACING.sectionGap,
+  },
+  /** Extra air below the brand bean on the final CTA slide. */
+  headlineBelowBean: {
+    marginTop: 4,
   },
   bodyCopy: {
     marginTop: 14,

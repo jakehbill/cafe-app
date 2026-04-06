@@ -81,6 +81,7 @@ export default function LogInScreen() {
 
   return (
     <AuthScreenShell
+      brandAccent
       title="Welcome back"
       subtitle="Sign in to pick up where you left off"
       onBackPress={() => router.push('/auth')}
