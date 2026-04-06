@@ -139,7 +139,7 @@ export function CompactCafeCard({
         <View style={[styles.body, scoreInContentColumn && styles.bodyContentColumn]}>
           {scoreInContentColumn ? (
             <>
-              <Text style={styles.name} numberOfLines={2}>
+              <Text style={[styles.name, styles.nameContentColumn]} numberOfLines={2}>
                 {cafe.name}
               </Text>
               <Text style={styles.location} numberOfLines={1}>
@@ -292,9 +292,16 @@ const styles = StyleSheet.create({
     gap: 5,
     minWidth: 0,
   },
-  /** Visited: name → location → score; tight vertical rhythm, left-aligned. */
+  /**
+   * Visited: name → location → score. Single `gap` so spacing is equal between each pair.
+   * `name` uses `nameContentColumn` so `flex: 1` does not stretch the title and break even gaps.
+   */
   bodyContentColumn: {
-    gap: 4,
+    gap: 5,
+  },
+  nameContentColumn: {
+    flex: 0,
+    alignSelf: 'stretch',
   },
   titleRow: {
     flexDirection: 'row',
