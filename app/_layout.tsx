@@ -7,7 +7,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/inter';
 import { PlayfairDisplay_600SemiBold, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
@@ -20,6 +20,7 @@ import { COLORS, FONTS } from '@/components/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { CafeStateProvider } from '@/contexts/CafeStateContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ProfileGateProvider, useProfileGate } from '@/contexts/ProfileGateContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -61,12 +62,14 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
-        <CafeStateProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <RootNavigator />
-            <StatusBar style="dark" />
-          </ThemeProvider>
-        </CafeStateProvider>
+        <ProfileGateProvider>
+          <CafeStateProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <RootNavigator />
+              <StatusBar style="dark" />
+            </ThemeProvider>
+          </CafeStateProvider>
+        </ProfileGateProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );
@@ -74,10 +77,10 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const router = useRouter();
+  const segments = useSegments();
   const { user, session, loading } = useAuth();
+  const { profileLoading, needsOnboarding } = useProfileGate();
   const prevSessionRef = useRef<typeof session>(null);
-  /** Tracks prior `user` presence so we only reset the URL when transitioning from signed-out → signed-in (not on cold start). */
-  const prevHadUserRef = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
     if (loading) return;
@@ -88,17 +91,29 @@ function RootNavigator() {
     }
   }, [loading, session, router]);
 
-  /** After login/signup, land on the tab root with a fresh stack (pairs with `Stack` `key` below). */
+  /**
+   * Route signed-in users through taste preferences until `onboarding_completed` is true.
+   * When complete, leave the preferences screen for the tab root.
+   */
   useEffect(() => {
     if (loading) return;
-    const hasUser = !!user;
-    if (prevHadUserRef.current === false && hasUser) {
+    if (!user) return;
+    if (profileLoading) return;
+
+    const top = segments[0];
+    const onPreferences = top === 'onboarding-preferences';
+
+    if (needsOnboarding && !onPreferences) {
+      router.replace('/onboarding-preferences');
+      return;
+    }
+
+    if (!needsOnboarding && onPreferences) {
       router.replace('/(tabs)');
     }
-    prevHadUserRef.current = hasUser;
-  }, [loading, user, router]);
+  }, [loading, user, profileLoading, needsOnboarding, segments, router]);
 
-  if (loading) {
+  if (loading || (user != null && profileLoading)) {
     return (
       <SafeAreaView style={styles.loadingSafeArea}>
         <Text style={styles.loadingText}>Loading...</Text>
@@ -194,6 +209,14 @@ function RootNavigator() {
               ...stackHeaderOn,
               title: 'Visited',
               headerTitle: 'Visited',
+            }}
+          />
+          <Stack.Screen
+            name="onboarding-preferences"
+            options={{
+              headerShown: false,
+              title: '',
+              headerTitle: '',
             }}
           />
           <Stack.Screen
