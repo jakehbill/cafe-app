@@ -6,13 +6,19 @@ import {
   personalizationBoost,
   type UserTasteProfile,
 } from '@/lib/cafePersonalization';
+import {
+  computeOnboardingPreferenceBoost,
+  type OnboardingPreferenceRankInput,
+} from '@/lib/onboardingPreferenceRanking';
 
 export type RankKey = 'work' | 'coffee' | 'atmosphere' | 'quick' | 'quiet';
 
 // ---------------------------------------------------------------------------
 // Base cafe ranking (search). Personalization is added on top when a profile exists.
 //
-// finalScore = computeBaseSearchRankScore(...) + personalizationBoost(...) * PERSONALIZE_RANK_SCALE
+// finalScore = computeBaseSearchRankScore(...)
+//   + personalizationBoost(...) * PERSONALIZE_RANK_SCALE   (ratings / visits / saves — dominant)
+//   + computeOnboardingPreferenceBoost(...)              (onboarding tags + tiny axis nudge; capped ~6)
 //
 // Base = balanced scores + tag coverage (no query/chip), or text + chip + quality when searching.
 // Personalization = visit-rank tiers + saved bump + axis alignment + tags + reference similarity −
@@ -169,14 +175,15 @@ export function computeSearchRankScore(
   queryTrimmedLower: string,
   selectedChip: RankKey | null,
   ratingsByCafeId: Record<string, CafeRating>,
-  tasteProfile: UserTasteProfile | null
+  tasteProfile: UserTasteProfile | null,
+  onboardingPrefs: OnboardingPreferenceRankInput | null = null
 ): number {
   const base = computeBaseSearchRankScore(cafe, queryTrimmedLower, selectedChip, ratingsByCafeId);
-  if (tasteProfile === null) {
-    return base;
-  }
   const s = scoresForCafe(cafe, ratingsByCafeId);
-  return base + personalizationBoost(cafe, tasteProfile, s) * PERSONALIZE_RANK_SCALE;
+  const behaviorBoost =
+    tasteProfile === null ? 0 : personalizationBoost(cafe, tasteProfile, s) * PERSONALIZE_RANK_SCALE;
+  const onboardingBoost = computeOnboardingPreferenceBoost(cafe, onboardingPrefs);
+  return base + behaviorBoost + onboardingBoost;
 }
 
 export function rankCafesForSearch(
@@ -184,13 +191,14 @@ export function rankCafesForSearch(
   queryTrimmedLower: string,
   selectedChip: RankKey | null,
   ratingsByCafeId: Record<string, CafeRating>,
-  tasteProfile: UserTasteProfile | null
+  tasteProfile: UserTasteProfile | null,
+  onboardingPrefs: OnboardingPreferenceRankInput | null = null
 ): Cafe[] {
   const copy = [...list];
   copy.sort(
     (a, b) =>
-      computeSearchRankScore(b, queryTrimmedLower, selectedChip, ratingsByCafeId, tasteProfile) -
-      computeSearchRankScore(a, queryTrimmedLower, selectedChip, ratingsByCafeId, tasteProfile)
+      computeSearchRankScore(b, queryTrimmedLower, selectedChip, ratingsByCafeId, tasteProfile, onboardingPrefs) -
+      computeSearchRankScore(a, queryTrimmedLower, selectedChip, ratingsByCafeId, tasteProfile, onboardingPrefs)
   );
   return copy;
 }
@@ -199,9 +207,10 @@ export function rankCafesForSearch(
 export function rankCafesForHome(
   list: Cafe[],
   ratingsByCafeId: Record<string, CafeRating>,
-  tasteProfile: UserTasteProfile | null
+  tasteProfile: UserTasteProfile | null,
+  onboardingPrefs: OnboardingPreferenceRankInput | null = null
 ): Cafe[] {
-  return rankCafesForSearch(list, '', null, ratingsByCafeId, tasteProfile);
+  return rankCafesForSearch(list, '', null, ratingsByCafeId, tasteProfile, onboardingPrefs);
 }
 
 export function buildTasteProfileFromState(

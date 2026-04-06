@@ -21,6 +21,7 @@ import { BrandTopBar } from '@/components/BrandTopBar';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
@@ -266,6 +267,7 @@ export default function HomeScreen() {
     }
   }, [navigation, segments]);
   const { cafes: cafeCatalog } = useCafeCatalog();
+  const onboardingPrefs = useOnboardingPreferencesForRanking();
 
   const tasteProfile = useMemo(
     () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
@@ -274,8 +276,8 @@ export default function HomeScreen() {
 
   /** Client-side ranking (same as Search with no query). Public coffee on cards comes from `cafe_public_scores` via catalog merge. */
   const topPicksForYou = useMemo(
-    () => rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile).slice(0, 5),
-    [cafeCatalog, ratingsByCafeId, tasteProfile]
+    () => rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile, onboardingPrefs).slice(0, 5),
+    [cafeCatalog, ratingsByCafeId, tasteProfile, onboardingPrefs]
   );
 
   const { width: windowWidth } = useWindowDimensions();

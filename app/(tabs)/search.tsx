@@ -14,6 +14,7 @@ import {
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
 import { rankTrendingNearbyForSearch } from '@/lib/cafeTrending';
 import { buildTasteProfileFromState, rankCafesForSearch, type RankKey } from '@/lib/cafeRanking';
@@ -92,6 +93,7 @@ export default function SearchScreen() {
   const { rank: rankParam } = useLocalSearchParams<{ rank?: string | string[] }>();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
   const { cafes: cafeCatalog } = useCafeCatalog();
+  const onboardingPrefs = useOnboardingPreferencesForRanking();
   const userLocation = useOptionalUserLocation();
   const [query, setQuery] = useState('');
   const [selectedChip, setSelectedChip] = useState<SearchChipId | null>(null);
@@ -114,8 +116,8 @@ export default function SearchScreen() {
     if (selectedChip === 'trending') {
       return rankTrendingNearbyForSearch([...cafeCatalog], q, userLocation);
     }
-    return rankCafesForSearch([...cafeCatalog], q, selectedChip, ratingsByCafeId, tasteProfile);
-  }, [query, selectedChip, ratingsByCafeId, tasteProfile, userLocation, cafeCatalog]);
+    return rankCafesForSearch([...cafeCatalog], q, selectedChip, ratingsByCafeId, tasteProfile, onboardingPrefs);
+  }, [query, selectedChip, ratingsByCafeId, tasteProfile, onboardingPrefs, userLocation, cafeCatalog]);
 
   const showNoResults = results.length === 0;
   const resultsLabel = resultsHeadingLabel(selectedChip);
