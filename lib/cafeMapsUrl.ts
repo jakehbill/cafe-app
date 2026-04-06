@@ -38,11 +38,3 @@ export function resolveCafeMapsUrl(cafe: Cafe): string | null {
 
   return null;
 }
-
-/** Text for the system share sheet: title line + maps link when available. */
-export function buildCafeShareMessage(cafe: Cafe): string {
-  const base = `${cafe.name} — ${cafe.neighborhood}`;
-  const url = resolveCafeMapsUrl(cafe);
-  if (!url) return base;
-  return `${base}\n\n${url}`;
-}

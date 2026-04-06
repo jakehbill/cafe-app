@@ -25,7 +25,7 @@ import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
-import { buildCafeShareMessage } from '@/lib/cafeMapsUrl';
+import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { getTopCafeTags } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;

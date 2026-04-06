@@ -25,7 +25,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 import { getCafePhotoUrls, type Cafe } from '../../data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
-import { buildCafeShareMessage, resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
+import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
+import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 
 const FEATURE_TAG_COUNT = 6;
 
