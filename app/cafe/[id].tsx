@@ -359,7 +359,7 @@ export default function CafeDetailScreen() {
               <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
             </View>
             <View style={styles.identityScoreColumn}>
-              <PublicCoffeeScoreText cafe={cafe} variant="identity" />
+              <PublicCoffeeScoreText cafe={cafe} variant="homeTagsRow" />
             </View>
           </View>
 

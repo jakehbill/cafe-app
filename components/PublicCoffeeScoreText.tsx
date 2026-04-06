@@ -10,24 +10,22 @@ type Props = {
   cafe: Cafe;
   /**
    * Placement / density — shared lockup, tokens per context.
-   * `homeTagsRow` — Home featured card: tag row under hero (Home only).
-   * `overlayThumb` — compact card image corner. `overlaySearch` — Search/Saved title row. `identity` — detail.
+   * `homeTagsRow` — Home featured card tag row and cafe detail identity column (same lockup as Home).
+   * `overlayThumb` — compact card image corner. `overlaySearch` — Search/Saved title row.
    */
-  variant?: 'default' | 'list' | 'identity' | 'homeTagsRow' | 'overlayThumb' | 'overlaySearch';
+  variant?: 'default' | 'list' | 'homeTagsRow' | 'overlayThumb' | 'overlaySearch';
 };
 
 /** Bean size, type scale, and gap (bean → numerals) per context — first-row alignment system. */
 const TOKENS = {
   list: { bean: 12, fontSize: 12, lineHeight: 16, gap: 3 },
-  /** Home: tags row — lineHeight matches bean height for one clean inline row. */
+  /** Home tags row + cafe detail — lineHeight matches bean height for one clean inline row. */
   homeTagsRow: { bean: 16, fontSize: 15, lineHeight: 16, gap: 4 },
   /** Saved/Visited/etc. thumbnail corner — smaller than hero. */
   overlayThumb: { bean: 15, fontSize: 14, lineHeight: 18, gap: 4 },
   /** Search: title row with list card name. */
   overlaySearch: { bean: 15, fontSize: 15, lineHeight: 20, gap: 3 },
   default: { bean: 13, fontSize: 13, lineHeight: 17, gap: 4 },
-  /** Detail identity row: pairs with name + address block. */
-  identity: { bean: 15, fontSize: 15, lineHeight: 20, gap: 4 },
 } as const;
 
 /**
@@ -53,7 +51,6 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
         variant === 'list' && styles.rowList,
         (variant === 'homeTagsRow' || variant === 'overlayThumb' || variant === 'overlaySearch') &&
           styles.rowOverlay,
-        variant === 'identity' && styles.rowIdentity,
       ]}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="text"
@@ -77,7 +74,6 @@ export function PublicCoffeeScoreText({ cafe, variant = 'default' }: Props) {
           variant === 'list' && styles.scoreTextList,
           (variant === 'homeTagsRow' || variant === 'overlayThumb') && styles.scoreTextOverlay,
           variant === 'overlaySearch' && styles.scoreTextOverlaySearch,
-          variant === 'identity' && styles.scoreTextIdentity,
         ]}
         numberOfLines={1}
       >
@@ -105,10 +101,6 @@ const styles = StyleSheet.create({
     margin: 0,
     alignSelf: 'flex-start',
   },
-  rowIdentity: {
-    alignSelf: 'flex-start',
-    marginRight: 2,
-  },
   scoreText: {
     fontFamily: FONTS.sans.semibold,
     letterSpacing: -0.2,
@@ -130,10 +122,5 @@ const styles = StyleSheet.create({
   },
   scoreTextOverlaySearch: {
     letterSpacing: -0.1,
-  },
-  scoreTextIdentity: {
-    letterSpacing: 0.05,
-    textAlign: 'right',
-    minWidth: 36,
   },
 });
