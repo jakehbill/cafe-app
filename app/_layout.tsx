@@ -12,6 +12,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
@@ -58,14 +59,16 @@ export default function RootLayout() {
   ];
 
   return (
-    <AuthProvider>
-      <CafeStateProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <RootNavigator />
-          <StatusBar style="dark" />
-        </ThemeProvider>
-      </CafeStateProvider>
-    </AuthProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthProvider>
+        <CafeStateProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <RootNavigator />
+            <StatusBar style="dark" />
+          </ThemeProvider>
+        </CafeStateProvider>
+      </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 

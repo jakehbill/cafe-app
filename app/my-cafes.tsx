@@ -1,15 +1,18 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Haptics from 'expo-haptics';
 import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import DraggableFlatList, { ScaleDecorator, type RenderItemParams } from 'react-native-draggable-flatlist';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Cafe } from '@/data/cafes';
@@ -57,22 +60,23 @@ export default function MyCafesScreen() {
     });
   }, [navigation]);
 
-  const move = useCallback(
-    async (fromIndex: number, direction: -1 | 1) => {
-      const toIndex = fromIndex + direction;
-      if (toIndex < 0 || toIndex >= visitedCafeIds.length) return;
-      const next = [...visitedCafeIds];
-      const t = next[fromIndex];
-      next[fromIndex] = next[toIndex];
-      next[toIndex] = t;
+  const onDragBegin = useCallback((_index: number) => {
+    if (Platform.OS !== 'web') {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+  }, []);
+
+  const onDragEnd = useCallback(
+    async ({ data }: { data: Cafe[] }) => {
+      setVisitedCafes(data);
       setReordering(true);
       try {
-        await reorderVisitedCafes(next);
+        await reorderVisitedCafes(data.map((c) => c.id));
       } finally {
         setReordering(false);
       }
     },
-    [visitedCafeIds, reorderVisitedCafes]
+    [reorderVisitedCafes]
   );
 
   const backRow = (
@@ -89,12 +93,54 @@ export default function MyCafesScreen() {
     </View>
   );
 
+  const listHeader = (
+    <>
+      {backRow}
+      <Text style={styles.screenTitle}>Visited</Text>
+      <Text style={styles.hint}>Rank your visited cafes to improve recommendations</Text>
+    </>
+  );
+
+  const renderItem = useCallback(
+    ({ item, drag, isActive, getIndex }: RenderItemParams<Cafe>) => {
+      const index = getIndex() ?? 0;
+      return (
+        <ScaleDecorator>
+          <View style={[styles.dragRow, isActive && styles.dragRowActive]}>
+            <CompactCafeCard
+              rank={index + 1}
+              cafe={item}
+              showTagsUI={false}
+              scorePosition="contentColumn"
+              onPress={() => router.push(`/cafe/${item.id}`)}
+              trailing={
+                <TouchableOpacity
+                  accessibilityLabel="Drag to reorder"
+                  accessibilityHint="Long press, then drag to change rank"
+                  accessibilityRole="button"
+                  delayLongPress={160}
+                  onLongPress={drag}
+                  disabled={isActive}
+                  style={styles.dragHandle}
+                  hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                >
+                  <Ionicons name="reorder-three-outline" size={22} color={COLORS.muted} />
+                </TouchableOpacity>
+              }
+            />
+          </View>
+        </ScaleDecorator>
+      );
+    },
+    [router]
+  );
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        {backRow}
-        <Text style={styles.screenTitle}>Visited</Text>
-        {visitedCafes.length === 0 ? (
+      {visitedCafes.length === 0 ? (
+        <ScrollView contentContainerStyle={styles.content}>
+          {backRow}
+          <Text style={styles.screenTitle}>Visited</Text>
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIconWrap}>
               <Text style={styles.emptyIcon}>✓</Text>
@@ -109,68 +155,28 @@ export default function MyCafesScreen() {
               <Text style={styles.ctaButtonText}>Explore cafes</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <>
-            <Text style={styles.hint}>Rank your visited cafes to improve recommendations</Text>
-            <View style={styles.listWrap}>
-              {visitedCafes.map((cafe, index) => (
-                <CompactCafeCard
-                  key={cafe.id}
-                  rank={index + 1}
-                  cafe={cafe}
-                  showTagsUI={false}
-                  scorePosition="contentColumn"
-                  onPress={() => router.push(`/cafe/${cafe.id}`)}
-                  trailing={
-                    <View style={styles.reorderCol}>
-                      <TouchableOpacity
-                        accessibilityLabel="Move up"
-                        disabled={reordering || index === 0}
-                        style={[
-                          styles.reorderBtn,
-                          (reordering || index === 0) && styles.reorderBtnDisabled,
-                        ]}
-                        onPress={() => void move(index, -1)}
-                      >
-                        <Ionicons
-                          name="chevron-up"
-                          size={18}
-                          color={reordering || index === 0 ? COLORS.muted : COLORS.accent}
-                        />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        accessibilityLabel="Move down"
-                        disabled={reordering || index === visitedCafes.length - 1}
-                        style={[
-                          styles.reorderBtn,
-                          (reordering || index === visitedCafes.length - 1) && styles.reorderBtnDisabled,
-                        ]}
-                        onPress={() => void move(index, 1)}
-                      >
-                        <Ionicons
-                          name="chevron-down"
-                          size={18}
-                          color={
-                            reordering || index === visitedCafes.length - 1
-                              ? COLORS.muted
-                              : COLORS.accent
-                          }
-                        />
-                      </TouchableOpacity>
-                    </View>
-                  }
-                />
-              ))}
-            </View>
-            {reordering ? (
+        </ScrollView>
+      ) : (
+        <DraggableFlatList
+          data={visitedCafes}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          onDragBegin={onDragBegin}
+          onDragEnd={onDragEnd}
+          containerStyle={styles.draggableContainer}
+          contentContainerStyle={styles.draggableContent}
+          ListHeaderComponent={listHeader}
+          ListFooterComponent={
+            reordering ? (
               <View style={styles.savingRow}>
                 <ActivityIndicator size="small" color={COLORS.muted} />
                 <Text style={styles.savingText}>Saving order…</Text>
               </View>
-            ) : null}
-          </>
-        )}
-      </ScrollView>
+            ) : null
+          }
+          activationDistance={12}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -179,6 +185,15 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  draggableContainer: {
+    flex: 1,
+  },
+  draggableContent: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 28,
+    gap: 0,
   },
   content: {
     paddingHorizontal: 20,
@@ -206,12 +221,30 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: COLORS.muted,
     fontWeight: '500',
-    marginBottom: 2,
+    marginBottom: 10,
+    marginTop: 4,
   },
   subtitle: {
     fontSize: 14,
     color: COLORS.muted,
     lineHeight: 20,
+  },
+  dragRow: {
+    marginBottom: 14,
+  },
+  dragRowActive: {
+    zIndex: 99,
+    shadowColor: '#1a1a1a',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  dragHandle: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 36,
+    minHeight: 44,
   },
   emptyWrap: {
     marginTop: 20,
@@ -264,31 +297,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  listWrap: {
-    gap: 14,
-    paddingBottom: 8,
-  },
-  reorderCol: {
-    justifyContent: 'center',
-    gap: 0,
-    minWidth: 32,
-  },
-  reorderBtn: {
-    paddingVertical: 4,
-    paddingHorizontal: 2,
-    minWidth: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reorderBtnDisabled: {
-    opacity: 0.45,
-  },
   savingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     justifyContent: 'center',
-    paddingVertical: 4,
+    paddingVertical: 12,
   },
   savingText: {
     fontSize: 13,
