@@ -116,6 +116,10 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     row.address ?? row.address_line ?? row.formatted_address ?? row.street_address ?? row.full_address ?? ''
   ).trim();
 
+  const googleMapsUrl = str(
+    row.google_maps_url ?? row.googleMapsUrl ?? row.google_maps_link ?? row.maps_url
+  ).trim();
+
   return {
     id,
     name: str(row.name ?? row.title),
@@ -129,9 +133,7 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     coffeeRatingCount: 0,
     tags: tagsFromRow(row),
     summary: str(row.summary ?? row.short_description ?? row.description),
-    googleMapsUrl: str(
-      row.google_maps_url ?? row.googleMapsUrl ?? row.google_maps_link ?? row.maps_url
-    ),
+    ...(googleMapsUrl.length > 0 ? { googleMapsUrl } : {}),
     ...(primaryUrl.length > 0
       ? photoUrls.length > 1
         ? { imageUrl: primaryUrl, imageUrls: photoUrls }

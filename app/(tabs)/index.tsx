@@ -25,6 +25,7 @@ import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
+import { buildCafeShareMessage } from '@/lib/cafeMapsUrl';
 import { getTopCafeTags } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
@@ -115,7 +116,7 @@ function HomeCafeCard({
   const onShare = async () => {
     try {
       await Share.share({
-        message: `${cafe.name} — ${cafe.neighborhood}`,
+        message: buildCafeShareMessage(cafe),
         title: cafe.name,
       });
     } catch {

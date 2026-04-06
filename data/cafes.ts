@@ -24,7 +24,10 @@ export type Cafe = {
   coffeeRatingCount: number;
   tags: string[];
   summary: string;
-  googleMapsUrl: string;
+  /**
+   * Google Maps URL from Supabase `google_maps_url` (optional when absent in the row).
+   */
+  googleMapsUrl?: string;
   /**
    * Primary photo for list cards — first gallery URL when `imageUrls` is set, else legacy single URL.
    * Populated from Supabase `image_url` / `photo_url` / etc., or from `image_urls[0]`.

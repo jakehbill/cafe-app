@@ -25,6 +25,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 import { getCafePhotoUrls, type Cafe } from '../../data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
+import { buildCafeShareMessage, resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
 
 const FEATURE_TAG_COUNT = 6;
 
@@ -211,23 +212,19 @@ export default function CafeDetailScreen() {
 
   const localRating = getCafeRating(cafe.id);
   const ratingNotes = localRating?.notes?.trim() ?? '';
-  const mapsUrl = cafe.googleMapsUrl;
-  const hasGoogleMapsUrl = typeof mapsUrl === 'string' && mapsUrl.trim().length > 0;
 
   async function handleOpenGoogleMaps() {
-    if (!hasGoogleMapsUrl) {
-      Alert.alert('Map link unavailable', 'No Google Maps link is available for this cafe.');
+    if (!cafe) return;
+    const url = resolveCafeMapsUrl(cafe);
+    if (!url) {
+      Alert.alert('Map link unavailable', 'No location could be determined for this cafe.');
       return;
     }
-
-    const canOpen = await Linking.canOpenURL(mapsUrl);
-
-    if (!canOpen) {
-      Alert.alert('Cannot open link', 'This Google Maps link is not supported on your device.');
-      return;
+    try {
+      await Linking.openURL(url);
+    } catch {
+      Alert.alert('Cannot open link', 'This maps link could not be opened on your device.');
     }
-
-    await Linking.openURL(mapsUrl);
   }
 
   async function handleSavePress() {
@@ -249,7 +246,7 @@ export default function CafeDetailScreen() {
   const onShare = async () => {
     try {
       await Share.share({
-        message: `${cafe.name} — ${cafe.neighborhood}`,
+        message: buildCafeShareMessage(cafe),
         title: cafe.name,
       });
     } catch {
