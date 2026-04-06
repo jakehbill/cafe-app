@@ -119,6 +119,7 @@ export default function MyCafesScreen() {
                   rank={index + 1}
                   cafe={cafe}
                   showTagsUI={false}
+                  scorePosition="contentColumn"
                   onPress={() => router.push(`/cafe/${cafe.id}`)}
                   trailing={
                     <View style={styles.reorderCol}>

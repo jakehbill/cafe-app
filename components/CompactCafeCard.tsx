@@ -53,10 +53,11 @@ export type CompactCafeCardProps = {
   showTagsUI?: boolean;
   /**
    * Where the public coffee score appears (compact list cards only).
-   * `bottomRight` (default) — on the thumbnail; Visited, Ratings, My Cafes, etc.
-   * `cardTopRight` — Search + Saved: end of the title row (aligned with cafe name); not on the image.
+   * `bottomRight` (default) — on the thumbnail; Ratings, etc.
+   * `cardTopRight` — Search + Saved: end of the title row; not on the image.
+   * `contentColumn` — Visited: name → location → score in the text column (not on the image).
    */
-  scorePosition?: 'bottomRight' | 'cardTopRight';
+  scorePosition?: 'bottomRight' | 'cardTopRight' | 'contentColumn';
 };
 
 export function CompactCafeCard({
@@ -82,6 +83,8 @@ export function CompactCafeCard({
   const tagsSubtle = trailing != null && showTagsUI;
   const primaryPhoto = getPrimaryPhotoUrl(cafe);
   const scoreOnCardTopRight = scorePosition === 'cardTopRight';
+  const scoreInContentColumn = scorePosition === 'contentColumn';
+  const scoreOnThumbnail = !scoreOnCardTopRight && !scoreInContentColumn;
 
   useEffect(() => {
     if (!showTagsUI) return;
@@ -114,7 +117,7 @@ export function CompactCafeCard({
         onPress={onPress}
         style={({ pressed }) => [
           styles.cardMainPressable,
-          (showTagRow || scoreOnCardTopRight) && styles.cardMainPressableAlignStart,
+          (showTagRow || scoreOnCardTopRight || scoreInContentColumn) && styles.cardMainPressableAlignStart,
           pressed && styles.cardPressed,
         ]}
       >
@@ -124,7 +127,7 @@ export function CompactCafeCard({
           ) : (
             <View style={styles.thumbnailImage} />
           )}
-          {!scoreOnCardTopRight ? (
+          {scoreOnThumbnail ? (
             <>
               <CompactThumbnailBottomFade cafeId={cafe.id} />
               <View style={styles.thumbnailScoreWrap} pointerEvents="none">
@@ -133,42 +136,78 @@ export function CompactCafeCard({
             </>
           ) : null}
         </View>
-        <View style={styles.body}>
-          <View style={styles.titleRow}>
-            <Text style={styles.name} numberOfLines={2}>
-              {cafe.name}
-            </Text>
-            {scoreOnCardTopRight ? (
-              <View style={styles.titleRowScore}>
-                <PublicCoffeeScoreText cafe={cafe} variant="overlaySearch" />
-              </View>
-            ) : null}
-          </View>
-          {recommendationReason ? (
-            <View style={styles.recommendationReasonWrap}>
-              <Text style={styles.recommendationReason} numberOfLines={1}>
-                {recommendationReason}
+        <View style={[styles.body, scoreInContentColumn && styles.bodyContentColumn]}>
+          {scoreInContentColumn ? (
+            <>
+              <Text style={styles.name} numberOfLines={2}>
+                {cafe.name}
               </Text>
-            </View>
-          ) : null}
-          <Text style={styles.location} numberOfLines={1}>
-            {cafe.neighborhood}
-          </Text>
-          {showTagRow ? (
-            <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
-              {tagSlice.map((tag) => (
-                <View key={tag} style={[styles.tagChip, tagsSubtle && styles.tagChipSubtle]}>
-                  <TagWithOptionalIcon
-                    tag={tag}
-                    iconSize={tagsSubtle ? 11 : 12}
-                    color={COLORS.muted}
-                    textStyle={[styles.tagChipText, tagsSubtle && styles.tagChipTextSubtle]}
-                    gap={4}
-                  />
+              <Text style={styles.location} numberOfLines={1}>
+                {cafe.neighborhood}
+              </Text>
+              <PublicCoffeeScoreText cafe={cafe} variant="overlayThumb" />
+              {recommendationReason ? (
+                <View style={styles.recommendationReasonWrap}>
+                  <Text style={styles.recommendationReason} numberOfLines={1}>
+                    {recommendationReason}
+                  </Text>
                 </View>
-              ))}
-            </View>
-          ) : null}
+              ) : null}
+              {showTagRow ? (
+                <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
+                  {tagSlice.map((tag) => (
+                    <View key={tag} style={[styles.tagChip, tagsSubtle && styles.tagChipSubtle]}>
+                      <TagWithOptionalIcon
+                        tag={tag}
+                        iconSize={tagsSubtle ? 11 : 12}
+                        color={COLORS.muted}
+                        textStyle={[styles.tagChipText, tagsSubtle && styles.tagChipTextSubtle]}
+                        gap={4}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <View style={styles.titleRow}>
+                <Text style={styles.name} numberOfLines={2}>
+                  {cafe.name}
+                </Text>
+                {scoreOnCardTopRight ? (
+                  <View style={styles.titleRowScore}>
+                    <PublicCoffeeScoreText cafe={cafe} variant="overlaySearch" />
+                  </View>
+                ) : null}
+              </View>
+              {recommendationReason ? (
+                <View style={styles.recommendationReasonWrap}>
+                  <Text style={styles.recommendationReason} numberOfLines={1}>
+                    {recommendationReason}
+                  </Text>
+                </View>
+              ) : null}
+              <Text style={styles.location} numberOfLines={1}>
+                {cafe.neighborhood}
+              </Text>
+              {showTagRow ? (
+                <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
+                  {tagSlice.map((tag) => (
+                    <View key={tag} style={[styles.tagChip, tagsSubtle && styles.tagChipSubtle]}>
+                      <TagWithOptionalIcon
+                        tag={tag}
+                        iconSize={tagsSubtle ? 11 : 12}
+                        color={COLORS.muted}
+                        textStyle={[styles.tagChipText, tagsSubtle && styles.tagChipTextSubtle]}
+                        gap={4}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+            </>
+          )}
         </View>
       </Pressable>
       {trailing != null ? <View style={styles.trailing}>{trailing}</View> : null}
@@ -252,6 +291,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 5,
     minWidth: 0,
+  },
+  /** Visited: name → location → score; tight vertical rhythm, left-aligned. */
+  bodyContentColumn: {
+    gap: 4,
   },
   titleRow: {
     flexDirection: 'row',
