@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
@@ -5,6 +6,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -14,7 +16,6 @@ import {
   View,
 } from 'react-native';
 
-import { authStyles } from '@/components/auth/authStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import {
@@ -95,12 +96,14 @@ export default function ProfileScreen() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [displayNameDraft, setDisplayNameDraft] = useState('');
   const [savingDisplayName, setSavingDisplayName] = useState(false);
+  const [editingDisplayName, setEditingDisplayName] = useState(false);
 
   const loadProfileRow = useCallback(async () => {
     const userId = user?.id;
     if (!userId) {
       setProfileRow(null);
       setDisplayNameDraft('');
+      setEditingDisplayName(false);
       setProfileLoading(false);
       return;
     }
@@ -183,10 +186,23 @@ export default function ProfileScreen() {
     return 'Your account';
   }, [profileRow?.display_name, email]);
 
+  function beginEditDisplayName() {
+    setDisplayNameDraft(profileRow?.display_name?.trim() ?? '');
+    setEditingDisplayName(true);
+  }
+
+  function cancelEditDisplayName() {
+    Keyboard.dismiss();
+    setDisplayNameDraft(profileRow?.display_name?.trim() ?? '');
+    setEditingDisplayName(false);
+  }
+
   async function handleSaveDisplayName() {
     const trimmed = displayNameDraft.trim();
     const current = profileRow?.display_name?.trim() ?? '';
     if (trimmed === current) {
+      Keyboard.dismiss();
+      setEditingDisplayName(false);
       return;
     }
     setSavingDisplayName(true);
@@ -197,6 +213,8 @@ export default function ProfileScreen() {
         return;
       }
       await loadProfileRow();
+      Keyboard.dismiss();
+      setEditingDisplayName(false);
     } finally {
       setSavingDisplayName(false);
     }
@@ -234,15 +252,71 @@ export default function ProfileScreen() {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerBlock}>
           <Text style={styles.title}>Profile</Text>
           {email ? (
             <>
-              <Text style={styles.displayNameHeadline} numberOfLines={2}>
-                {profileLoading ? '…' : headlineName}
-              </Text>
+              {editingDisplayName ? (
+                <View style={styles.displayNameEditRow}>
+                  <TextInput
+                    style={styles.displayNameInput}
+                    value={displayNameDraft}
+                    onChangeText={setDisplayNameDraft}
+                    placeholder="Display name"
+                    placeholderTextColor={COLORS.muted}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    maxLength={80}
+                    editable={!savingDisplayName}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={() => void handleSaveDisplayName()}
+                    blurOnSubmit={false}
+                  />
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Save display name"
+                    style={styles.inlineIconButton}
+                    disabled={savingDisplayName}
+                    onPress={() => void handleSaveDisplayName()}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  >
+                    {savingDisplayName ? (
+                      <ActivityIndicator color={COLORS.accent} size="small" />
+                    ) : (
+                      <Ionicons name="checkmark-circle" size={26} color={COLORS.accent} />
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel editing display name"
+                    style={styles.inlineIconButton}
+                    disabled={savingDisplayName}
+                    onPress={cancelEditDisplayName}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                  >
+                    <Ionicons name="close-circle" size={26} color={COLORS.muted} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.displayNameRow}>
+                  <Text style={styles.displayNameHeadline} numberOfLines={2}>
+                    {profileLoading ? '…' : headlineName}
+                  </Text>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit display name"
+                    style={styles.inlineIconButton}
+                    onPress={beginEditDisplayName}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="create-outline" size={22} color={COLORS.muted} />
+                  </TouchableOpacity>
+                </View>
+              )}
               <Text style={styles.email}>{email}</Text>
               {countsLoading ? (
                 <ActivityIndicator color={COLORS.muted} style={{ marginTop: 4 }} />
@@ -259,44 +333,6 @@ export default function ProfileScreen() {
             </>
           )}
         </View>
-
-        {email ? (
-          <View style={styles.accountCard}>
-            <Text style={styles.accountCardLabel}>Display name</Text>
-            <Text style={styles.accountCardHint}>Shown in the app. Your email stays private to sign-in.</Text>
-            <View style={authStyles.inputWrap}>
-              <TextInput
-                style={authStyles.input}
-                value={displayNameDraft}
-                onChangeText={setDisplayNameDraft}
-                placeholder="Add a display name"
-                placeholderTextColor={COLORS.muted}
-                autoCapitalize="words"
-                autoCorrect={false}
-                maxLength={80}
-                editable={!savingDisplayName}
-              />
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              style={[
-                styles.saveNameButton,
-                savingDisplayName && styles.saveNameButtonDisabled,
-              ]}
-              disabled={
-                savingDisplayName ||
-                displayNameDraft.trim() === (profileRow?.display_name?.trim() ?? '')
-              }
-              onPress={() => void handleSaveDisplayName()}
-            >
-              {savingDisplayName ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveNameButtonText}>Save display name</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        ) : null}
 
         {/* Points + progress toward next level (same model as achievements) */}
         <View style={styles.pointsCard}>
@@ -494,13 +530,46 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 22,
   },
+  displayNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+    paddingRight: 4,
+  },
   displayNameHeadline: {
+    flex: 1,
     fontSize: 26,
     fontFamily: FONTS.display.semibold,
     color: COLORS.text,
     letterSpacing: -0.4,
     lineHeight: 32,
+  },
+  displayNameEditRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 4,
+    paddingRight: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cardBorder,
+    paddingBottom: 6,
+  },
+  displayNameInput: {
+    flex: 1,
+    fontSize: 26,
+    fontFamily: FONTS.display.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.4,
+    lineHeight: 32,
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+    margin: 0,
+  },
+  inlineIconButton: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   title: {
     fontSize: 34,
@@ -524,43 +593,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#B5A89A',
     lineHeight: 22,
-  },
-  accountCard: {
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    padding: 18,
-    marginBottom: 24,
-    gap: 10,
-    ...SHADOWS.card,
-  },
-  accountCardLabel: {
-    fontSize: 14,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-  },
-  accountCardHint: {
-    fontSize: 12,
-    color: COLORS.muted,
-    lineHeight: 17,
-    marginTop: -4,
-  },
-  saveNameButton: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  saveNameButtonDisabled: {
-    opacity: 0.55,
-  },
-  saveNameButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontFamily: FONTS.sans.bold,
   },
   pointsCard: {
     backgroundColor: COLORS.cardBackground,
