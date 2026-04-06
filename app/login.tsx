@@ -67,8 +67,7 @@ export default function LogInScreen() {
         return;
       }
 
-      authDebug('navigating after login', { to: '/' });
-      router.replace('/');
+      authDebug('navigating after login', { to: '/(tabs) (via root layout after session)' });
     } catch (e) {
       console.error('[WEB AUTH DEBUG] handleLogIn threw:', e);
       Alert.alert(

@@ -30,7 +30,6 @@ export default function AuthScreen() {
       }
 
       if (data.session) {
-        router.replace('/');
         return;
       }
 

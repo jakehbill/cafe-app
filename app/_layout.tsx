@@ -73,6 +73,8 @@ function RootNavigator() {
   const router = useRouter();
   const { user, session, loading } = useAuth();
   const prevSessionRef = useRef<typeof session>(null);
+  /** Tracks prior `user` presence so we only reset the URL when transitioning from signed-out → signed-in (not on cold start). */
+  const prevHadUserRef = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
     if (loading) return;
@@ -82,6 +84,16 @@ function RootNavigator() {
       router.replace('/onboarding');
     }
   }, [loading, session, router]);
+
+  /** After login/signup, land on the tab root with a fresh stack (pairs with `Stack` `key` below). */
+  useEffect(() => {
+    if (loading) return;
+    const hasUser = !!user;
+    if (prevHadUserRef.current === false && hasUser) {
+      router.replace('/(tabs)');
+    }
+    prevHadUserRef.current = hasUser;
+  }, [loading, user, router]);
 
   if (loading) {
     return (
@@ -119,6 +131,7 @@ function RootNavigator() {
 
   return (
     <Stack
+      key={user ? 'signed-in' : 'signed-out'}
       screenOptions={({ navigation }) => ({
         ...stackScreenBase,
         headerLeft: ({ canGoBack, tintColor }) => (
