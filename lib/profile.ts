@@ -1,8 +1,13 @@
 import { supabase } from '@/lib/supabase';
 
-/** Row shape for `public.profiles` (taste preferences + onboarding). */
+/** Row shape for `public.profiles` (identity, taste preferences, onboarding). */
 export type UserProfile = {
   user_id: string;
+  /** Main user-facing name (editable; email stays in Supabase Auth only). */
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+  city: string | null;
   coffee_preference: string | null;
   vibe_preferences: string[] | null;
   intent_preferences: string[] | null;
@@ -80,19 +85,33 @@ export async function createProfileIfMissing(): Promise<ProfileResult<UserProfil
   return { data: insertRes.data as UserProfile, error: null };
 }
 
-export type UpdateProfilePreferencesInput = {
+/** Partial update for `public.profiles` — only defined keys are sent. */
+export type UpdateProfileInput = {
+  display_name?: string | null;
+  username?: string | null;
+  avatar_url?: string | null;
+  city?: string | null;
   coffee_preference?: string | null;
   vibe_preferences?: string[] | null;
   intent_preferences?: string[] | null;
   onboarding_completed?: boolean;
 };
 
+/** @deprecated Use `UpdateProfileInput` — same type; kept for existing call sites. */
+export type UpdateProfilePreferencesInput = UpdateProfileInput;
+
+function normalizeDisplayName(raw: string | null | undefined): string | null {
+  if (raw === undefined || raw === null) return null;
+  const t = raw.trim();
+  return t.length > 0 ? t : null;
+}
+
 /**
- * Updates preference columns on `public.profiles` for the current user.
- * Only sends fields that are defined (undefined keys are omitted).
+ * Updates columns on `public.profiles` for the current user.
+ * Only sends fields that are defined (undefined keys are omitted). Never touches columns you omit.
  */
-export async function updateProfilePreferences(
-  patch: UpdateProfilePreferencesInput
+export async function updateProfile(
+  patch: UpdateProfileInput
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError) {
@@ -104,6 +123,12 @@ export async function updateProfilePreferences(
   }
 
   const row: Record<string, unknown> = {};
+  if (patch.display_name !== undefined) {
+    row.display_name = normalizeDisplayName(patch.display_name ?? null);
+  }
+  if (patch.username !== undefined) row.username = patch.username;
+  if (patch.avatar_url !== undefined) row.avatar_url = patch.avatar_url;
+  if (patch.city !== undefined) row.city = patch.city;
   if (patch.coffee_preference !== undefined) row.coffee_preference = patch.coffee_preference;
   if (patch.vibe_preferences !== undefined) row.vibe_preferences = patch.vibe_preferences;
   if (patch.intent_preferences !== undefined) row.intent_preferences = patch.intent_preferences;
@@ -120,6 +145,13 @@ export async function updateProfilePreferences(
   }
 
   return { ok: true };
+}
+
+/** Same as `updateProfile` — preferences-only name kept for call sites. */
+export async function updateProfilePreferences(
+  patch: UpdateProfileInput
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  return updateProfile(patch);
 }
 
 /** Step 1 — stored in `coffee_preference`. */

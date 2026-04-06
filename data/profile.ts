@@ -6,8 +6,10 @@ export {
   createProfileIfMissing,
   getCurrentUserProfile,
   INTENT_PREFERENCE_OPTIONS,
+  updateProfile,
   updateProfilePreferences,
   VIBE_PREFERENCE_OPTIONS,
+  type UpdateProfileInput,
   type UpdateProfilePreferencesInput,
   type UserProfile,
 } from '@/lib/profile';

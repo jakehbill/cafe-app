@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -16,12 +17,14 @@ import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 import { useProfileGate } from '@/contexts/ProfileGateContext';
 import {
   COFFEE_PREFERENCE_OPTIONS,
+  getCurrentUserProfile,
   INTENT_PREFERENCE_OPTIONS,
   updateProfilePreferences,
   VIBE_PREFERENCE_OPTIONS,
 } from '@/data/profile';
 
-const STEPS = 3;
+/** Taste steps + optional display name first. */
+const STEPS = 4;
 
 function toggleInMaxTwo(current: string[], value: string, max: number): string[] {
   if (current.includes(value)) {
@@ -37,15 +40,29 @@ export default function OnboardingPreferencesScreen() {
   const router = useRouter();
   const { refresh } = useProfileGate();
   const [step, setStep] = useState(0);
+  const [displayName, setDisplayName] = useState('');
   const [coffee, setCoffee] = useState<string | null>(null);
   const [vibes, setVibes] = useState<string[]>([]);
   const [intents, setIntents] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await getCurrentUserProfile();
+      if (cancelled || !data?.display_name) return;
+      setDisplayName(data.display_name);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const finish = useCallback(async () => {
     setBusy(true);
     try {
       const res = await updateProfilePreferences({
+        display_name: displayName.trim() || null,
         coffee_preference: coffee,
         vibe_preferences: vibes.length ? vibes : null,
         intent_preferences: intents.length ? intents : null,
@@ -59,12 +76,15 @@ export default function OnboardingPreferencesScreen() {
     } finally {
       setBusy(false);
     }
-  }, [coffee, vibes, intents, refresh, router]);
+  }, [displayName, coffee, vibes, intents, refresh, router]);
 
   const skip = useCallback(async () => {
     setBusy(true);
     try {
-      const res = await updateProfilePreferences({ onboarding_completed: true });
+      const res = await updateProfilePreferences({
+        onboarding_completed: true,
+        display_name: displayName.trim() || null,
+      });
       if (!res.ok) {
         console.warn('[onboarding-preferences] skip', res.error);
       }
@@ -73,7 +93,7 @@ export default function OnboardingPreferencesScreen() {
     } finally {
       setBusy(false);
     }
-  }, [refresh, router]);
+  }, [displayName, refresh, router]);
 
   const onPrimary = useCallback(() => {
     if (step < STEPS - 1) {
@@ -85,10 +105,12 @@ export default function OnboardingPreferencesScreen() {
 
   const canContinue =
     step === 0
-      ? coffee != null
+      ? true
       : step === 1
-        ? vibes.length > 0
-        : intents.length > 0;
+        ? coffee != null
+        : step === 2
+          ? vibes.length > 0
+          : intents.length > 0;
 
   const primaryLabel = step === STEPS - 1 ? 'Get started' : 'Continue';
 
@@ -111,6 +133,28 @@ export default function OnboardingPreferencesScreen() {
         </View>
 
         {step === 0 && (
+          <View style={styles.stepBlock}>
+            <View style={authStyles.headerWrap}>
+              <Text style={authStyles.title}>What should we call you?</Text>
+              <Text style={authStyles.subtitle}>
+                Optional — you can change this anytime in Profile.
+              </Text>
+            </View>
+            <View style={authStyles.inputWrap}>
+              <TextInput
+                style={authStyles.input}
+                value={displayName}
+                onChangeText={setDisplayName}
+                placeholder="Display name"
+                placeholderTextColor={COLORS.muted}
+                autoCapitalize="words"
+                autoCorrect={false}
+                maxLength={80}
+              />
+            </View>
+          </View>
+        )}
+        {step === 1 && (
           <PreferenceStep
             title="What are you usually ordering?"
             options={[...COFFEE_PREFERENCE_OPTIONS]}
@@ -119,7 +163,7 @@ export default function OnboardingPreferencesScreen() {
             onToggleSingle={setCoffee}
           />
         )}
-        {step === 1 && (
+        {step === 2 && (
           <PreferenceStep
             title="What kind of places do you gravitate toward?"
             subtitle="Pick one or two"
@@ -129,7 +173,7 @@ export default function OnboardingPreferencesScreen() {
             onToggleMulti={(v) => setVibes((prev) => toggleInMaxTwo(prev, v, 2))}
           />
         )}
-        {step === 2 && (
+        {step === 3 && (
           <PreferenceStep
             title="What are you most often looking for?"
             subtitle="Pick one or two"

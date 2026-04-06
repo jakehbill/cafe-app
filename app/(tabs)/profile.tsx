@@ -9,10 +9,12 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 
+import { authStyles } from '@/components/auth/authStyles';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import {
@@ -25,6 +27,7 @@ import {
   POINTS,
   type ActivitySnapshot,
 } from '@/lib/profileGamification';
+import { getCurrentUserProfile, updateProfile, type UserProfile } from '@/lib/profile';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
@@ -75,6 +78,11 @@ function formatPoints(n: number): string {
   return n.toLocaleString('en-US');
 }
 
+function emailLocalPart(email: string): string {
+  const i = email.indexOf('@');
+  return i > 0 ? email.slice(0, i) : email;
+}
+
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -83,6 +91,30 @@ export default function ProfileScreen() {
 
   const [counts, setCounts] = useState<ProfileCounts | null>(null);
   const [countsLoading, setCountsLoading] = useState(true);
+  const [profileRow, setProfileRow] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [displayNameDraft, setDisplayNameDraft] = useState('');
+  const [savingDisplayName, setSavingDisplayName] = useState(false);
+
+  const loadProfileRow = useCallback(async () => {
+    const userId = user?.id;
+    if (!userId) {
+      setProfileRow(null);
+      setDisplayNameDraft('');
+      setProfileLoading(false);
+      return;
+    }
+    setProfileLoading(true);
+    const { data, error } = await getCurrentUserProfile();
+    if (error) {
+      console.warn('[Profile] getCurrentUserProfile', error);
+      setProfileRow(null);
+    } else {
+      setProfileRow(data ?? null);
+      setDisplayNameDraft(data?.display_name?.trim() ?? '');
+    }
+    setProfileLoading(false);
+  }, [user?.id]);
 
   const loadCounts = useCallback(async () => {
     const userId = user?.id;
@@ -104,10 +136,15 @@ export default function ProfileScreen() {
     void loadCounts();
   }, [loadCounts]);
 
+  useEffect(() => {
+    void loadProfileRow();
+  }, [loadProfileRow]);
+
   useFocusEffect(
     useCallback(() => {
       void loadCounts();
-    }, [loadCounts])
+      void loadProfileRow();
+    }, [loadCounts, loadProfileRow])
   );
 
   const displayCounts = counts ?? { saved: 0, visited: 0, ratings: 0 };
@@ -138,6 +175,32 @@ export default function ProfileScreen() {
   const totalPoints = useMemo(() => computeTotalPoints(activitySnapshot), [activitySnapshot]);
   const levelProgress = useMemo(() => getLevelProgress(totalPoints), [totalPoints]);
   const badges = useMemo(() => computeProfileBadges(activitySnapshot), [activitySnapshot]);
+
+  const headlineName = useMemo(() => {
+    const fromProfile = profileRow?.display_name?.trim();
+    if (fromProfile) return fromProfile;
+    if (email) return emailLocalPart(email);
+    return 'Your account';
+  }, [profileRow?.display_name, email]);
+
+  async function handleSaveDisplayName() {
+    const trimmed = displayNameDraft.trim();
+    const current = profileRow?.display_name?.trim() ?? '';
+    if (trimmed === current) {
+      return;
+    }
+    setSavingDisplayName(true);
+    try {
+      const res = await updateProfile({ display_name: trimmed || null });
+      if (!res.ok) {
+        Alert.alert('Could not save', res.error);
+        return;
+      }
+      await loadProfileRow();
+    } finally {
+      setSavingDisplayName(false);
+    }
+  }
 
   async function handleLogOut() {
     try {
@@ -177,6 +240,9 @@ export default function ProfileScreen() {
           <Text style={styles.title}>Profile</Text>
           {email ? (
             <>
+              <Text style={styles.displayNameHeadline} numberOfLines={2}>
+                {profileLoading ? '…' : headlineName}
+              </Text>
               <Text style={styles.email}>{email}</Text>
               {countsLoading ? (
                 <ActivityIndicator color={COLORS.muted} style={{ marginTop: 4 }} />
@@ -193,6 +259,44 @@ export default function ProfileScreen() {
             </>
           )}
         </View>
+
+        {email ? (
+          <View style={styles.accountCard}>
+            <Text style={styles.accountCardLabel}>Display name</Text>
+            <Text style={styles.accountCardHint}>Shown in the app. Your email stays private to sign-in.</Text>
+            <View style={authStyles.inputWrap}>
+              <TextInput
+                style={authStyles.input}
+                value={displayNameDraft}
+                onChangeText={setDisplayNameDraft}
+                placeholder="Add a display name"
+                placeholderTextColor={COLORS.muted}
+                autoCapitalize="words"
+                autoCorrect={false}
+                maxLength={80}
+                editable={!savingDisplayName}
+              />
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[
+                styles.saveNameButton,
+                savingDisplayName && styles.saveNameButtonDisabled,
+              ]}
+              disabled={
+                savingDisplayName ||
+                displayNameDraft.trim() === (profileRow?.display_name?.trim() ?? '')
+              }
+              onPress={() => void handleSaveDisplayName()}
+            >
+              {savingDisplayName ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveNameButtonText}>Save display name</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* Points + progress toward next level (same model as achievements) */}
         <View style={styles.pointsCard}>
@@ -390,6 +494,14 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 22,
   },
+  displayNameHeadline: {
+    fontSize: 26,
+    fontFamily: FONTS.display.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.4,
+    lineHeight: 32,
+    marginTop: 4,
+  },
   title: {
     fontSize: 34,
     fontFamily: FONTS.display.bold,
@@ -412,6 +524,43 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#B5A89A',
     lineHeight: 22,
+  },
+  accountCard: {
+    backgroundColor: COLORS.cardBackground,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    padding: 18,
+    marginBottom: 24,
+    gap: 10,
+    ...SHADOWS.card,
+  },
+  accountCardLabel: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+  },
+  accountCardHint: {
+    fontSize: 12,
+    color: COLORS.muted,
+    lineHeight: 17,
+    marginTop: -4,
+  },
+  saveNameButton: {
+    backgroundColor: COLORS.accent,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  saveNameButtonDisabled: {
+    opacity: 0.55,
+  },
+  saveNameButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontFamily: FONTS.sans.bold,
   },
   pointsCard: {
     backgroundColor: COLORS.cardBackground,
