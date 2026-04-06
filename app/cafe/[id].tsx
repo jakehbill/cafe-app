@@ -257,7 +257,8 @@ export default function CafeDetailScreen() {
 
   const insightBubbleText = (() => {
     if (tagInsight) {
-      return `${tagInsight.percent}% of people rate this for ${formatTagLabel(tagInsight.tag)}`;
+      const tagForSentence = formatTagLabel(tagInsight.tag ?? '').toLowerCase();
+      return `${tagInsight.percent}% of people rate this for ${tagForSentence}`;
     }
     if (cafe.coffeeRatingCount > 0) {
       return `Based on ${cafe.coffeeRatingCount} community coffee score${cafe.coffeeRatingCount === 1 ? '' : 's'} — tag picks will show here as more people rate.`;
