@@ -57,7 +57,7 @@ const VIBE_TO_SLUGS: Record<(typeof VIBE_PREFERENCE_OPTIONS)[number], string[]> 
 const INTENT_TO_SLUGS: Record<(typeof INTENT_PREFERENCE_OPTIONS)[number], string[]> = {
   'A good place to work': ['good_for_working', 'good_wifi', 'has_outlets', 'quiet'],
   'Great coffee first': ['great_espresso', 'great_filter', 'specialty_coffee'],
-  'Catching up with friends': ['cosy', 'brunch_spot', 'aesthetic', 'busy'],
+  'Catching up with friends': ['cosy', 'aesthetic', 'busy'],
   'Quiet solo time': ['quiet'],
   'A bit of everything': ['specialty_coffee', 'good_for_working', 'cosy'],
 };

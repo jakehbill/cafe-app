@@ -15,6 +15,8 @@ import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { FilterChip } from '@/components/FilterChip';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
+import { ALL_RATING_TAGS, formatTagLabel } from '@/lib/cafeTags';
+import { getTagIconName } from '@/lib/tagIcons';
 
 /** Map Supabase `cafe_id` values to full cafe rows from `public.cafes` (same ids). */
 export function cafesFromSavedIds(savedIds: string[], catalog: Cafe[]): Cafe[] {
@@ -39,15 +41,20 @@ function uniqueSortedNeighborhoods(cafes: Cafe[]): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
-function uniqueSortedTags(cafes: Cafe[]): string[] {
-  const set = new Set<string>();
+/**
+ * Saved tag filters should align with the canonical tag taxonomy (same as Rate screen).
+ * We only surface canonical tags that actually exist on the saved cafes.
+ */
+function canonicalTagOptionsForSaved(cafes: Cafe[]): string[] {
+  const normalizedCafeTags = new Set<string>();
   for (const c of cafes) {
     for (const t of c.tags ?? []) {
-      const x = t.trim();
-      if (x.length > 0) set.add(x);
+      const k = t.trim().toLowerCase();
+      if (k) normalizedCafeTags.add(k);
     }
   }
-  return Array.from(set).sort((a, b) => a.localeCompare(b));
+
+  return ALL_RATING_TAGS.filter((tag) => normalizedCafeTags.has(tag.toLowerCase()));
 }
 
 function filterSavedCafes(
@@ -102,7 +109,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
   }, [savedCafeIds]);
 
   const locationOptions = useMemo(() => uniqueSortedNeighborhoods(savedCafes), [savedCafes]);
-  const tagOptions = useMemo(() => uniqueSortedTags(savedCafes), [savedCafes]);
+  const tagOptions = useMemo(() => canonicalTagOptionsForSaved(savedCafes), [savedCafes]);
 
   const filteredSaved = useMemo(
     () => filterSavedCafes(savedCafes, locationFilter, tagFilter),
@@ -186,7 +193,8 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
                     {tagOptions.map((tag) => (
                       <FilterChip
                         key={tag}
-                        label={tag}
+                        label={formatTagLabel(tag)}
+                        icon={getTagIconName(tag) ?? undefined}
                         selected={tagFilter === tag}
                         onPress={() => setTagFilter((prev) => (prev === tag ? null : tag))}
                       />

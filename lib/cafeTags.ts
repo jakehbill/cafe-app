@@ -44,7 +44,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   good_for_working: 'Work-friendly',
   good_for_calls: 'Good for Calls',
   good_wifi: 'Fast WiFi',
-  specialty_coffee: 'Specialty Beans',
+  specialty_coffee: 'Specialty Coffee',
   quick_stop: 'Fast Service',
 };
 
