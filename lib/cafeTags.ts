@@ -39,17 +39,8 @@ export const ALL_RATING_TAGS = TAG_SECTIONS.flatMap((section) => section.tags);
 export type RatingTag = (typeof ALL_RATING_TAGS)[number];
 
 const LABEL_OVERRIDES: Record<string, string> = {
-  good_for_working: 'Good for working',
+  // Keep special casing for acronyms / punctuation.
   good_wifi: 'Good Wi-Fi',
-  has_outlets: 'Has outlets',
-  open_late: 'Open late',
-  great_espresso: 'Great espresso',
-  great_filter: 'Great filter',
-  specialty_coffee: 'Specialty coffee',
-  great_pastries: 'Great pastries',
-  good_food: 'Good food',
-  pet_friendly: 'Pet-friendly',
-  outdoor_seating: 'outdoor seating',
 };
 
 export function formatTagLabel(tag: string): string {
@@ -57,8 +48,18 @@ export function formatTagLabel(tag: string): string {
   const normalized = tag.trim().toLowerCase();
   if (!normalized) return '';
   if (LABEL_OVERRIDES[normalized]) return LABEL_OVERRIDES[normalized];
-  return normalized
-    .split('_')
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-    .join(' ');
+
+  // Convert slugs and free-text tags into title case for UI while keeping storage lowercase.
+  // Examples:
+  // - "outdoor seating" -> "Outdoor Seating"
+  // - "good_for_working" -> "Good For Working"
+  // - "pet-friendly" -> "Pet-Friendly"
+  const words = normalized.replace(/_/g, ' ').split(/\s+/g).filter(Boolean);
+  const titleWords = words.map((w) =>
+    w
+      .split('-')
+      .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+      .join('-')
+  );
+  return titleWords.join(' ');
 }
