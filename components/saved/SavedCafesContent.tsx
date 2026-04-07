@@ -15,13 +15,6 @@ import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { FilterChip } from '@/components/FilterChip';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
-import {
-  ALL_RATING_TAGS,
-  cafeHasAllCanonicalTagSlugs,
-  formatTagLabel,
-  getCanonicalSlugsForCafeTags,
-} from '@/lib/cafeTags';
-import { getTagIconName } from '@/lib/tagIcons';
 
 /** Map Supabase `cafe_id` values to full cafe rows from `public.cafes` (same ids). */
 export function cafesFromSavedIds(savedIds: string[], catalog: Cafe[]): Cafe[] {
@@ -46,33 +39,20 @@ function uniqueSortedNeighborhoods(cafes: Cafe[]): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
-/**
- * Saved tag filters should align with the canonical tag taxonomy (same as Rate screen).
- * We only surface canonical tags that actually exist on the saved cafes.
- */
-function canonicalTagOptionsForSaved(cafes: Cafe[]): string[] {
-  const present = new Set<string>();
-  for (const c of cafes) {
-    for (const slug of getCanonicalSlugsForCafeTags(c.tags)) {
-      present.add(slug);
-    }
-  }
-
-  return ALL_RATING_TAGS.filter((tag) => present.has(tag));
-}
+type VisitFilter = 'all' | 'visited' | 'not_visited';
 
 function filterSavedCafes(
   cafes: Cafe[],
   locationKey: string | null,
-  tagKey: string | null
+  visitFilter: VisitFilter,
+  visitedIds: Set<string>
 ): Cafe[] {
   return cafes.filter((cafe) => {
     if (locationKey != null) {
       if ((cafe.neighborhood ?? '').trim() !== locationKey) return false;
     }
-    if (tagKey != null) {
-      if (!cafeHasAllCanonicalTagSlugs(cafe, [tagKey])) return false;
-    }
+    if (visitFilter === 'visited' && !visitedIds.has(String(cafe.id))) return false;
+    if (visitFilter === 'not_visited' && visitedIds.has(String(cafe.id))) return false;
     return true;
   });
 }
@@ -88,10 +68,12 @@ type Props = {
  */
 export function SavedCafesContent({ showPageTitle = true }: Props) {
   const router = useRouter();
-  const { savedCafeIds } = useCafeState();
+  const { savedCafeIds, visitedCafeIds } = useCafeState();
   const [savedCafes, setSavedCafes] = useState<Cafe[]>([]);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [visitFilter, setVisitFilter] = useState<VisitFilter>('all');
+
+  const visitedIds = useMemo(() => new Set(visitedCafeIds.map(String)), [visitedCafeIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,21 +93,19 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
   }, [savedCafeIds]);
 
   const locationOptions = useMemo(() => uniqueSortedNeighborhoods(savedCafes), [savedCafes]);
-  const tagOptions = useMemo(() => canonicalTagOptionsForSaved(savedCafes), [savedCafes]);
 
   const filteredSaved = useMemo(
-    () => filterSavedCafes(savedCafes, locationFilter, tagFilter),
-    [savedCafes, locationFilter, tagFilter]
+    () => filterSavedCafes(savedCafes, locationFilter, visitFilter, visitedIds),
+    [savedCafes, locationFilter, visitFilter, visitedIds]
   );
 
-  const showFilterRows =
-    savedCafes.length > 0 && (locationOptions.length > 0 || tagOptions.length > 0);
-  const hasActiveFilters = locationFilter != null || tagFilter != null;
+  const showFilterRows = savedCafes.length > 0;
+  const hasActiveFilters = locationFilter != null || visitFilter !== 'all';
   const showFilteredEmpty = savedCafes.length > 0 && filteredSaved.length === 0 && hasActiveFilters;
 
   const clearFilters = () => {
     setLocationFilter(null);
-    setTagFilter(null);
+    setVisitFilter('all');
   };
 
   return (
@@ -153,7 +133,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
             <View style={styles.filterBlock}>
               {locationOptions.length > 0 ? (
                 <View style={styles.filterSection}>
-                  <Text style={styles.filterLabel}>Area</Text>
+                  <Text style={styles.filterLabel}>Location</Text>
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -178,32 +158,31 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
                   </ScrollView>
                 </View>
               ) : null}
-              {tagOptions.length > 0 ? (
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterLabel}>Tag</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.chipsRow}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    <FilterChip
-                      label="All tags"
-                      selected={tagFilter === null}
-                      onPress={() => setTagFilter(null)}
-                    />
-                    {tagOptions.map((tag) => (
-                      <FilterChip
-                        key={tag}
-                        label={formatTagLabel(tag)}
-                        icon={getTagIconName(tag) ?? undefined}
-                        selected={tagFilter === tag}
-                        onPress={() => setTagFilter((prev) => (prev === tag ? null : tag))}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : null}
+              <View style={styles.filterSection}>
+                <Text style={styles.filterLabel}>Visited</Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.chipsRow}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <FilterChip
+                    label="All"
+                    selected={visitFilter === 'all'}
+                    onPress={() => setVisitFilter('all')}
+                  />
+                  <FilterChip
+                    label="Visited"
+                    selected={visitFilter === 'visited'}
+                    onPress={() => setVisitFilter('visited')}
+                  />
+                  <FilterChip
+                    label="Not visited"
+                    selected={visitFilter === 'not_visited'}
+                    onPress={() => setVisitFilter('not_visited')}
+                  />
+                </ScrollView>
+              </View>
             </View>
           ) : null}
 
