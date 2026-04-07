@@ -273,7 +273,6 @@ export default function RateCafeScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Rating</Text>
           <Text style={styles.ratingPrompt}>How was it?</Text>
           <View style={styles.ratingRowsWrap}>
             <RatingSliderRow
