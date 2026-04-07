@@ -18,6 +18,7 @@ const TAG_ICON_BY_SLUG: Partial<Record<string, IoniconName>> = {
   great_espresso: 'cafe-outline',
   great_filter: 'cafe-outline',
   good_for_working: 'briefcase-outline',
+  good_for_calls: 'call-outline',
   quiet: 'volume-mute-outline',
   spacious: 'expand-outline',
   open_late: 'moon-outline',

@@ -13,6 +13,7 @@ export const TAG_SECTIONS = [
     title: 'Work',
     tags: [
       'good_for_working',
+      'good_for_calls',
       'good_wifi',
       'has_outlets',
       'quiet',
@@ -40,7 +41,9 @@ export type RatingTag = (typeof ALL_RATING_TAGS)[number];
 
 const LABEL_OVERRIDES: Record<string, string> = {
   // Keep special casing for acronyms / punctuation.
-  good_wifi: 'Good Wifi',
+  good_for_working: 'Work-friendly',
+  good_for_calls: 'Good for Calls',
+  good_wifi: 'Fast WiFi',
   specialty_coffee: 'Specialty Beans',
   quick_stop: 'Fast Service',
 };
