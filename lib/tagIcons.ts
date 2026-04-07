@@ -28,7 +28,7 @@ const TAG_ICON_BY_SLUG: Partial<Record<string, IoniconName>> = {
 
 export const FALLBACK_TAG_ICON: IoniconName = 'pricetag-outline';
 
-/** Search screen filter chips (`app/(tabs)/search.tsx` RANK_CHIPS) — not DB tags. */
+/** Search screen intent chips (legacy) — not DB tags. */
 export function getSearchFilterIcon(chipId: string): IoniconName | null {
   const map: Record<string, IoniconName> = {
     work: 'briefcase-outline',

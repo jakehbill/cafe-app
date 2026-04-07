@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import React, { useMemo, useState } from 'react';
+import { useRouter } from 'expo-router';
 import {
   Platform,
+  Pressable,
   ScrollView,
   SafeAreaView,
   StyleSheet,
@@ -11,61 +13,18 @@ import {
   View,
 } from 'react-native';
 
+import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
-import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
-import { rankTrendingNearbyForSearch } from '@/lib/cafeTrending';
-import { buildTasteProfileFromState, rankCafesForSearch, type RankKey } from '@/lib/cafeRanking';
+import { TAG_SECTIONS } from '@/lib/cafeTags';
+import { buildTasteProfileFromState, rankCafesForSearch } from '@/lib/cafeRanking';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
-import { FilterChip } from '@/components/FilterChip';
-import { getSearchFilterIcon } from '@/lib/tagIcons';
 import SearchResultsMap from '@/components/maps/SearchResultsMap';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
-/** Search chips: intent filters + non-personalized trending (aligned with Home). */
-type SearchChipId = RankKey | 'trending';
-
-const RANK_CHIPS: { id: SearchChipId; label: string }[] = [
-  { id: 'work', label: 'Best for Work' },
-  { id: 'coffee', label: 'Great Coffee' },
-  { id: 'atmosphere', label: 'Great Atmosphere' },
-  { id: 'quiet', label: 'Quiet' },
-  { id: 'quick', label: 'Quick' },
-  { id: 'trending', label: 'Trending Nearby' },
-];
-
 type ViewMode = 'list' | 'map';
-
-function parseRankParam(raw: string | string[] | undefined): RankKey | null {
-  const v = Array.isArray(raw) ? raw[0] : raw;
-  if (v === 'work' || v === 'coffee' || v === 'atmosphere' || v === 'quiet' || v === 'quick') {
-    return v;
-  }
-  return null;
-}
-
-function resultsHeadingLabel(selectedChip: SearchChipId | null): string {
-  if (selectedChip === null) {
-    return 'Top matches';
-  }
-  if (selectedChip === 'trending') {
-    return 'Trending nearby';
-  }
-  switch (selectedChip) {
-    case 'work':
-      return 'Best matches for work';
-    case 'coffee':
-      return 'Best coffee picks';
-    case 'atmosphere':
-      return 'Great atmosphere picks';
-    case 'quiet':
-      return 'Quiet spots';
-    case 'quick':
-      return 'Quick stops';
-  }
-}
 
 function regionForCafes(cafeList: Cafe[]) {
   if (cafeList.length === 0) {
@@ -76,10 +35,8 @@ function regionForCafes(cafeList: Cafe[]) {
       longitudeDelta: 0.06,
     };
   }
-  const lat =
-    cafeList.reduce((sum, c) => sum + c.latitude, 0) / cafeList.length;
-  const lng =
-    cafeList.reduce((sum, c) => sum + c.longitude, 0) / cafeList.length;
+  const lat = cafeList.reduce((sum, c) => sum + c.latitude, 0) / cafeList.length;
+  const lng = cafeList.reduce((sum, c) => sum + c.longitude, 0) / cafeList.length;
   return {
     latitude: lat,
     longitude: lng,
@@ -88,42 +45,62 @@ function regionForCafes(cafeList: Cafe[]) {
   };
 }
 
+function cafeHasAllTagSlugs(cafe: Cafe, slugs: string[]): boolean {
+  if (slugs.length === 0) return true;
+  const cafeTags = (cafe.tags ?? []).map((t) => t.trim().toLowerCase());
+  return slugs.every((slug) => cafeTags.includes(slug.trim().toLowerCase()));
+}
+
 export default function SearchScreen() {
   const router = useRouter();
-  const { rank: rankParam } = useLocalSearchParams<{ rank?: string | string[] }>();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
   const { cafes: cafeCatalog } = useCafeCatalog();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
-  const userLocation = useOptionalUserLocation();
   const [query, setQuery] = useState('');
-  const [selectedChip, setSelectedChip] = useState<SearchChipId | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
-
-  useEffect(() => {
-    const parsed = parseRankParam(rankParam);
-    if (parsed !== null) {
-      setSelectedChip(parsed);
-    }
-  }, [rankParam]);
+  const [expandedCategoryTitle, setExpandedCategoryTitle] = useState<string | null>(null);
+  const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
 
   const tasteProfile = useMemo(
     () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
     [ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds]
   );
 
-  const results = useMemo(() => {
+  const ranked = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (selectedChip === 'trending') {
-      return rankTrendingNearbyForSearch([...cafeCatalog], q, userLocation);
-    }
-    return rankCafesForSearch([...cafeCatalog], q, selectedChip, ratingsByCafeId, tasteProfile, onboardingPrefs);
-  }, [query, selectedChip, ratingsByCafeId, tasteProfile, onboardingPrefs, userLocation, cafeCatalog]);
+    return rankCafesForSearch(
+      [...cafeCatalog],
+      q,
+      null,
+      ratingsByCafeId,
+      tasteProfile,
+      onboardingPrefs
+    );
+  }, [query, ratingsByCafeId, tasteProfile, onboardingPrefs, cafeCatalog]);
+
+  const results = useMemo(() => {
+    if (selectedTagSlugs.length === 0) return ranked;
+    return ranked.filter((cafe) => cafeHasAllTagSlugs(cafe, selectedTagSlugs));
+  }, [ranked, selectedTagSlugs]);
+
+  const toggleTagSlug = (slug: string) => {
+    setSelectedTagSlugs((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    );
+  };
+
+  const clearTagFilters = () => setSelectedTagSlugs([]);
+
+  const selectedCountForSection = (sectionTags: readonly string[]) =>
+    selectedTagSlugs.filter((s) => sectionTags.includes(s)).length;
 
   const showNoResults = results.length === 0;
-  const resultsLabel = resultsHeadingLabel(selectedChip);
+  const resultsLabel =
+    selectedTagSlugs.length === 0
+      ? 'Top matches'
+      : `Filtered · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}`;
 
   const mapRegion = useMemo(() => regionForCafes(results), [results]);
-
   const isWeb = Platform.OS === 'web';
 
   return (
@@ -141,24 +118,92 @@ export default function SearchScreen() {
           style={styles.input}
         />
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipsRow}
-          keyboardShouldPersistTaps="handled"
-        >
-          {RANK_CHIPS.map((chip) => (
-            <FilterChip
-              key={chip.id}
-              label={chip.label}
-              icon={getSearchFilterIcon(chip.id) ?? undefined}
-              selected={selectedChip === chip.id}
-              onPress={() =>
-                setSelectedChip((prev) => (prev === chip.id ? null : chip.id))
-              }
-            />
-          ))}
-        </ScrollView>
+        <View style={styles.categoryFiltersWrap}>
+          <View style={styles.categoryRow}>
+            {TAG_SECTIONS.map((section) => {
+              const n = selectedCountForSection(section.tags);
+              const open = expandedCategoryTitle === section.title;
+              return (
+                <Pressable
+                  key={section.title}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${section.title} tags${n > 0 ? `, ${n} selected` : ''}`}
+                  onPress={() =>
+                    setExpandedCategoryTitle((prev) => (prev === section.title ? null : section.title))
+                  }
+                  style={({ pressed }) => [
+                    styles.categoryPill,
+                    open && styles.categoryPillOpen,
+                    n > 0 && styles.categoryPillHasTags,
+                    pressed && styles.categoryPillPressed,
+                  ]}
+                >
+                  <Text
+                    style={[styles.categoryPillText, n > 0 && styles.categoryPillTextActive]}
+                    numberOfLines={1}
+                  >
+                    {section.title}
+                  </Text>
+                  {n > 0 ? (
+                    <View style={styles.categoryBadge}>
+                      <Text style={styles.categoryBadgeText}>{n}</Text>
+                    </View>
+                  ) : null}
+                  <Ionicons
+                    name={open ? 'chevron-up' : 'chevron-down'}
+                    size={14}
+                    color={n > 0 || open ? COLORS.accent : COLORS.muted}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {expandedCategoryTitle ? (
+            <View style={styles.tagPanel}>
+              {TAG_SECTIONS.filter((s) => s.title === expandedCategoryTitle).map((section) => (
+                <View key={section.title} style={styles.tagPanelInner}>
+                  {section.tags.map((tag) => {
+                    const selected = selectedTagSlugs.includes(tag);
+                    return (
+                      <TouchableOpacity
+                        key={tag}
+                        activeOpacity={0.85}
+                        style={[styles.tagChip, selected && styles.tagChipSelected]}
+                        onPress={() => toggleTagSlug(tag)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                      >
+                        <TagWithOptionalIcon
+                          tag={tag}
+                          iconSize={14}
+                          color={selected ? COLORS.accent : COLORS.text}
+                          textStyle={[
+                            styles.tagChipText,
+                            selected && styles.tagChipTextSelected,
+                          ]}
+                          gap={5}
+                        />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {selectedTagSlugs.length > 0 ? (
+            <TouchableOpacity
+              onPress={clearTagFilters}
+              accessibilityRole="button"
+              accessibilityLabel="Clear tag filters"
+              style={styles.clearTagsRow}
+              hitSlop={{ top: 8, bottom: 8 }}
+            >
+              <Text style={styles.clearTagsText}>Clear tags</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
 
         <View style={styles.viewToggleWrap}>
           <TouchableOpacity
@@ -270,11 +315,101 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontFamily: FONTS.sans.regular,
   },
-  chipsRow: {
+  categoryFiltersWrap: {
     gap: 8,
-    paddingTop: 2,
-    paddingBottom: 2,
-    paddingRight: 8,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    alignItems: 'center',
+  },
+  categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    maxWidth: '48%',
+  },
+  categoryPillOpen: {
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
+  },
+  categoryPillHasTags: {
+    borderColor: COLORS.accentSubtleBorder,
+  },
+  categoryPillPressed: {
+    opacity: 0.92,
+  },
+  categoryPillText: {
+    fontSize: 13,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+    flexShrink: 1,
+  },
+  categoryPillTextActive: {
+    color: COLORS.accent,
+  },
+  categoryBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.accent,
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontFamily: FONTS.sans.bold,
+    color: '#ffffff',
+  },
+  tagPanel: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+    padding: 10,
+  },
+  tagPanelInner: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  tagChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  tagChipSelected: {
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
+  },
+  tagChipText: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.text,
+  },
+  tagChipTextSelected: {
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
+  },
+  clearTagsRow: {
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+  },
+  clearTagsText: {
+    fontSize: 13,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.accent,
   },
   viewToggleWrap: {
     flexDirection: 'row',
