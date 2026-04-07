@@ -101,7 +101,9 @@ export default function RateCafeScreen() {
 
   const [coffeeScore, setCoffeeScore] = useState(existingRating?.coffee ?? 0);
   const [selectedTags, setSelectedTags] = useState<string[]>(
-    (existingRating?.tags ?? []).filter((tag) => ALL_RATING_TAGS.includes(tag as (typeof ALL_RATING_TAGS)[number])).slice(0, 3)
+    (existingRating?.tags ?? []).filter((tag) =>
+      ALL_RATING_TAGS.includes(tag as (typeof ALL_RATING_TAGS)[number])
+    )
   );
   const [notes, setNotes] = useState(existingRating?.notes ?? '');
   const [submitted, setSubmitted] = useState(false);
@@ -159,7 +161,6 @@ export default function RateCafeScreen() {
   function toggleTag(tag: string) {
     setSelectedTags((prev) => {
       if (prev.includes(tag)) return prev.filter((item) => item !== tag);
-      if (prev.length >= 3) return prev;
       return [...prev, tag];
     });
   }
@@ -284,7 +285,7 @@ export default function RateCafeScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>What stood out? (pick up to 3)</Text>
+          <Text style={styles.sectionTitle}>What stood out?</Text>
           {TAG_SECTIONS.map((section) => (
             <View key={section.title} style={styles.tagSection}>
               <Text style={styles.tagSectionTitle}>{section.title}</Text>

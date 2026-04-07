@@ -21,7 +21,6 @@ const TAG_ICON_BY_SLUG: Partial<Record<string, IoniconName>> = {
   quiet: 'volume-mute-outline',
   spacious: 'expand-outline',
   open_late: 'moon-outline',
-  brunch_spot: 'restaurant-outline',
   outdoor_seating: 'sunny-outline',
   pet_friendly: 'paw-outline',
 };

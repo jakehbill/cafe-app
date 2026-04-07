@@ -21,16 +21,16 @@ export const TAG_SECTIONS = [
     ],
   },
   {
-    title: 'Other / Vibe',
+    title: 'Vibe',
     tags: [
       'busy',
       'aesthetic',
       'cosy',
-      'quick_stop',
-      'brunch_spot',
-      'outdoor_seating',
-      'pet_friendly',
     ],
+  },
+  {
+    title: 'Other',
+    tags: ['outdoor_seating', 'quick_stop', 'pet_friendly'],
   },
 ] as const;
 
@@ -40,7 +40,9 @@ export type RatingTag = (typeof ALL_RATING_TAGS)[number];
 
 const LABEL_OVERRIDES: Record<string, string> = {
   // Keep special casing for acronyms / punctuation.
-  good_wifi: 'Good Wi-Fi',
+  good_wifi: 'Good Wifi',
+  specialty_coffee: 'Specialty Beans',
+  quick_stop: 'Fast Service',
 };
 
 export function formatTagLabel(tag: string): string {
