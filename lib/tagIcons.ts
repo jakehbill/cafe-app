@@ -21,8 +21,8 @@ const TAG_ICON_BY_SLUG: Partial<Record<string, IoniconName>> = {
   quiet: 'volume-mute-outline',
   spacious: 'expand-outline',
   open_late: 'moon-outline',
-  quick_stop: 'flash-outline',
-  brunch_spot: 'sunny-outline',
+  brunch_spot: 'restaurant-outline',
+  outdoor_seating: 'sunny-outline',
   pet_friendly: 'paw-outline',
 };
 
@@ -49,6 +49,8 @@ export function getTagIconName(tag: string): IoniconName | null {
   const k = tag.trim().toLowerCase();
   if (!k) return null;
   if (TAGS_PLAIN_TEXT_ONLY.has(k)) return null;
+  // Product: "quick stop" should not use the lightning icon.
+  if (k === 'quick_stop') return null;
 
   const direct = TAG_ICON_BY_SLUG[k];
   if (direct) return direct;

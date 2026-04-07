@@ -28,6 +28,7 @@ export const TAG_SECTIONS = [
       'cosy',
       'quick_stop',
       'brunch_spot',
+      'outdoor_seating',
       'pet_friendly',
     ],
   },
@@ -48,6 +49,7 @@ const LABEL_OVERRIDES: Record<string, string> = {
   great_pastries: 'Great pastries',
   good_food: 'Good food',
   pet_friendly: 'Pet-friendly',
+  outdoor_seating: 'outdoor seating',
 };
 
 export function formatTagLabel(tag: string): string {
