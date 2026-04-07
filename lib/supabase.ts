@@ -131,8 +131,9 @@ export async function rateCafe(
     return { ok: false, error: 'You must be signed in to rate a cafe.' };
   }
 
-  const clamp010 = (n: number) => Math.min(10, Math.max(0, n));
-  const coffeeRating = Math.round(clamp010(input.coffee));
+  const clamp015 = (n: number) => Math.min(5, Math.max(1, n));
+  const quantizeHalf = (n: number) => Math.round(n * 2) / 2;
+  const coffeeRating = quantizeHalf(clamp015(input.coffee));
   const normalizedCafeId = Number.parseInt(String(cafeId), 10);
 
   if (!Number.isFinite(normalizedCafeId)) {

@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import Slider from '@react-native-community/slider';
 import {
   Image,
   Platform,
@@ -31,33 +32,31 @@ function rateDebug(label: string, payload: Record<string, unknown>) {
   }
 }
 
-function StarRatingRow({
+function RatingSliderRow({
   value,
   onSelect,
 }: {
-  value: number;
+  value: number | null;
   onSelect: (rating: number) => void;
 }) {
-  const filled = Math.min(5, Math.max(0, Math.round(value)));
+  const current = value ?? 3;
   return (
-    <View style={styles.starsRow}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <TouchableOpacity
-          key={n}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-          accessibilityLabel={`${n} out of 5 stars`}
-          accessibilityState={{ selected: n <= filled }}
-          hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-          onPress={() => onSelect(n)}
-        >
-          <Ionicons
-            name={n <= filled ? 'star' : 'star-outline'}
-            size={34}
-            color={n <= filled ? COLORS.accent : 'rgba(92, 86, 80, 0.38)'}
-          />
-        </TouchableOpacity>
-      ))}
+    <View style={styles.ratingSliderBlock}>
+      <View style={styles.ratingSliderMetaRow}>
+        <Text style={styles.ratingSliderValue}>{current.toFixed(1)}</Text>
+        <Text style={styles.ratingSliderHint}>out of 5</Text>
+      </View>
+      <Slider
+        value={current}
+        onValueChange={(v) => onSelect(v)}
+        minimumValue={1}
+        maximumValue={5}
+        step={0.5}
+        minimumTrackTintColor={COLORS.accent}
+        maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
+        thumbTintColor={COLORS.accent}
+        accessibilityLabel="Coffee rating slider"
+      />
     </View>
   );
 }
@@ -99,7 +98,9 @@ export default function RateCafeScreen() {
     });
   }, [cafe?.name, navigation]);
 
-  const [coffeeScore, setCoffeeScore] = useState(existingRating?.coffee ?? 0);
+  const [coffeeScore, setCoffeeScore] = useState<number | null>(
+    typeof existingRating?.coffee === 'number' ? existingRating.coffee : null
+  );
   const [selectedTags, setSelectedTags] = useState<string[]>(
     (existingRating?.tags ?? []).filter((tag) =>
       ALL_RATING_TAGS.includes(tag as (typeof ALL_RATING_TAGS)[number])
@@ -121,7 +122,7 @@ export default function RateCafeScreen() {
       const prev = await getUserCoffeeRating(numericCafeId);
       if (cancelled || prev === null) return;
 
-      if (coffeeScore !== 0) return;
+      if (coffeeScore != null) return;
       if (existingRating) return;
 
       const v = Math.min(5, Math.max(1, Math.round(prev)));
@@ -134,7 +135,7 @@ export default function RateCafeScreen() {
     };
   }, [targetCafeId, existingRating, coffeeScore]);
 
-  const hasAnyRating = coffeeScore > 0;
+  const hasAnyRating = coffeeScore != null && coffeeScore >= 1;
 
   const submitDisabled = !hasAnyRating || submitted || submitting;
 
@@ -174,7 +175,7 @@ export default function RateCafeScreen() {
     });
 
     const ratingData = {
-      coffee: coffeeScore,
+      coffee: coffeeScore ?? 0,
       tags: selectedTags,
       notes: notes.trim(),
     };
@@ -203,7 +204,7 @@ export default function RateCafeScreen() {
     try {
       rateDebug('calling rateCafe', { targetCafeId });
       const rateRes = await rateCafe(targetCafeId, {
-        coffee: coffeeScore,
+        coffee: coffeeScore ?? 0,
         tags: selectedTags,
         notes: notes.trim(),
       });
@@ -275,7 +276,7 @@ export default function RateCafeScreen() {
           <Text style={styles.sectionTitle}>Rating</Text>
           <Text style={styles.ratingPrompt}>How was it?</Text>
           <View style={styles.ratingRowsWrap}>
-            <StarRatingRow
+            <RatingSliderRow
               value={coffeeScore}
               onSelect={(value) => {
                 setCoffeeScore(value);
@@ -468,13 +469,24 @@ const styles = StyleSheet.create({
   ratingRowsWrap: {
     marginTop: 4,
   },
-  starsRow: {
+  ratingSliderBlock: {
+    gap: 10,
+  },
+  ratingSliderMetaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    maxWidth: 320,
-    alignSelf: 'stretch',
-    paddingVertical: 4,
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  ratingSliderValue: {
+    fontSize: 28,
+    fontFamily: FONTS.sans.bold,
+    color: COLORS.text,
+    letterSpacing: -0.4,
+  },
+  ratingSliderHint: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
   },
   notesInput: {
     minHeight: 68,
