@@ -1,15 +1,15 @@
 import { supabase } from '@/lib/supabase';
-import { cafeHasAllCanonicalSlugs, getAllDbValuesForCanonicalTag, resolveToCanonicalTagSlug } from '@/lib/tagRegistry';
+import { getAllDbValuesForCanonicalTag, resolveToCanonicalTagSlug } from '@/lib/tagRegistry';
 
 /**
- * Search tag filtering should require a meaningful signal:
- * - Either the cafe has the canonical tag as a curated catalog tag (cafe.tags → canonical slug),
- * - OR the tag appears on at least N distinct ratings for that cafe (rating_tags joined through ratings).
+ * Search tag filtering uses **rating_tags only** (joined through `ratings`), not `cafes.tags`.
+ * A cafe matches a selected tag only if that tag appears on at least N **distinct** ratings
+ * for that cafe (canonical slug resolved via `tagRegistry`).
  */
 
 export const TAG_SIGNAL = {
-  /** Minimum distinct ratings that must include the tag to count as “meaningful”. */
-  minRatingsPerTag: 3,
+  /** Minimum distinct ratings that must include the tag (tune for signal vs recall). */
+  minDistinctRatingsPerTag: 2,
   /** Limit cafes considered for tag signal fetch (keeps the query bounded). */
   maxCafeIds: 250,
 } as const;
@@ -107,7 +107,7 @@ export async function fetchMeaningfulCafeIdsByCanonicalTag(
 
   for (const [cafeId, slugMap] of cafeToSlugToRatingIds) {
     for (const [slug, set] of slugMap) {
-      if (set.size >= TAG_SIGNAL.minRatingsPerTag) {
+      if (set.size >= TAG_SIGNAL.minDistinctRatingsPerTag) {
         out.get(slug)?.add(cafeId);
       }
     }
@@ -117,24 +117,15 @@ export async function fetchMeaningfulCafeIdsByCanonicalTag(
 }
 
 /**
- * True if a cafe matches all selected canonical tags with meaningful signal:
- * - curated catalog tag match (fast path) OR
- * - rating-derived count threshold.
+ * True if a cafe matches all selected canonical tags using **only** rating_tags-derived sets.
  */
 export function cafeMatchesSelectedCanonicalTagsMeaningfully(
-  cafe: { id: string; tags?: string[] },
+  cafeId: string,
   selectedCanonicalSlugs: string[],
   meaningfulCafeIdsBySlug: Map<string, Set<string>>
 ): boolean {
   if (selectedCanonicalSlugs.length === 0) return true;
-
-  // If the catalog already contains these canonical tags, treat that as meaningful.
-  if (cafeHasAllCanonicalSlugs(cafe, selectedCanonicalSlugs)) {
-    return true;
-  }
-
-  // Otherwise require rating-derived evidence.
-  const id = String(cafe.id);
+  const id = String(cafeId);
   return selectedCanonicalSlugs.every((slug) => meaningfulCafeIdsBySlug.get(slug)?.has(id) ?? false);
 }
 

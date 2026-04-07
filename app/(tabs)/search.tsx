@@ -91,6 +91,7 @@ export default function SearchScreen() {
     }
 
     setTagSignalLoading(true);
+    setMeaningfulCafeIdsBySlug(new Map());
     void (async () => {
       const cafeIds = ranked.map((c) => c.id);
       const map = await fetchMeaningfulCafeIdsByCanonicalTag(cafeIds, selectedTagSlugs);
@@ -106,10 +107,12 @@ export default function SearchScreen() {
 
   const results = useMemo(() => {
     if (selectedTagSlugs.length === 0) return ranked;
+    // Wait for rating_tags-derived sets; do not use cafes.tags for filtering.
+    if (tagSignalLoading) return ranked;
     return ranked.filter((cafe) =>
-      cafeMatchesSelectedCanonicalTagsMeaningfully(cafe, selectedTagSlugs, meaningfulCafeIdsBySlug)
+      cafeMatchesSelectedCanonicalTagsMeaningfully(cafe.id, selectedTagSlugs, meaningfulCafeIdsBySlug)
     );
-  }, [ranked, selectedTagSlugs, meaningfulCafeIdsBySlug]);
+  }, [ranked, selectedTagSlugs, meaningfulCafeIdsBySlug, tagSignalLoading]);
 
   const toggleTagSlug = (slug: string) => {
     setSelectedTagSlugs((prev) =>
