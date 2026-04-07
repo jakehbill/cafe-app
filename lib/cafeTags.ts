@@ -1,70 +1,41 @@
-export const TAG_SECTIONS = [
-  {
-    title: 'Coffee',
-    tags: [
-      'great_espresso',
-      'great_filter',
-      'specialty_coffee',
-      'great_pastries',
-      'good_food',
-    ],
-  },
-  {
-    title: 'Work',
-    tags: [
-      'good_for_working',
-      'good_for_calls',
-      'good_wifi',
-      'has_outlets',
-      'quiet',
-      'spacious',
-      'open_late',
-    ],
-  },
-  {
-    title: 'Vibe',
-    tags: [
-      'busy',
-      'aesthetic',
-      'cosy',
-    ],
-  },
-  {
-    title: 'Other',
-    tags: ['outdoor_seating', 'quick_stop', 'pet_friendly'],
-  },
-] as const;
+import {
+  CANONICAL_TAG_SLUGS,
+  getCanonicalSlugsFromCafeTags,
+  getTagDisplayLabel,
+  getTagSections,
+  resolveToCanonicalTagSlug,
+  type CanonicalTagSlug,
+} from '@/lib/tagRegistry';
 
-export const ALL_RATING_TAGS = TAG_SECTIONS.flatMap((section) => section.tags);
+/** Back-compat facade: Rate/Search/Saved should prefer `tagRegistry` directly. */
+export const TAG_SECTIONS = getTagSections();
+export const ALL_RATING_TAGS = CANONICAL_TAG_SLUGS;
+export type RatingTag = CanonicalTagSlug;
 
-export type RatingTag = (typeof ALL_RATING_TAGS)[number];
-
-const LABEL_OVERRIDES: Record<string, string> = {
-  // Keep special casing for acronyms / punctuation.
-  good_for_working: 'Work-friendly',
-  good_for_calls: 'Good for Calls',
-  good_wifi: 'Fast WiFi',
-  specialty_coffee: 'Specialty Coffee',
-  quick_stop: 'Fast Service',
-};
-
+/** UI label (single source of truth now lives in `tagRegistry`). */
 export function formatTagLabel(tag: string): string {
-  if (!tag) return '';
-  const normalized = tag.trim().toLowerCase();
-  if (!normalized) return '';
-  if (LABEL_OVERRIDES[normalized]) return LABEL_OVERRIDES[normalized];
+  return getTagDisplayLabel(tag);
+}
 
-  // Convert slugs and free-text tags into title case for UI while keeping storage lowercase.
-  // Examples:
-  // - "outdoor seating" -> "Outdoor Seating"
-  // - "good_for_working" -> "Good For Working"
-  // - "pet-friendly" -> "Pet-Friendly"
-  const words = normalized.replace(/_/g, ' ').split(/\s+/g).filter(Boolean);
-  const titleWords = words.map((w) =>
-    w
-      .split('-')
-      .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-      .join('-')
-  );
-  return titleWords.join(' ');
+/** Resolve any raw tag (slug/label/legacy) to a canonical slug. */
+export function resolveCafeTagStringToCanonicalSlug(raw: string): string | null {
+  return resolveToCanonicalTagSlug(raw);
+}
+
+/** All canonical slugs represented on a cafe's tag list (after resolving mixed formats). */
+export function getCanonicalSlugsForCafeTags(cafeTags: string[] | undefined): Set<string> {
+  return getCanonicalSlugsFromCafeTags(cafeTags) as unknown as Set<string>;
+}
+
+/** True if the cafe's tags resolve to include every required canonical slug (AND). */
+export function cafeHasAllCanonicalTagSlugs(
+  cafe: { tags?: string[] },
+  requiredCanonicalSlugs: string[]
+): boolean {
+  if (requiredCanonicalSlugs.length === 0) return true;
+  const present = getCanonicalSlugsFromCafeTags(cafe.tags);
+  return requiredCanonicalSlugs.every((s) => {
+    const slug = resolveToCanonicalTagSlug(s);
+    return slug ? present.has(slug) : false;
+  });
 }

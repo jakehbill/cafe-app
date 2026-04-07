@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { getTagIcon, resolveToCanonicalTagSlug, TAG_REGISTRY } from '@/lib/tagRegistry';
 
 export type IoniconName = keyof typeof Ionicons.glyphMap;
 
@@ -49,11 +50,8 @@ export function getTagIconName(tag: string): IoniconName | null {
   const k = tag.trim().toLowerCase();
   if (!k) return null;
   if (TAGS_PLAIN_TEXT_ONLY.has(k)) return null;
-  // Product: "quick stop" should not use the lightning icon.
-  if (k === 'quick_stop') return null;
-
-  const direct = TAG_ICON_BY_SLUG[k];
-  if (direct) return direct;
+  const slug = resolveToCanonicalTagSlug(tag);
+  if (slug) return TAG_REGISTRY[slug].icon;
 
   if (k.includes('wifi')) return 'wifi-outline';
   if (k.includes('outlet') || k.includes('power') || k === 'power') return 'flash-outline';

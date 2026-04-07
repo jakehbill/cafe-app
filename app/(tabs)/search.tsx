@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   Platform,
@@ -23,6 +23,10 @@ import { buildTasteProfileFromState, rankCafesForSearch } from '@/lib/cafeRankin
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import SearchResultsMap from '@/components/maps/SearchResultsMap';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
+import {
+  cafeMatchesSelectedCanonicalTagsMeaningfully,
+  fetchMeaningfulCafeIdsByCanonicalTag,
+} from '@/lib/cafeTagSignal';
 
 type ViewMode = 'list' | 'map';
 
@@ -45,12 +49,6 @@ function regionForCafes(cafeList: Cafe[]) {
   };
 }
 
-function cafeHasAllTagSlugs(cafe: Cafe, slugs: string[]): boolean {
-  if (slugs.length === 0) return true;
-  const cafeTags = (cafe.tags ?? []).map((t) => t.trim().toLowerCase());
-  return slugs.every((slug) => cafeTags.includes(slug.trim().toLowerCase()));
-}
-
 export default function SearchScreen() {
   const router = useRouter();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
@@ -60,6 +58,10 @@ export default function SearchScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [expandedCategoryTitle, setExpandedCategoryTitle] = useState<string | null>(null);
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
+  const [tagSignalLoading, setTagSignalLoading] = useState(false);
+  const [meaningfulCafeIdsBySlug, setMeaningfulCafeIdsBySlug] = useState<Map<string, Set<string>>>(
+    () => new Map()
+  );
 
   const tasteProfile = useMemo(
     () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
@@ -78,10 +80,36 @@ export default function SearchScreen() {
     );
   }, [query, ratingsByCafeId, tasteProfile, onboardingPrefs, cafeCatalog]);
 
+  // When tag filters change, fetch rating-derived “meaningful signal” sets (cached in memory here).
+  useEffect(() => {
+    let cancelled = false;
+
+    if (selectedTagSlugs.length === 0) {
+      setMeaningfulCafeIdsBySlug(new Map());
+      setTagSignalLoading(false);
+      return;
+    }
+
+    setTagSignalLoading(true);
+    void (async () => {
+      const cafeIds = ranked.map((c) => c.id);
+      const map = await fetchMeaningfulCafeIdsByCanonicalTag(cafeIds, selectedTagSlugs);
+      if (cancelled) return;
+      setMeaningfulCafeIdsBySlug(map);
+      setTagSignalLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedTagSlugs, ranked]);
+
   const results = useMemo(() => {
     if (selectedTagSlugs.length === 0) return ranked;
-    return ranked.filter((cafe) => cafeHasAllTagSlugs(cafe, selectedTagSlugs));
-  }, [ranked, selectedTagSlugs]);
+    return ranked.filter((cafe) =>
+      cafeMatchesSelectedCanonicalTagsMeaningfully(cafe, selectedTagSlugs, meaningfulCafeIdsBySlug)
+    );
+  }, [ranked, selectedTagSlugs, meaningfulCafeIdsBySlug]);
 
   const toggleTagSlug = (slug: string) => {
     setSelectedTagSlugs((prev) =>
@@ -98,7 +126,9 @@ export default function SearchScreen() {
   const resultsLabel =
     selectedTagSlugs.length === 0
       ? 'Top matches'
-      : `Filtered · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}`;
+      : tagSignalLoading
+        ? `Filtering · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}…`
+        : `Filtered · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}`;
 
   const mapRegion = useMemo(() => regionForCafes(results), [results]);
   const isWeb = Platform.OS === 'web';

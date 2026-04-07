@@ -15,7 +15,12 @@ import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { FilterChip } from '@/components/FilterChip';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
-import { ALL_RATING_TAGS, formatTagLabel } from '@/lib/cafeTags';
+import {
+  ALL_RATING_TAGS,
+  cafeHasAllCanonicalTagSlugs,
+  formatTagLabel,
+  getCanonicalSlugsForCafeTags,
+} from '@/lib/cafeTags';
 import { getTagIconName } from '@/lib/tagIcons';
 
 /** Map Supabase `cafe_id` values to full cafe rows from `public.cafes` (same ids). */
@@ -46,15 +51,14 @@ function uniqueSortedNeighborhoods(cafes: Cafe[]): string[] {
  * We only surface canonical tags that actually exist on the saved cafes.
  */
 function canonicalTagOptionsForSaved(cafes: Cafe[]): string[] {
-  const normalizedCafeTags = new Set<string>();
+  const present = new Set<string>();
   for (const c of cafes) {
-    for (const t of c.tags ?? []) {
-      const k = t.trim().toLowerCase();
-      if (k) normalizedCafeTags.add(k);
+    for (const slug of getCanonicalSlugsForCafeTags(c.tags)) {
+      present.add(slug);
     }
   }
 
-  return ALL_RATING_TAGS.filter((tag) => normalizedCafeTags.has(tag.toLowerCase()));
+  return ALL_RATING_TAGS.filter((tag) => present.has(tag));
 }
 
 function filterSavedCafes(
@@ -67,9 +71,7 @@ function filterSavedCafes(
       if ((cafe.neighborhood ?? '').trim() !== locationKey) return false;
     }
     if (tagKey != null) {
-      const needle = tagKey.toLowerCase();
-      const hasTag = (cafe.tags ?? []).some((t) => t.trim().toLowerCase() === needle);
-      if (!hasTag) return false;
+      if (!cafeHasAllCanonicalTagSlugs(cafe, [tagKey])) return false;
     }
     return true;
   });

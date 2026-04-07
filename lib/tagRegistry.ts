@@ -1,0 +1,272 @@
+import type { IoniconName } from '@/lib/tagIcons';
+
+export type TagCategory = 'Coffee' | 'Work' | 'Vibe' | 'Other';
+
+export type CanonicalTagSlug =
+  | 'great_espresso'
+  | 'great_filter'
+  | 'specialty_coffee'
+  | 'great_pastries'
+  | 'good_food'
+  | 'good_for_working'
+  | 'good_wifi'
+  | 'has_outlets'
+  | 'quiet'
+  | 'spacious'
+  | 'open_late'
+  | 'good_for_calls'
+  | 'busy'
+  | 'aesthetic'
+  | 'cosy'
+  | 'outdoor_seating'
+  | 'quick_stop'
+  | 'pet_friendly';
+
+export type CanonicalTagDef = {
+  category: TagCategory;
+  /** Canonical stored value (slug) used for filtering & persistence. */
+  slug: CanonicalTagSlug;
+  /** Single source of truth for UI label. */
+  displayLabel: string;
+  /** Optional Ionicons glyph name; null = intentionally text-only. */
+  icon: IoniconName | null;
+  /**
+   * Legacy/alias values that should resolve to this tag.
+   * These are compared after normalization (spaces/underscores/hyphens).
+   */
+  aliases: string[];
+};
+
+function normalizeKey(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Canonical tag registry (single source of truth). */
+export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
+  great_espresso: {
+    category: 'Coffee',
+    slug: 'great_espresso',
+    displayLabel: 'Great Espresso',
+    icon: 'cafe-outline',
+    aliases: ['great espresso', 'espresso', 'great_espresso'],
+  },
+  great_filter: {
+    category: 'Coffee',
+    slug: 'great_filter',
+    displayLabel: 'Great Filter',
+    icon: 'cafe-outline',
+    aliases: ['great filter', 'filter', 'pour over', 'pour-over', 'great_filter'],
+  },
+  specialty_coffee: {
+    category: 'Coffee',
+    slug: 'specialty_coffee',
+    displayLabel: 'Specialty Coffee',
+    icon: 'cafe-outline',
+    aliases: ['specialty coffee', 'specialty beans', 'specialty_coffee'],
+  },
+  great_pastries: {
+    category: 'Coffee',
+    slug: 'great_pastries',
+    displayLabel: 'Great Pastries',
+    icon: 'restaurant-outline',
+    aliases: ['great pastries', 'pastries', 'pastry', 'great_pastries'],
+  },
+  good_food: {
+    category: 'Coffee',
+    slug: 'good_food',
+    displayLabel: 'Good Food',
+    icon: 'restaurant-outline',
+    aliases: ['good food', 'food', 'good_food'],
+  },
+
+  good_for_working: {
+    category: 'Work',
+    slug: 'good_for_working',
+    displayLabel: 'Work-friendly',
+    icon: 'briefcase-outline',
+    aliases: ['work friendly', 'work-friendly', 'good for working', 'good_for_working'],
+  },
+  good_wifi: {
+    category: 'Work',
+    slug: 'good_wifi',
+    displayLabel: 'Fast WiFi',
+    icon: 'wifi-outline',
+    aliases: ['fast wifi', 'good wifi', 'wifi', 'wi fi', 'good_wifi'],
+  },
+  has_outlets: {
+    category: 'Work',
+    slug: 'has_outlets',
+    displayLabel: 'Has Outlets',
+    icon: 'flash-outline',
+    aliases: ['has outlets', 'outlets', 'power', 'has_outlets'],
+  },
+  quiet: {
+    category: 'Work',
+    slug: 'quiet',
+    displayLabel: 'Quiet',
+    icon: 'volume-mute-outline',
+    aliases: ['quiet', 'calm', 'quiet spot'],
+  },
+  spacious: {
+    category: 'Work',
+    slug: 'spacious',
+    displayLabel: 'Spacious',
+    icon: 'expand-outline',
+    aliases: ['spacious', 'space', 'roomy'],
+  },
+  open_late: {
+    category: 'Work',
+    slug: 'open_late',
+    displayLabel: 'Open Late',
+    icon: 'moon-outline',
+    aliases: ['open late', 'late', 'open_late'],
+  },
+  good_for_calls: {
+    category: 'Work',
+    slug: 'good_for_calls',
+    displayLabel: 'Good for Calls',
+    icon: 'call-outline',
+    aliases: ['good for calls', 'calls', 'call friendly', 'good_for_calls'],
+  },
+
+  busy: {
+    category: 'Vibe',
+    slug: 'busy',
+    displayLabel: 'Busy',
+    icon: null,
+    aliases: ['busy', 'buzzy'],
+  },
+  aesthetic: {
+    category: 'Vibe',
+    slug: 'aesthetic',
+    displayLabel: 'Aesthetic',
+    icon: null,
+    aliases: ['aesthetic', 'minimal', 'clean'],
+  },
+  cosy: {
+    category: 'Vibe',
+    slug: 'cosy',
+    displayLabel: 'Cosy',
+    icon: null,
+    aliases: ['cosy', 'cozy', 'warm'],
+  },
+
+  outdoor_seating: {
+    category: 'Other',
+    slug: 'outdoor_seating',
+    displayLabel: 'Outdoor Seating',
+    icon: 'sunny-outline',
+    aliases: ['outdoor seating', 'patio', 'terrace', 'outdoor_seating'],
+  },
+  quick_stop: {
+    category: 'Other',
+    slug: 'quick_stop',
+    displayLabel: 'Fast Service',
+    icon: null,
+    aliases: ['fast service', 'quick stop', 'quick', 'fast', 'quick_stop'],
+  },
+  pet_friendly: {
+    category: 'Other',
+    slug: 'pet_friendly',
+    displayLabel: 'Pet Friendly',
+    icon: 'paw-outline',
+    aliases: ['pet friendly', 'pet-friendly', 'dog friendly', 'pet_friendly'],
+  },
+};
+
+export const CANONICAL_TAG_SLUGS = Object.keys(TAG_REGISTRY) as CanonicalTagSlug[];
+export const CANONICAL_TAG_SLUG_SET = new Set<string>(CANONICAL_TAG_SLUGS);
+
+/** Resolve any raw tag string (slug/label/legacy) to a canonical slug. */
+export function resolveToCanonicalTagSlug(raw: string): CanonicalTagSlug | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const lower = t.toLowerCase();
+  if (CANONICAL_TAG_SLUG_SET.has(lower)) return lower as CanonicalTagSlug;
+
+  const key = normalizeKey(t);
+  for (const def of Object.values(TAG_REGISTRY)) {
+    if (normalizeKey(def.displayLabel) === key) return def.slug;
+    for (const a of def.aliases) {
+      if (normalizeKey(a) === key) return def.slug;
+    }
+    // slug-as-words also counts
+    if (normalizeKey(def.slug.replace(/_/g, ' ')) === key) return def.slug;
+  }
+
+  return null;
+}
+
+export function getTagDisplayLabel(slugOrRaw: string): string {
+  const slug = resolveToCanonicalTagSlug(slugOrRaw);
+  if (slug) return TAG_REGISTRY[slug].displayLabel;
+  // fallback: title-case the raw string (best effort)
+  const words = slugOrRaw
+    .trim()
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .split(/\s+/g)
+    .filter(Boolean);
+  return words.map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
+}
+
+export function getTagIcon(slugOrRaw: string): IoniconName | null {
+  const slug = resolveToCanonicalTagSlug(slugOrRaw);
+  if (!slug) return null;
+  return TAG_REGISTRY[slug].icon;
+}
+
+export function getTagSections(): { title: TagCategory; tags: CanonicalTagSlug[] }[] {
+  const byCategory: Record<TagCategory, CanonicalTagSlug[]> = {
+    Coffee: [],
+    Work: [],
+    Vibe: [],
+    Other: [],
+  };
+  for (const slug of CANONICAL_TAG_SLUGS) {
+    byCategory[TAG_REGISTRY[slug].category].push(slug);
+  }
+  // Preserve the intended ordering as per registry listing above.
+  return [
+    { title: 'Coffee', tags: byCategory.Coffee },
+    { title: 'Work', tags: byCategory.Work },
+    { title: 'Vibe', tags: byCategory.Vibe },
+    { title: 'Other', tags: byCategory.Other },
+  ];
+}
+
+/** Returns canonical slugs represented in a cafe tag array (mixed values). */
+export function getCanonicalSlugsFromCafeTags(cafeTags: string[] | undefined): Set<CanonicalTagSlug> {
+  const out = new Set<CanonicalTagSlug>();
+  for (const raw of cafeTags ?? []) {
+    const slug = resolveToCanonicalTagSlug(raw);
+    if (slug) out.add(slug);
+  }
+  return out;
+}
+
+export function cafeHasAllCanonicalSlugs(cafe: { tags?: string[] }, required: string[]): boolean {
+  if (required.length === 0) return true;
+  const present = getCanonicalSlugsFromCafeTags(cafe.tags);
+  return required.every((s) => present.has((s.trim().toLowerCase() as CanonicalTagSlug) ?? ''));
+}
+
+/** Returns all possible DB values that should count for a canonical tag (slug + aliases). */
+export function getAllDbValuesForCanonicalTag(slug: CanonicalTagSlug): string[] {
+  const def = TAG_REGISTRY[slug];
+  const list = [def.slug, def.displayLabel, ...def.aliases, def.slug.replace(/_/g, ' ')];
+  const uniq = new Set<string>();
+  for (const v of list) {
+    const t = v.trim();
+    if (t) uniq.add(t);
+    const lower = t.toLowerCase();
+    if (lower) uniq.add(lower);
+  }
+  return Array.from(uniq);
+}
+
