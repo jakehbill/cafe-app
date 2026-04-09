@@ -4,6 +4,7 @@ import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import MapView, { Callout, Marker } from 'react-native-maps';
 
+import { MapCafeCallout } from '@/components/maps/MapCafeCallout';
 import { BeanMapMarkerContent } from '@/components/maps/BeanMapMarkerContent';
 import { COLORS } from '@/components/theme';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
@@ -49,15 +50,7 @@ export default function MapViewNative() {
                 <BeanMapMarkerContent />
               </View>
               <Callout onPress={() => router.push(`/cafe/${cafe.id}`)}>
-                <View style={styles.callout}>
-                  <Text style={styles.calloutTitle}>{cafe.name}</Text>
-                  {coffeeLabel !== '—' ? (
-                    <Text style={styles.calloutCoffeeScore}>Coffee {coffeeLabel}</Text>
-                  ) : (
-                    <Text style={styles.calloutCoffeeScoreMuted}>No community score yet</Text>
-                  )}
-                  <Text style={styles.calloutSubtitle}>Tap to open cafe</Text>
-                </View>
+                <MapCafeCallout cafeName={cafe.name} scoreDisplay={coffeeLabel} />
               </Callout>
             </Marker>
           );
@@ -94,34 +87,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 12,
     borderRadius: 16,
-  },
-  callout: {
-    minWidth: 160,
-    maxWidth: 220,
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E6DCCB',
-    padding: 10,
-    gap: 2,
-  },
-  calloutTitle: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  calloutCoffeeScore: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.accent,
-  },
-  calloutCoffeeScoreMuted: {
-    fontSize: 12,
-    color: COLORS.muted,
-  },
-  calloutSubtitle: {
-    color: COLORS.muted,
-    fontSize: 12,
   },
 });
 
