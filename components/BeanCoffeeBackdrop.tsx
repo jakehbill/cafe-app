@@ -27,7 +27,7 @@ export function isBeanCoffeeSvgAvailable(): boolean {
   return SvgComponent != null;
 }
 
-/** `Bean.svg` for public coffee score lockups (icon beside numerals). */
+/** Renders `Bean.svg` (brand decorative asset). */
 export function BeanCoffeeBackdrop(props: SvgProps) {
   if (!SvgComponent) {
     return null;

@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { CoffeeScoreBadge } from '@/components/CoffeeScoreBadge';
 import { COLORS } from '@/components/theme';
 
 export type MapCafeCalloutProps = {
@@ -11,11 +12,9 @@ export type MapCafeCalloutProps = {
 };
 
 /**
- * Minimal callout body for map markers: name, numeric score only, subtle forward affordance.
+ * Minimal callout body for map markers: name, score badge, subtle forward affordance.
  */
 export function MapCafeCallout({ cafeName, scoreDisplay }: MapCafeCalloutProps) {
-  const hasScore = scoreDisplay !== '—';
-
   return (
     <View style={styles.root}>
       <View style={styles.row}>
@@ -23,7 +22,7 @@ export function MapCafeCallout({ cafeName, scoreDisplay }: MapCafeCalloutProps) 
           <Text style={styles.title} numberOfLines={2}>
             {cafeName}
           </Text>
-          <Text style={hasScore ? styles.score : styles.scoreEmpty}>{hasScore ? scoreDisplay : '—'}</Text>
+          <CoffeeScoreBadge scoreLabel={scoreDisplay} size="small" />
         </View>
         <Ionicons
           name="chevron-forward"
@@ -56,23 +55,13 @@ const styles = StyleSheet.create({
   },
   textBlock: {
     flex: 1,
-    gap: 3,
+    gap: 6,
     paddingRight: 2,
   },
   title: {
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '700',
-  },
-  score: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.accent,
-  },
-  scoreEmpty: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: COLORS.muted,
   },
   arrow: {
     marginBottom: 1,

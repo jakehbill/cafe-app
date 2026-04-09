@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { CoffeeScoreBadge } from '@/components/CoffeeScoreBadge';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 
@@ -34,14 +35,7 @@ export function CafeCard({
           <Text style={styles.neighborhoodText}>{neighborhood}</Text>
         </View>
 
-        <Text
-          style={styles.publicCoffeeOnly}
-          accessibilityLabel={
-            coffeeLabel === '—' ? 'No public coffee score' : `Coffee score ${coffeeLabel} out of 5`
-          }
-        >
-          {coffeeLabel}
-        </Text>
+        <CoffeeScoreBadge scoreLabel={coffeeLabel} size="medium" />
 
         <View style={styles.tagsRow}>
           {tags.slice(0, 5).map((tag) => (
@@ -96,14 +90,6 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     lineHeight: 18,
     fontFamily: FONTS.sans.regular,
-  },
-
-  publicCoffeeOnly: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-    letterSpacing: 0.12,
-    opacity: 0.92,
   },
 
   tagsRow: {
