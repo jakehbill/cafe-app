@@ -3,7 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import MapView, { Callout, Marker, type Region } from 'react-native-maps';
 
 import type { Cafe } from '@/data/cafes';
+import { BeanMapMarkerContent } from '@/components/maps/BeanMapMarkerContent';
 import { COLORS } from '@/components/theme';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 
 /**
  * Native-only map implementation for Search (iOS/Android).
@@ -24,21 +26,33 @@ export default function SearchResultsMap({
       style={styles.map}
       initialRegion={initialRegion}
     >
-      {results.map((cafe) => (
-        <Marker
-          key={cafe.id}
-          coordinate={{ latitude: cafe.latitude, longitude: cafe.longitude }}
-          title={cafe.name}
-          description={cafe.neighborhood}
-        >
-          <Callout onPress={() => onPressCafe(cafe.id)}>
-            <View style={styles.callout}>
-              <Text style={styles.calloutTitle}>{cafe.name}</Text>
-              <Text style={styles.calloutSubtitle}>Tap to open cafe</Text>
+      {results.map((cafe) => {
+        const coffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
+        return (
+          <Marker
+            key={cafe.id}
+            coordinate={{ latitude: cafe.latitude, longitude: cafe.longitude }}
+            anchor={{ x: 0.5, y: 1 }}
+            title={cafe.name}
+            description={cafe.neighborhood}
+          >
+            <View style={{ alignItems: 'center' }}>
+              <BeanMapMarkerContent />
             </View>
-          </Callout>
-        </Marker>
-      ))}
+            <Callout onPress={() => onPressCafe(cafe.id)}>
+              <View style={styles.callout}>
+                <Text style={styles.calloutTitle}>{cafe.name}</Text>
+                {coffeeLabel !== '—' ? (
+                  <Text style={styles.calloutCoffeeScore}>Coffee {coffeeLabel}</Text>
+                ) : (
+                  <Text style={styles.calloutCoffeeScoreMuted}>No community score yet</Text>
+                )}
+                <Text style={styles.calloutSubtitle}>Tap to open cafe</Text>
+              </View>
+            </Callout>
+          </Marker>
+        );
+      })}
     </MapView>
   );
 }
@@ -64,6 +78,15 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     fontWeight: '700',
+  },
+  calloutCoffeeScore: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.accent,
+  },
+  calloutCoffeeScoreMuted: {
+    fontSize: 12,
+    color: COLORS.muted,
   },
   calloutSubtitle: {
     color: COLORS.muted,
