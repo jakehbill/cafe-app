@@ -29,8 +29,8 @@ export type Cafe = {
    */
   googleMapsUrl?: string;
   /**
-   * Primary photo for list cards — first gallery URL when `imageUrls` is set, else legacy single URL.
-   * Populated from Supabase `image_url` / `photo_url` / etc., or from `image_urls[0]`.
+   * Primary photo for list cards — always `imageUrls[0]` when available.
+   * Legacy single-image columns are still accepted as fallback while migrating.
    */
   imageUrl?: string;
   /**

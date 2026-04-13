@@ -34,7 +34,8 @@ function str(v: unknown): string {
 }
 
 /**
- * Parses multi-photo fields from `cafes` rows: `image_urls` (array / JSON / CSV), `gallery_urls`, etc.
+ * Parses multi-photo fields from `cafes` rows.
+ * Primary source is `image_urls` (text[]), with legacy aliases as safe fallback.
  */
 function imageUrlsFromRow(row: Record<string, unknown>): string[] {
   const raw = row.image_urls ?? row.gallery_urls ?? row.photo_urls ?? row.photos;
@@ -106,8 +107,8 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
   }
 
   const { coffee, work, vibe } = scoreTriple(row);
-  const imageRaw = row.image_url ?? row.photo_url ?? row.cover_image_url ?? row.image ?? row.thumbnail_url;
-  const legacySingle = str(imageRaw).trim();
+  const legacyImageRaw = row.image_url ?? row.photo_url ?? row.cover_image_url ?? row.image ?? row.thumbnail_url;
+  const legacySingle = str(legacyImageRaw).trim();
   const fromGallery = imageUrlsFromRow(row);
   const photoUrls =
     fromGallery.length > 0 ? fromGallery : legacySingle.length > 0 ? [legacySingle] : [];

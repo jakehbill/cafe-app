@@ -10,11 +10,12 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Alert,
   Image,
   Linking,
-  ScrollView,
   Share,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -285,24 +286,30 @@ export default function CafeDetailScreen() {
           ) : photoUrls.length === 1 ? (
             <Image source={{ uri: photoUrls[0] }} style={styles.heroImage} resizeMode="cover" />
           ) : (
-            <ScrollView
+            <FlatList
+              data={photoUrls}
+              keyExtractor={(uri, index) => `${cafe.id}-gallery-${index}-${uri}`}
               horizontal
               pagingEnabled
-              bounces={false}
               showsHorizontalScrollIndicator={false}
+              bounces={false}
+              decelerationRate="fast"
+              snapToInterval={heroPageW}
+              snapToAlignment="start"
+              disableIntervalMomentum
               style={styles.heroImagePager}
-              contentContainerStyle={{ width: heroPageW * photoUrls.length }}
               nestedScrollEnabled
+              removeClippedSubviews
+              getItemLayout={(_, index) => ({
+                length: heroPageW,
+                offset: heroPageW * index,
+                index,
+              })}
+              renderItem={({ item: uri }) => (
+                <Image source={{ uri }} style={{ width: heroPageW, height: heroPageH }} resizeMode="cover" />
+              )}
             >
-              {photoUrls.map((uri, index) => (
-                <Image
-                  key={`${cafe.id}-gallery-${index}`}
-                  source={{ uri }}
-                  style={{ width: heroPageW, height: heroPageH }}
-                  resizeMode="cover"
-                />
-              ))}
-            </ScrollView>
+            </FlatList>
           )}
 
           <View style={styles.heroGradientSlot} pointerEvents="none">
