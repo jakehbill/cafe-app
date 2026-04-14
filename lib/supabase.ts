@@ -332,7 +332,6 @@ export type CafeCommunityTagInsight = {
 export type CafeRecentReview = {
   note: string;
   createdAt: string | null;
-  username: string | null;
   displayName: string | null;
 };
 
@@ -442,23 +441,55 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
         .filter((v) => v.length > 0)
     )
   );
-  let profileMap = new Map<string, { username: string | null; displayName: string | null }>();
+  let profileMap = new Map<string, { displayName: string | null }>();
   if (userIds.length > 0) {
-    const profRes = await supabase
+    // Prefer schema with `profiles.user_id`; fall back to `profiles.id` when older schemas differ.
+    let profileRows:
+      | Array<{ user_id?: string | null; id?: string | null; display_name?: string | null }>
+      | null = null;
+
+    const profByUserIdRes = await supabase
       .from('profiles')
-      .select('user_id, username, display_name')
+      .select('user_id, display_name')
       .in('user_id', userIds);
-    if (profRes.error) {
-      console.error('getRecentCafeReviews profiles fetch failed:', profRes.error);
+
+    if (!profByUserIdRes.error) {
+      profileRows = (profByUserIdRes.data ?? []) as Array<{
+        user_id?: string | null;
+        display_name?: string | null;
+      }>;
+    } else if (profByUserIdRes.error.code === '42703') {
+      const profByIdRes = await supabase
+        .from('profiles')
+        .select('id, display_name')
+        .in('id', userIds);
+      if (profByIdRes.error) {
+        console.error('getRecentCafeReviews profiles fetch failed:', profByIdRes.error);
+      } else {
+        profileRows = (profByIdRes.data ?? []) as Array<{
+          id?: string | null;
+          display_name?: string | null;
+        }>;
+      }
     } else {
+      console.error('getRecentCafeReviews profiles fetch failed:', profByUserIdRes.error);
+    }
+
+    if (profileRows) {
       profileMap = new Map(
-        (profRes.data ?? []).map((row) => [
-          String(row.user_id),
-          {
-            username: typeof row.username === 'string' ? row.username : null,
-            displayName: typeof row.display_name === 'string' ? row.display_name : null,
-          },
-        ])
+        profileRows
+          .map((row) => {
+            const key = String(row.user_id ?? row.id ?? '').trim();
+            if (!key) return null;
+            const displayName = typeof row.display_name === 'string' ? row.display_name.trim() : '';
+            return [
+              key,
+              {
+                displayName: displayName.length > 0 ? displayName : null,
+              },
+            ] as const;
+          })
+          .filter((entry): entry is readonly [string, { displayName: string | null }] => entry != null)
       );
     }
   }
@@ -472,7 +503,6 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
       return {
         note,
         createdAt: row.created_at ?? null,
-        username: profile?.username ?? null,
         displayName: profile?.displayName ?? null,
       } satisfies CafeRecentReview;
     })

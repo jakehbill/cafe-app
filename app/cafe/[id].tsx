@@ -104,8 +104,6 @@ function ActionButton({
 }
 
 function reviewerAttribution(review: CafeRecentReview): string | null {
-  const username = (review.username ?? '').trim();
-  if (username.length > 0) return `@${username}`;
   const displayName = (review.displayName ?? '').trim();
   if (displayName.length > 0) return displayName;
   return null;
@@ -447,23 +445,27 @@ export default function CafeDetailScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.reviewsRow}
               >
-                {recentReviews.map((review, index) => (
-                  <View
-                    key={`${review.createdAt ?? 'no-date'}-${index}`}
-                    style={styles.reviewCard}
-                  >
-                    <Text style={styles.reviewText} numberOfLines={5}>
-                      {'\u201C'}
-                      {review.note}
-                      {'\u201D'}
-                    </Text>
-                    {reviewerAttribution(review) ? (
-                      <Text style={styles.reviewAttribution} numberOfLines={1}>
-                        — {reviewerAttribution(review)}
+                {recentReviews.map((review, index) => {
+                  const author = reviewerAttribution(review);
+                  return (
+                    <View
+                      key={`${review.createdAt ?? 'no-date'}-${index}`}
+                      style={styles.reviewCard}
+                    >
+                      <Text style={styles.reviewQuoteAccent}>“</Text>
+                      <Text style={styles.reviewText} numberOfLines={5}>
+                        {'\u201C'}
+                        {review.note}
+                        {'\u201D'}
                       </Text>
-                    ) : null}
-                  </View>
-                ))}
+                      {author ? (
+                        <Text style={styles.reviewAttribution} numberOfLines={1}>
+                          --{author}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
               </ScrollView>
             </View>
           ) : null}
@@ -691,18 +693,26 @@ const styles = StyleSheet.create({
   },
   reviewCard: {
     width: 260,
-    minHeight: 96,
     borderRadius: 14,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.inputBackground,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(248, 243, 235, 0.96)',
+    paddingTop: 8,
+    paddingBottom: 9,
+    paddingHorizontal: 11,
     gap: 4,
+  },
+  reviewQuoteAccent: {
+    fontSize: 13,
+    lineHeight: 14,
+    fontFamily: FONTS.display.semibold,
+    color: COLORS.accent,
+    opacity: 0.72,
+    marginBottom: 0,
   },
   reviewText: {
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 18,
     fontFamily: FONTS.sans.regular,
     color: COLORS.text,
     letterSpacing: -0.05,
@@ -710,10 +720,10 @@ const styles = StyleSheet.create({
   reviewAttribution: {
     marginTop: 2,
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 15,
     fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
-    opacity: 0.92,
+    opacity: 0.84,
   },
   heroBackRow: {
     alignSelf: 'stretch',
