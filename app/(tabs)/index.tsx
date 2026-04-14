@@ -28,6 +28,8 @@ import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags } from '@/lib/supabase';
+import { getNearbyCafes } from '@/lib/cafeNearby';
+import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -268,6 +270,7 @@ export default function HomeScreen() {
     }
   }, [navigation, segments]);
   const { cafes: cafeCatalog } = useCafeCatalog();
+  const userLocation = useOptionalUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
 
   const tasteProfile = useMemo(
@@ -280,6 +283,32 @@ export default function HomeScreen() {
     () => rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile, onboardingPrefs).slice(0, 5),
     [cafeCatalog, ratingsByCafeId, tasteProfile, onboardingPrefs]
   );
+
+  const fallbackHighRatedCafes = useMemo(() => {
+    const copy = [...cafeCatalog];
+    copy.sort((a, b) => {
+      const aPublic = a.publicCoffeeScore ?? -1;
+      const bPublic = b.publicCoffeeScore ?? -1;
+      if (bPublic !== aPublic) return bPublic - aPublic;
+      return b.coffeeScore - a.coffeeScore;
+    });
+    return copy.slice(0, 5);
+  }, [cafeCatalog]);
+
+  const trendingNearby = useMemo(() => {
+    const nearby = getNearbyCafes(cafeCatalog, userLocation);
+    const rankedNearby = [...nearby].sort((a, b) => {
+      if (b.coffeeRatingCount !== a.coffeeRatingCount) {
+        return b.coffeeRatingCount - a.coffeeRatingCount;
+      }
+      const aPublic = a.publicCoffeeScore ?? -1;
+      const bPublic = b.publicCoffeeScore ?? -1;
+      if (bPublic !== aPublic) return bPublic - aPublic;
+      return b.coffeeScore - a.coffeeScore;
+    });
+    const topNearby = rankedNearby.slice(0, 5);
+    return topNearby.length > 0 ? topNearby : fallbackHighRatedCafes;
+  }, [cafeCatalog, fallbackHighRatedCafes, userLocation]);
 
   const { width: windowWidth } = useWindowDimensions();
   const picksCarousel = useMemo(() => {
@@ -314,6 +343,43 @@ export default function HomeScreen() {
       >
         <View style={styles.topSection}>
           <BrandTopBar />
+
+          <View style={styles.homeSection}>
+            <View style={styles.homeSectionHeader}>
+              <Text style={styles.homeSectionTitle}>Trending nearby</Text>
+              <Text style={styles.homeSectionSubtitle}>Popular around you right now</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator
+              decelerationRate="fast"
+              snapToInterval={picksCarousel.snapInterval}
+              snapToAlignment="start"
+              disableIntervalMomentum
+              contentContainerStyle={styles.picksRowContent}
+              style={styles.picksRow}
+            >
+              {trendingNearby.map((cafe, index) => (
+                <View
+                  key={`trending-${cafe.id}`}
+                  style={{
+                    width: picksCarousel.cardWidth,
+                    marginRight: index === trendingNearby.length - 1 ? 0 : picksCarousel.gap,
+                  }}
+                >
+                  <HomeCafeCard
+                    cafe={cafe}
+                    layout="carousel"
+                    localRating={ratingsByCafeId[cafe.id]}
+                    recommendationReason={null}
+                    isSaved={isSaved(cafe.id)}
+                    onSavePress={() => void toggleSaved(cafe.id)}
+                    onPress={() => router.push(`/cafe/${cafe.id}`)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
 
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>

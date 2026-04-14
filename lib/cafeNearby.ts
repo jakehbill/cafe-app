@@ -4,13 +4,12 @@ import type { Cafe } from '@/data/cafes';
  * “Nearby” for Trending (MVP).
  *
  * - With GPS: cafes within `NEARBY_RADIUS_MILES` of the user.
- * - Without GPS: anchor = centroid of the static dataset, same radius; if none in radius,
- *   return all cafes sorted nearest-first (distance from anchor).
+ * - Without GPS: anchor = fallback central location, same radius.
  *
  * Tweak `NEARBY_RADIUS_MILES` or fallback behavior here.
  */
 
-export const NEARBY_RADIUS_MILES = 0.75;
+export const NEARBY_RADIUS_MILES = 1.25;
 
 const EARTH_RADIUS_MILES = 3958.7613;
 
@@ -51,7 +50,6 @@ export type UserCoords = { latitude: number; longitude: number } | null;
 
 /**
  * Returns cafes considered “nearby”, then caller ranks them (e.g. trending).
- * Stable: same inputs → same list order for the fallback path.
  */
 export function getNearbyCafes(allCafes: Cafe[], userLocation: UserCoords): Cafe[] {
   if (allCafes.length === 0) {
@@ -66,10 +64,5 @@ export function getNearbyCafes(allCafes: Cafe[], userLocation: UserCoords): Cafe
   }));
 
   const within = scored.filter((s) => s.miles <= NEARBY_RADIUS_MILES).map((s) => s.cafe);
-  if (within.length > 0) {
-    return within;
-  }
-
-  scored.sort((a, b) => a.miles - b.miles);
-  return scored.map((s) => s.cafe);
+  return within;
 }
