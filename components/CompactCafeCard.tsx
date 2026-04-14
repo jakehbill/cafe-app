@@ -250,7 +250,7 @@ function renderScoreLocationMeta(meta: { score: string; location: string }) {
 
 const styles = StyleSheet.create({
   rankBadge: {
-    width: 36,
+    width: 24,
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
     ...SHADOWS.none,
-    gap: 12,
+    gap: 8,
   },
   cardMainPressable: {
     flex: 1,
