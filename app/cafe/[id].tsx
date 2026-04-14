@@ -20,6 +20,7 @@ import {
   Alert,
   Image,
   Linking,
+  Pressable,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Share,
@@ -369,34 +370,34 @@ export default function CafeDetailScreen() {
           </TouchableOpacity>
 
           <View style={styles.heroTopRight}>
-            <TouchableOpacity
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel="Open directions"
               onPress={() => void handleOpenGoogleMaps()}
-              style={styles.heroIconFab}
+              style={({ pressed }) => [styles.heroIconFab, pressed && styles.heroIconFabPressed]}
             >
-              <Ionicons name="navigate-outline" size={20} color="rgba(255,255,255,0.95)" />
-            </TouchableOpacity>
-            <TouchableOpacity
+              <Ionicons name="navigate-outline" size={20} color="rgba(34,30,26,0.92)" />
+            </Pressable>
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel={isSaved(cafe.id) ? 'Saved' : 'Save cafe'}
               onPress={() => void handleSavePress()}
-              style={styles.heroIconFab}
+              style={({ pressed }) => [styles.heroIconFab, pressed && styles.heroIconFabPressed]}
             >
               <Ionicons
                 name={isSaved(cafe.id) ? 'bookmark' : 'bookmark-outline'}
                 size={20}
-                color="rgba(255,255,255,0.95)"
+                color="rgba(34,30,26,0.92)"
               />
-            </TouchableOpacity>
-            <TouchableOpacity
+            </Pressable>
+            <Pressable
               accessibilityRole="button"
               accessibilityLabel="Share this cafe"
               onPress={() => void onShare()}
-              style={styles.heroIconFab}
+              style={({ pressed }) => [styles.heroIconFab, pressed && styles.heroIconFabPressed]}
             >
-              <Ionicons name="share-outline" size={20} color="rgba(255,255,255,0.95)" />
-            </TouchableOpacity>
+              <Ionicons name="share-outline" size={20} color="rgba(34,30,26,0.92)" />
+            </Pressable>
           </View>
         </View>
 
@@ -584,9 +585,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: 'rgba(95,88,80,0.16)',
+  },
+  heroIconFabPressed: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    transform: [{ scale: 0.95 }],
   },
   mainPad: {
     paddingHorizontal: 20,
