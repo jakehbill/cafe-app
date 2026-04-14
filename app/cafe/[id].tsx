@@ -13,7 +13,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -37,6 +37,8 @@ import { getCafePhotoUrls, type Cafe } from '../../data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
+import { useUserLocation } from '@/contexts/UserLocationContext';
+import { withCafeDistances } from '@/lib/cafeDistance';
 
 const FEATURE_TAG_COUNT = 6;
 
@@ -123,11 +125,17 @@ export default function CafeDetailScreen() {
   const [featureTags, setFeatureTags] = useState<string[]>([]);
   const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
   const [recentReviews, setRecentReviews] = useState<CafeRecentReview[]>([]);
+  const { coords: userLocation, refreshLocation } = useUserLocation();
 
   const { width: windowWidth } = useWindowDimensions();
   const photoUrls = cafe ? getCafePhotoUrls(cafe) : [];
   const heroPageW = heroGSize.w > 0 ? heroGSize.w : windowWidth;
   const heroPageH = heroGSize.h > 0 ? heroGSize.h : heroPageW / (3 / 2);
+
+  useEffect(() => {
+    // Refresh location on detail mount so the decision screen uses current distance when available.
+    void refreshLocation();
+  }, [refreshLocation]);
 
   useEffect(() => {
     if (!cafeId) {
@@ -194,6 +202,15 @@ export default function CafeDetailScreen() {
   }, [navigation]);
 
   const routeCafeId = cafeId ? String(cafeId) : '';
+  const cafeWithDistance = useMemo(() => {
+    if (!cafe) return null;
+    return withCafeDistances([cafe], userLocation)[0] ?? cafe;
+  }, [cafe, userLocation]);
+  const detailDistanceMiles = cafeWithDistance?.distanceMiles ?? null;
+  const detailDistanceLabel = cafeWithDistance?.distanceLabel ?? null;
+  const detailScoreLabel = formatPublicCoffeeOutOf5(cafeWithDistance?.publicCoffeeScore ?? null);
+  const detailNeighborhood = (cafeWithDistance?.neighborhood ?? '').trim();
+  const detailDistanceText = detailDistanceLabel ? `${detailDistanceLabel} away` : null;
 
   const heroBackRow = (
     <View style={styles.heroBackRow}>
@@ -405,9 +422,19 @@ export default function CafeDetailScreen() {
           <View style={styles.identityTextBlock}>
             <Text style={styles.identityName}>{cafe.name}</Text>
             <Text style={styles.identityMeta} numberOfLines={1}>
-              <Text style={styles.identityMetaScore}>{formatPublicCoffeeOutOf5(cafe.publicCoffeeScore)}</Text>
-              <Text style={styles.identityMetaDot}> {'\u00b7'} </Text>
-              <Text>{cafe.neighborhood}</Text>
+              <Text style={styles.identityMetaScore}>{detailScoreLabel}</Text>
+              {detailNeighborhood ? (
+                <>
+                  <Text style={styles.identityMetaDot}> {'\u00b7'} </Text>
+                  <Text>{detailNeighborhood}</Text>
+                </>
+              ) : null}
+              {detailDistanceMiles != null && detailDistanceText ? (
+                <>
+                  <Text style={styles.identityMetaDot}> {'\u2022'} </Text>
+                  <Text style={styles.identityMetaDistance}>{detailDistanceText}</Text>
+                </>
+              ) : null}
             </Text>
             <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
           </View>
@@ -621,6 +648,11 @@ const styles = StyleSheet.create({
   },
   identityMetaDot: {
     color: COLORS.muted,
+  },
+  identityMetaDistance: {
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.text,
+    opacity: 0.86,
   },
   identityAddress: {
     fontSize: 14,
