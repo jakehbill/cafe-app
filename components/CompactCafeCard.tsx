@@ -6,6 +6,7 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'reac
 import { getPrimaryPhotoUrl, type Cafe } from '@/data/cafes';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags } from '@/lib/supabase';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -54,8 +55,8 @@ export type CompactCafeCardProps = {
   /**
    * Where the public coffee score appears (compact list cards only).
    * `bottomRight` (default) — on the thumbnail; Ratings, etc.
-   * `cardTopRight` — Search + Saved: end of the title row; not on the image.
-   * `contentColumn` — Visited: name → location → score in the text column (not on the image).
+   * `cardTopRight` — Search + Saved: inline metadata (`score · location`) under title; not on image.
+   * `contentColumn` — Visited: same inline metadata directly under title; not on image.
    */
   scorePosition?: 'bottomRight' | 'cardTopRight' | 'contentColumn';
 };
@@ -85,6 +86,7 @@ export function CompactCafeCard({
   const scoreOnCardTopRight = scorePosition === 'cardTopRight';
   const scoreInContentColumn = scorePosition === 'contentColumn';
   const scoreOnThumbnail = !scoreOnCardTopRight && !scoreInContentColumn;
+  const metadataLine = buildScoreLocationMeta(cafe);
 
   useEffect(() => {
     if (!showTagsUI) return;
@@ -143,9 +145,8 @@ export function CompactCafeCard({
                 {cafe.name}
               </Text>
               <Text style={styles.location} numberOfLines={1}>
-                {cafe.neighborhood}
+                {renderScoreLocationMeta(metadataLine)}
               </Text>
-              <PublicCoffeeScoreText cafe={cafe} variant="overlayThumb" />
               {recommendationReason ? (
                 <View style={styles.recommendationReasonWrap}>
                   <Text style={styles.recommendationReason} numberOfLines={1}>
@@ -171,16 +172,9 @@ export function CompactCafeCard({
             </>
           ) : (
             <>
-              <View style={styles.titleRow}>
-                <Text style={styles.name} numberOfLines={2}>
-                  {cafe.name}
-                </Text>
-                {scoreOnCardTopRight ? (
-                  <View style={styles.titleRowScore}>
-                    <PublicCoffeeScoreText cafe={cafe} variant="overlaySearch" />
-                  </View>
-                ) : null}
-              </View>
+              <Text style={styles.name} numberOfLines={2}>
+                {cafe.name}
+              </Text>
               {recommendationReason ? (
                 <View style={styles.recommendationReasonWrap}>
                   <Text style={styles.recommendationReason} numberOfLines={1}>
@@ -189,7 +183,7 @@ export function CompactCafeCard({
                 </View>
               ) : null}
               <Text style={styles.location} numberOfLines={1}>
-                {cafe.neighborhood}
+                {scoreOnCardTopRight ? renderScoreLocationMeta(metadataLine) : cafe.neighborhood}
               </Text>
               {showTagRow ? (
                 <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
@@ -213,6 +207,26 @@ export function CompactCafeCard({
       {trailing != null ? <View style={styles.trailing}>{trailing}</View> : null}
     </View>
   );
+}
+
+function buildScoreLocationMeta(cafe: Cafe): { score: string; location: string } {
+  const score = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore).trim();
+  const location = (cafe.neighborhood ?? '').trim();
+  return { score, location };
+}
+
+function renderScoreLocationMeta(meta: { score: string; location: string }) {
+  if (meta.score.length > 0 && meta.location.length > 0) {
+    return (
+      <>
+        <Text style={styles.locationScore}>{meta.score}</Text>
+        <Text style={styles.locationDot}> {'\u00b7'} </Text>
+        <Text>{meta.location}</Text>
+      </>
+    );
+  }
+  if (meta.location.length > 0) return meta.location;
+  return <Text style={styles.locationScore}>{meta.score}</Text>;
 }
 
 const styles = StyleSheet.create({
@@ -297,22 +311,11 @@ const styles = StyleSheet.create({
    * `name` uses `nameContentColumn` so `flex: 1` does not stretch the title and break even gaps.
    */
   bodyContentColumn: {
-    gap: 5,
+    gap: 4,
   },
   nameContentColumn: {
     flex: 0,
     alignSelf: 'stretch',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  /** Search: first text row with title — optical nudge for display vs Inter numerals. */
-  titleRowScore: {
-    flexShrink: 0,
-    marginTop: 1,
-    paddingRight: 2,
   },
   name: {
     flex: 1,
@@ -347,6 +350,15 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     letterSpacing: -0.05,
     opacity: 0.88,
+  },
+  locationScore: {
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.text,
+    opacity: 0.92,
+  },
+  locationDot: {
+    color: COLORS.muted,
+    opacity: 0.7,
   },
   tagsRow: {
     flexDirection: 'row',
