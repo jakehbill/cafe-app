@@ -332,6 +332,8 @@ export type CafeCommunityTagInsight = {
 export type CafeRecentReview = {
   note: string;
   createdAt: string | null;
+  username: string | null;
+  displayName: string | null;
 };
 
 /**
@@ -396,31 +398,82 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
   const id = String(cafeId).trim();
   if (!id) return [];
 
-  const res = await supabase
-    .from('user_cafe_ratings')
-    .select('notes, created_at, updated_at')
-    .eq('cafe_id', id)
-    .order('created_at', { ascending: false })
-    .limit(Math.max(limit * 3, 12));
+  let rows: Array<{ user_id?: string | null; notes?: string | null; created_at?: string | null }> = [];
 
-  if (res.error) {
-    console.error('getRecentCafeReviews failed:', res.error);
+  // Preferred path: newest-first by created_at (when column exists in this project schema).
+  const byCreatedAtRes = await supabase
+    .from('user_cafe_ratings')
+    .select('user_id, notes, created_at')
+    .eq('cafe_id', id)
+    .not('notes', 'is', null)
+    .neq('notes', '')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (!byCreatedAtRes.error) {
+    rows = (byCreatedAtRes.data ?? []) as Array<{
+      user_id?: string | null;
+      notes?: string | null;
+      created_at?: string | null;
+    }>;
+  } else if (byCreatedAtRes.error.code === '42703') {
+    // Backward-compatible fallback for older setups without created_at on user_cafe_ratings.
+    const fallbackRes = await supabase
+      .from('user_cafe_ratings')
+      .select('user_id, notes')
+      .eq('cafe_id', id)
+      .not('notes', 'is', null)
+      .neq('notes', '')
+      .limit(limit);
+    if (fallbackRes.error) {
+      console.error('getRecentCafeReviews fallback failed:', fallbackRes.error);
+      return [];
+    }
+    rows = (fallbackRes.data ?? []) as Array<{ user_id?: string | null; notes?: string | null }>;
+  } else {
+    console.error('getRecentCafeReviews failed:', byCreatedAtRes.error);
     return [];
   }
 
-  const rows = (res.data ?? []) as Array<{
-    notes?: string | null;
-    created_at?: string | null;
-    updated_at?: string | null;
-  }>;
+  const userIds = Array.from(
+    new Set(
+      rows
+        .map((row) => (row.user_id ? String(row.user_id).trim() : ''))
+        .filter((v) => v.length > 0)
+    )
+  );
+  let profileMap = new Map<string, { username: string | null; displayName: string | null }>();
+  if (userIds.length > 0) {
+    const profRes = await supabase
+      .from('profiles')
+      .select('user_id, username, display_name')
+      .in('user_id', userIds);
+    if (profRes.error) {
+      console.error('getRecentCafeReviews profiles fetch failed:', profRes.error);
+    } else {
+      profileMap = new Map(
+        (profRes.data ?? []).map((row) => [
+          String(row.user_id),
+          {
+            username: typeof row.username === 'string' ? row.username : null,
+            displayName: typeof row.display_name === 'string' ? row.display_name : null,
+          },
+        ])
+      );
+    }
+  }
 
   const cleaned = rows
     .map((row) => {
       const note = (row.notes ?? '').trim();
       if (!note) return null;
+      const uid = row.user_id ? String(row.user_id).trim() : '';
+      const profile = uid ? profileMap.get(uid) : undefined;
       return {
         note,
-        createdAt: row.created_at ?? row.updated_at ?? null,
+        createdAt: row.created_at ?? null,
+        username: profile?.username ?? null,
+        displayName: profile?.displayName ?? null,
       } satisfies CafeRecentReview;
     })
     .filter((row): row is CafeRecentReview => row != null)

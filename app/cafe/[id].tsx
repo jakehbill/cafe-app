@@ -103,6 +103,14 @@ function ActionButton({
   );
 }
 
+function reviewerAttribution(review: CafeRecentReview): string | null {
+  const username = (review.username ?? '').trim();
+  if (username.length > 0) return `@${username}`;
+  const displayName = (review.displayName ?? '').trim();
+  if (displayName.length > 0) return displayName;
+  return null;
+}
+
 export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
@@ -444,10 +452,16 @@ export default function CafeDetailScreen() {
                     key={`${review.createdAt ?? 'no-date'}-${index}`}
                     style={styles.reviewCard}
                   >
-                    <Text style={styles.reviewQuoteMark}>“</Text>
                     <Text style={styles.reviewText} numberOfLines={5}>
+                      {'\u201C'}
                       {review.note}
+                      {'\u201D'}
                     </Text>
+                    {reviewerAttribution(review) ? (
+                      <Text style={styles.reviewAttribution} numberOfLines={1}>
+                        — {reviewerAttribution(review)}
+                      </Text>
+                    ) : null}
                   </View>
                 ))}
               </ScrollView>
@@ -686,19 +700,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 4,
   },
-  reviewQuoteMark: {
-    fontSize: 20,
-    lineHeight: 20,
-    fontFamily: FONTS.display.semibold,
-    color: COLORS.accent,
-    opacity: 0.55,
-  },
   reviewText: {
     fontSize: 14,
     lineHeight: 20,
     fontFamily: FONTS.sans.regular,
     color: COLORS.text,
     letterSpacing: -0.05,
+  },
+  reviewAttribution: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    opacity: 0.92,
   },
   heroBackRow: {
     alignSelf: 'stretch',
