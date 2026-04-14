@@ -110,8 +110,8 @@ export default function MyCafesScreen() {
             <CompactCafeCard
               rank={index + 1}
               cafe={item}
-              showTagsUI={false}
-              scorePosition="contentColumn"
+              scorePosition="cardTopRight"
+              reserveTagSpaceWhenEmpty
               onPress={() => router.push(`/cafe/${item.id}`)}
               trailing={
                 <TouchableOpacity
