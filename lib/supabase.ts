@@ -329,6 +329,11 @@ export type CafeCommunityTagInsight = {
   tag: string;
 };
 
+export type CafeRecentReview = {
+  note: string;
+  createdAt: string | null;
+};
+
 /**
  * Best tag for “X% of people rate this for Y” — uses the most common tag among
  * `rating_tags` rows for this cafe’s ratings; % = ratings that include that tag / total ratings.
@@ -381,5 +386,50 @@ export async function getCafeCommunityTagInsight(cafeId: string): Promise<CafeCo
 
   const percent = Math.min(100, Math.max(0, Math.round((bestCount / totalRatings) * 100)));
   return { totalRatings, percent, tag: bestTag };
+}
+
+/**
+ * Most recent user-written notes for one cafe (UGC review snippets).
+ * Pulls from `user_cafe_ratings` and returns up to `limit` non-empty notes.
+ */
+export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<CafeRecentReview[]> {
+  const id = String(cafeId).trim();
+  if (!id) return [];
+
+  const res = await supabase
+    .from('user_cafe_ratings')
+    .select('notes, created_at, updated_at')
+    .eq('cafe_id', id)
+    .order('created_at', { ascending: false })
+    .limit(Math.max(limit * 3, 12));
+
+  if (res.error) {
+    console.error('getRecentCafeReviews failed:', res.error);
+    return [];
+  }
+
+  const rows = (res.data ?? []) as Array<{
+    notes?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  }>;
+
+  const cleaned = rows
+    .map((row) => {
+      const note = (row.notes ?? '').trim();
+      if (!note) return null;
+      return {
+        note,
+        createdAt: row.created_at ?? row.updated_at ?? null,
+      } satisfies CafeRecentReview;
+    })
+    .filter((row): row is CafeRecentReview => row != null)
+    .sort((a, b) => {
+      const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bt - at;
+    });
+
+  return cleaned.slice(0, limit);
 }
 

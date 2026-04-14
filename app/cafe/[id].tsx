@@ -3,7 +3,13 @@ import { COLORS, FONTS } from '@/components/theme';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
-import { getCafeCommunityTagInsight, getTopCafeTags, type CafeCommunityTagInsight } from '@/lib/supabase';
+import {
+  getCafeCommunityTagInsight,
+  getRecentCafeReviews,
+  getTopCafeTags,
+  type CafeCommunityTagInsight,
+  type CafeRecentReview,
+} from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -101,7 +107,7 @@ export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
   const navigation = useNavigation();
-  const { toggleSaved, toggleVisited, isSaved, isVisited, getCafeRating } = useCafeState();
+  const { toggleSaved, toggleVisited, isSaved, isVisited } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [cafeLoading, setCafeLoading] = useState(true);
@@ -109,6 +115,7 @@ export default function CafeDetailScreen() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [featureTags, setFeatureTags] = useState<string[]>([]);
   const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
+  const [recentReviews, setRecentReviews] = useState<CafeRecentReview[]>([]);
 
   const { width: windowWidth } = useWindowDimensions();
   const photoUrls = cafe ? getCafePhotoUrls(cafe) : [];
@@ -139,19 +146,22 @@ export default function CafeDetailScreen() {
     if (!cafe?.id) {
       setFeatureTags([]);
       setTagInsight(null);
+      setRecentReviews([]);
       return;
     }
     let cancelled = false;
     void (async () => {
       const c = cafe;
       if (!c) return;
-      const [popular, insight] = await Promise.all([
+      const [popular, insight, reviews] = await Promise.all([
         getTopCafeTags(c.id, FEATURE_TAG_COUNT),
         getCafeCommunityTagInsight(c.id),
+        getRecentCafeReviews(c.id, 5),
       ]);
       if (cancelled) return;
       setFeatureTags(popular);
       setTagInsight(insight);
+      setRecentReviews(reviews);
     })();
     return () => {
       cancelled = true;
@@ -214,9 +224,6 @@ export default function CafeDetailScreen() {
       </SafeAreaView>
     );
   }
-
-  const localRating = getCafeRating(cafe.id);
-  const ratingNotes = localRating?.notes?.trim() ?? '';
 
   async function handleOpenGoogleMaps() {
     if (!cafe) return;
@@ -393,15 +400,12 @@ export default function CafeDetailScreen() {
           {cafe.summary ? <View style={styles.identitySummaryDivider} /> : null}
 
           {cafe.summary ? (
-            <Text style={styles.summaryText} numberOfLines={8}>
-              {cafe.summary}
-            </Text>
-          ) : null}
-
-          {ratingNotes.length > 0 ? (
-            <Text style={styles.notesText} numberOfLines={6}>
-              {ratingNotes}
-            </Text>
+            <>
+              <Text style={styles.sectionHeading}>About</Text>
+              <Text style={styles.summaryText} numberOfLines={8}>
+                {cafe.summary}
+              </Text>
+            </>
           ) : null}
 
           {featureTags.length > 0 ? (
@@ -426,6 +430,29 @@ export default function CafeDetailScreen() {
           <View style={styles.insightBubble}>
             <Text style={styles.insightBubbleText}>{insightBubbleText}</Text>
           </View>
+
+          {recentReviews.length > 0 ? (
+            <View style={styles.reviewsSection}>
+              <Text style={styles.sectionHeading}>Reviews</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.reviewsRow}
+              >
+                {recentReviews.map((review, index) => (
+                  <View
+                    key={`${review.createdAt ?? 'no-date'}-${index}`}
+                    style={styles.reviewCard}
+                  >
+                    <Text style={styles.reviewQuoteMark}>“</Text>
+                    <Text style={styles.reviewText} numberOfLines={5}>
+                      {review.note}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
 
           <View style={styles.actionsWrap}>
             <ActionButton
@@ -581,18 +608,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   summaryText: {
-    color: COLORS.muted,
+    color: COLORS.text,
     fontSize: 15,
     lineHeight: 23,
     fontFamily: FONTS.sans.regular,
-    letterSpacing: -0.05,
-  },
-  notesText: {
-    color: COLORS.muted,
-    fontSize: 14,
-    lineHeight: 21,
-    fontFamily: FONTS.sans.regular,
-    fontStyle: 'italic',
     letterSpacing: -0.05,
   },
   sectionHeading: {
@@ -648,6 +667,38 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     letterSpacing: -0.05,
     opacity: 0.92,
+  },
+  reviewsSection: {
+    gap: 10,
+  },
+  reviewsRow: {
+    gap: 10,
+    paddingRight: 6,
+  },
+  reviewCard: {
+    width: 260,
+    minHeight: 96,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    gap: 4,
+  },
+  reviewQuoteMark: {
+    fontSize: 20,
+    lineHeight: 20,
+    fontFamily: FONTS.display.semibold,
+    color: COLORS.accent,
+    opacity: 0.55,
+  },
+  reviewText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.text,
+    letterSpacing: -0.05,
   },
   heroBackRow: {
     alignSelf: 'stretch',
