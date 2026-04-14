@@ -45,6 +45,10 @@ export type Cafe = {
     saves: number;
     visits: number;
   };
+  /** Derived client-side from user location when available. */
+  distanceMiles?: number | null;
+  /** Preformatted display label, e.g. "0.4 mi". */
+  distanceLabel?: string | null;
 };
 
 /** All photo URLs for a cafe (gallery or single legacy `imageUrl`). */

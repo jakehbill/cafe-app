@@ -23,12 +23,16 @@ import { buildTasteProfileFromState, rankCafesForSearch } from '@/lib/cafeRankin
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import SearchResultsMap from '@/components/maps/SearchResultsMap';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
+import { useUserLocation } from '@/contexts/UserLocationContext';
+import { withCafeDistances } from '@/lib/cafeDistance';
 import {
   cafeMatchesSelectedCanonicalTagsMeaningfully,
   fetchMeaningfulCafeIdsByCanonicalTag,
 } from '@/lib/cafeTagSignal';
 
 type ViewMode = 'list' | 'map';
+type SearchSortMode = 'default' | 'nearest';
+type RadiusFilter = 'any' | 0.5 | 1 | 2 | 5;
 
 function regionForCafes(cafeList: Cafe[]) {
   if (cafeList.length === 0) {
@@ -53,9 +57,12 @@ export default function SearchScreen() {
   const router = useRouter();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
   const { cafes: cafeCatalog } = useCafeCatalog();
+  const { coords: userLocation, refreshLocation } = useUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [sortMode, setSortMode] = useState<SearchSortMode>('default');
+  const [radiusFilter, setRadiusFilter] = useState<RadiusFilter>('any');
   const [expandedCategoryTitle, setExpandedCategoryTitle] = useState<string | null>(null);
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
   const [tagSignalLoading, setTagSignalLoading] = useState(false);
@@ -63,22 +70,39 @@ export default function SearchScreen() {
     () => new Map()
   );
 
+  useEffect(() => {
+    // Refresh on mount so distances are recalculated when screen opens.
+    void refreshLocation();
+  }, [refreshLocation]);
+
+  useEffect(() => {
+    if (sortMode === 'nearest' || radiusFilter !== 'any') {
+      // Refresh when using location-sensitive controls; no constant polling.
+      void refreshLocation();
+    }
+  }, [sortMode, radiusFilter, refreshLocation]);
+
+  const cafesWithDistance = useMemo(
+    () => withCafeDistances(cafeCatalog, userLocation),
+    [cafeCatalog, userLocation]
+  );
+
   const tasteProfile = useMemo(
-    () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
-    [ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds]
+    () => buildTasteProfileFromState(ratingsByCafeId, cafesWithDistance, visitedCafeIds, savedCafeIds),
+    [ratingsByCafeId, cafesWithDistance, visitedCafeIds, savedCafeIds]
   );
 
   const ranked = useMemo(() => {
     const q = query.trim().toLowerCase();
     return rankCafesForSearch(
-      [...cafeCatalog],
+      [...cafesWithDistance],
       q,
       null,
       ratingsByCafeId,
       tasteProfile,
       onboardingPrefs
     );
-  }, [query, ratingsByCafeId, tasteProfile, onboardingPrefs, cafeCatalog]);
+  }, [query, ratingsByCafeId, tasteProfile, onboardingPrefs, cafesWithDistance]);
 
   // When tag filters change, fetch rating-derived “meaningful signal” sets (cached in memory here).
   useEffect(() => {
@@ -106,13 +130,38 @@ export default function SearchScreen() {
   }, [selectedTagSlugs, ranked]);
 
   const results = useMemo(() => {
-    if (selectedTagSlugs.length === 0) return ranked;
-    // Wait for rating_tags-derived sets; do not use cafes.tags for filtering.
-    if (tagSignalLoading) return ranked;
-    return ranked.filter((cafe) =>
-      cafeMatchesSelectedCanonicalTagsMeaningfully(cafe.id, selectedTagSlugs, meaningfulCafeIdsBySlug)
-    );
-  }, [ranked, selectedTagSlugs, meaningfulCafeIdsBySlug, tagSignalLoading]);
+    let next = ranked;
+    if (selectedTagSlugs.length > 0) {
+      // Wait for rating_tags-derived sets; do not use cafes.tags for filtering.
+      if (tagSignalLoading) return ranked;
+      next = ranked.filter((cafe) =>
+        cafeMatchesSelectedCanonicalTagsMeaningfully(cafe.id, selectedTagSlugs, meaningfulCafeIdsBySlug)
+      );
+    }
+
+    // No location means nearest/radius controls gracefully become no-ops.
+    if (userLocation && radiusFilter !== 'any') {
+      next = next.filter((cafe) => cafe.distanceMiles != null && cafe.distanceMiles <= radiusFilter);
+    }
+
+    if (sortMode === 'nearest' && userLocation) {
+      next = [...next].sort((a, b) => {
+        const aMiles = a.distanceMiles ?? Number.MAX_SAFE_INTEGER;
+        const bMiles = b.distanceMiles ?? Number.MAX_SAFE_INTEGER;
+        return aMiles - bMiles;
+      });
+    }
+
+    return next;
+  }, [
+    ranked,
+    selectedTagSlugs,
+    meaningfulCafeIdsBySlug,
+    tagSignalLoading,
+    userLocation,
+    radiusFilter,
+    sortMode,
+  ]);
 
   const toggleTagSlug = (slug: string) => {
     setSelectedTagSlugs((prev) =>
@@ -257,6 +306,80 @@ export default function SearchScreen() {
               Map
             </Text>
           </TouchableOpacity>
+        </View>
+        <View style={styles.distanceControlsWrap}>
+          <View style={styles.distanceSortRow}>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[
+                styles.distancePill,
+                sortMode === 'default' && styles.distancePillActive,
+              ]}
+              onPress={() => setSortMode('default')}
+            >
+              <Text
+                style={[
+                  styles.distancePillLabel,
+                  sortMode === 'default' && styles.distancePillLabelActive,
+                ]}
+              >
+                Default
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[
+                styles.distancePill,
+                sortMode === 'nearest' && styles.distancePillActive,
+                !userLocation && styles.distancePillDisabled,
+              ]}
+              onPress={() => setSortMode('nearest')}
+              disabled={!userLocation}
+            >
+              <Text
+                style={[
+                  styles.distancePillLabel,
+                  sortMode === 'nearest' && styles.distancePillLabelActive,
+                  !userLocation && styles.distancePillLabelDisabled,
+                ]}
+              >
+                Nearest
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.radiusRow}
+          >
+            {(['any', 0.5, 1, 2, 5] as const).map((radius) => {
+              const selected = radiusFilter === radius;
+              const disabled = radius !== 'any' && !userLocation;
+              return (
+                <TouchableOpacity
+                  key={`radius-${radius}`}
+                  activeOpacity={0.85}
+                  style={[
+                    styles.distancePill,
+                    selected && styles.distancePillActive,
+                    disabled && styles.distancePillDisabled,
+                  ]}
+                  onPress={() => setRadiusFilter(radius)}
+                  disabled={disabled}
+                >
+                  <Text
+                    style={[
+                      styles.distancePillLabel,
+                      selected && styles.distancePillLabelActive,
+                      disabled && styles.distancePillLabelDisabled,
+                    ]}
+                  >
+                    {radius === 'any' ? 'Any distance' : `${radius} mi`}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
       </View>
 
@@ -472,6 +595,43 @@ const styles = StyleSheet.create({
   },
   viewToggleLabelActive: {
     color: COLORS.accent,
+  },
+  distanceControlsWrap: {
+    gap: 8,
+  },
+  distanceSortRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  radiusRow: {
+    gap: 8,
+    paddingRight: 20,
+  },
+  distancePill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  distancePillActive: {
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
+  },
+  distancePillDisabled: {
+    opacity: 0.5,
+  },
+  distancePillLabel: {
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+  },
+  distancePillLabelActive: {
+    color: COLORS.accent,
+  },
+  distancePillLabelDisabled: {
+    color: COLORS.muted,
   },
   scrollContent: {
     paddingHorizontal: 20,

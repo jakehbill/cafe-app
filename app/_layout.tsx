@@ -21,6 +21,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { CafeStateProvider } from '@/contexts/CafeStateContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProfileGateProvider, useProfileGate } from '@/contexts/ProfileGateContext';
+import { UserLocationProvider } from '@/contexts/UserLocationContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -63,12 +64,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <ProfileGateProvider>
-          <CafeStateProvider>
-            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-              <RootNavigator />
-              <StatusBar style="dark" />
-            </ThemeProvider>
-          </CafeStateProvider>
+          <UserLocationProvider>
+            <CafeStateProvider>
+              <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+                <RootNavigator />
+                <StatusBar style="dark" />
+              </ThemeProvider>
+            </CafeStateProvider>
+          </UserLocationProvider>
         </ProfileGateProvider>
       </AuthProvider>
     </GestureHandlerRootView>

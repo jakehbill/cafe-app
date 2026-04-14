@@ -228,24 +228,51 @@ export function CompactCafeCard({
   );
 }
 
-function buildScoreLocationMeta(cafe: Cafe): { score: string; location: string } {
+function buildScoreLocationMeta(cafe: Cafe): { score: string; location: string; distance: string } {
   const score = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore).trim();
   const location = (cafe.neighborhood ?? '').trim();
-  return { score, location };
+  const distance = (cafe.distanceLabel ?? '').trim();
+  return { score, location, distance };
 }
 
-function renderScoreLocationMeta(meta: { score: string; location: string }) {
-  if (meta.score.length > 0 && meta.location.length > 0) {
+function renderScoreLocationMeta(meta: { score: string; location: string; distance: string }) {
+  const hasScore = meta.score.length > 0;
+  const hasLocation = meta.location.length > 0;
+  const hasDistance = meta.distance.length > 0;
+  if (hasScore && hasLocation) {
     return (
       <>
         <Text style={styles.locationScore}>{meta.score}</Text>
         <Text style={styles.locationDot}> {'\u00b7'} </Text>
         <Text>{meta.location}</Text>
+        {hasDistance ? (
+          <>
+            <Text style={styles.locationDot}> {'\u00b7'} </Text>
+            <Text>{meta.distance}</Text>
+          </>
+        ) : null}
       </>
     );
   }
-  if (meta.location.length > 0) return meta.location;
-  return <Text style={styles.locationScore}>{meta.score}</Text>;
+  if (hasLocation) {
+    return hasDistance ? (
+      <>
+        <Text>{meta.location}</Text>
+        <Text style={styles.locationDot}> {'\u00b7'} </Text>
+        <Text>{meta.distance}</Text>
+      </>
+    ) : meta.location;
+  }
+  if (hasScore) {
+    return hasDistance ? (
+      <>
+        <Text style={styles.locationScore}>{meta.score}</Text>
+        <Text style={styles.locationDot}> {'\u00b7'} </Text>
+        <Text>{meta.distance}</Text>
+      </>
+    ) : <Text style={styles.locationScore}>{meta.score}</Text>;
+  }
+  return meta.distance;
 }
 
 const styles = StyleSheet.create({

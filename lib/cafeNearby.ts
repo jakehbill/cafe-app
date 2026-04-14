@@ -1,4 +1,6 @@
 import type { Cafe } from '@/data/cafes';
+import { haversineMiles as haversineMilesRaw } from '@/lib/distance';
+import type { UserCoords } from '@/contexts/UserLocationContext';
 
 /**
  * “Nearby” for Trending (MVP).
@@ -9,26 +11,13 @@ import type { Cafe } from '@/data/cafes';
  * Tweak `NEARBY_RADIUS_MILES` or fallback behavior here.
  */
 
-export const NEARBY_RADIUS_MILES = 1.25;
+export const NEARBY_RADIUS_MILES = 1;
 
-const EARTH_RADIUS_MILES = 3958.7613;
-
-export function haversineMiles(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number
-): number {
-  const rLat = (lat2 - lat1) * (Math.PI / 180);
-  const rLng = (lng2 - lng1) * (Math.PI / 180);
-  const a =
-    Math.sin(rLat / 2) * Math.sin(rLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(rLng / 2) *
-      Math.sin(rLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return EARTH_RADIUS_MILES * c;
+export function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  return haversineMilesRaw(
+    { latitude: lat1, longitude: lng1 },
+    { latitude: lat2, longitude: lng2 }
+  ) ?? 0;
 }
 
 /** Geographic center of the cafe list (fallback “you are here” when GPS unavailable). */
@@ -45,8 +34,6 @@ export function getDatasetCentroid(cafes: Cafe[]): { latitude: number; longitude
   const n = cafes.length;
   return { latitude: slat / n, longitude: slng / n };
 }
-
-export type UserCoords = { latitude: number; longitude: number } | null;
 
 /**
  * Returns cafes considered “nearby”, then caller ranks them (e.g. trending).
@@ -65,4 +52,19 @@ export function getNearbyCafes(allCafes: Cafe[], userLocation: UserCoords): Cafe
 
   const within = scored.filter((s) => s.miles <= NEARBY_RADIUS_MILES).map((s) => s.cafe);
   return within;
+}
+
+export function getNearbyCafesWithinRadius(
+  allCafes: Cafe[],
+  userLocation: UserCoords,
+  radiusMiles: number
+): Cafe[] {
+  if (allCafes.length === 0 || !userLocation) return [];
+  return allCafes.filter((cafe) => {
+    const miles = haversineMilesRaw(userLocation, {
+      latitude: cafe.latitude,
+      longitude: cafe.longitude,
+    });
+    return miles != null && miles <= radiusMiles;
+  });
 }

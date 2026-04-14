@@ -1,8 +1,9 @@
 import type { Cafe } from '@/data/cafes';
+import type { UserCoords } from '@/contexts/UserLocationContext';
 
 import { supabase } from '@/lib/supabase';
 import { textRelevancePoints } from '@/lib/cafeRanking';
-import { getNearbyCafes, type UserCoords } from '@/lib/cafeNearby';
+import { getNearbyCafes } from '@/lib/cafeNearby';
 
 /**
  * “Trending nearby” — non-personalized ranking (MVP).

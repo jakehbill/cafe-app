@@ -28,8 +28,10 @@ import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags } from '@/lib/supabase';
-import { getNearbyCafes } from '@/lib/cafeNearby';
-import { useOptionalUserLocation } from '@/hooks/useOptionalUserLocation';
+import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
+import { computeTrendingScore, rankCafesForTrending } from '@/lib/cafeTrending';
+import { withCafeDistances } from '@/lib/cafeDistance';
+import { useUserLocation } from '@/contexts/UserLocationContext';
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -270,22 +272,44 @@ export default function HomeScreen() {
     }
   }, [navigation, segments]);
   const { cafes: cafeCatalog } = useCafeCatalog();
-  const userLocation = useOptionalUserLocation();
+  const { coords: userLocation, refreshLocation } = useUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
 
-  const tasteProfile = useMemo(
-    () => buildTasteProfileFromState(ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds),
-    [ratingsByCafeId, cafeCatalog, visitedCafeIds, savedCafeIds]
+  useEffect(() => {
+    // Refresh once on Home mount; avoids stale distance labels after app resume.
+    void refreshLocation();
+  }, [refreshLocation]);
+
+  const cafesWithDistance = useMemo(
+    () => withCafeDistances(cafeCatalog, userLocation),
+    [cafeCatalog, userLocation]
   );
 
-  /** Client-side ranking (same as Search with no query). Public coffee on cards comes from `cafe_public_scores` via catalog merge. */
-  const topPicksForYou = useMemo(
-    () => rankCafesForHome([...cafeCatalog], ratingsByCafeId, tasteProfile, onboardingPrefs).slice(0, 5),
-    [cafeCatalog, ratingsByCafeId, tasteProfile, onboardingPrefs]
+  const tasteProfile = useMemo(
+    () => buildTasteProfileFromState(ratingsByCafeId, cafesWithDistance, visitedCafeIds, savedCafeIds),
+    [ratingsByCafeId, cafesWithDistance, visitedCafeIds, savedCafeIds]
   );
+
+  /**
+   * Top picks remain preference-led.
+   * Distance adds only a small modifier so nearby options get a modest nudge, not a takeover.
+   */
+  const topPicksForYou = useMemo(() => {
+    const base = rankCafesForHome([...cafesWithDistance], ratingsByCafeId, tasteProfile, onboardingPrefs);
+    const baseRank = new Map(base.map((cafe, index) => [cafe.id, index]));
+    const rescored = [...base].sort((a, b) => {
+      const aBase = baseRank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+      const bBase = baseRank.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+      const aDistanceBoost = a.distanceMiles == null ? 0 : Math.max(0, 1 - a.distanceMiles / 6) * 0.35;
+      const bDistanceBoost = b.distanceMiles == null ? 0 : Math.max(0, 1 - b.distanceMiles / 6) * 0.35;
+      // Lower index is better; subtract small distance boost.
+      return (aBase - aDistanceBoost) - (bBase - bDistanceBoost);
+    });
+    return rescored.slice(0, 5);
+  }, [cafesWithDistance, ratingsByCafeId, tasteProfile, onboardingPrefs]);
 
   const fallbackHighRatedCafes = useMemo(() => {
-    const copy = [...cafeCatalog];
+    const copy = [...cafesWithDistance];
     copy.sort((a, b) => {
       const aPublic = a.publicCoffeeScore ?? -1;
       const bPublic = b.publicCoffeeScore ?? -1;
@@ -293,22 +317,39 @@ export default function HomeScreen() {
       return b.coffeeScore - a.coffeeScore;
     });
     return copy.slice(0, 5);
-  }, [cafeCatalog]);
+  }, [cafesWithDistance]);
 
   const trendingNearby = useMemo(() => {
-    const nearby = getNearbyCafes(cafeCatalog, userLocation);
-    const rankedNearby = [...nearby].sort((a, b) => {
-      if (b.coffeeRatingCount !== a.coffeeRatingCount) {
-        return b.coffeeRatingCount - a.coffeeRatingCount;
+    if (!userLocation) {
+      // Permission denied/unavailable path: keep Home usable with non-distance fallback.
+      return rankCafesForTrending([...cafesWithDistance]).slice(0, 5);
+    }
+
+    const radiusSteps = [1, 2, 3];
+    const targetCount = 5;
+    let pool: Cafe[] = [];
+    let activeRadius = radiusSteps[radiusSteps.length - 1];
+    for (const radius of radiusSteps) {
+      const inRadius = getNearbyCafesWithinRadius(cafesWithDistance, userLocation, radius);
+      if (inRadius.length > 0) pool = inRadius;
+      if (inRadius.length >= targetCount) {
+        pool = inRadius;
+        activeRadius = radius;
+        break;
       }
-      const aPublic = a.publicCoffeeScore ?? -1;
-      const bPublic = b.publicCoffeeScore ?? -1;
-      if (bPublic !== aPublic) return bPublic - aPublic;
-      return b.coffeeScore - a.coffeeScore;
+      activeRadius = radius;
+    }
+    if (pool.length === 0) return fallbackHighRatedCafes;
+
+    const rankedNearby = [...pool].sort((a, b) => {
+      const aDistBonus = a.distanceMiles == null ? 0 : Math.max(0, activeRadius - a.distanceMiles) * 1.8;
+      const bDistBonus = b.distanceMiles == null ? 0 : Math.max(0, activeRadius - b.distanceMiles) * 1.8;
+      const aScore = computeTrendingScore(a) + aDistBonus;
+      const bScore = computeTrendingScore(b) + bDistBonus;
+      return bScore - aScore;
     });
-    const topNearby = rankedNearby.slice(0, 5);
-    return topNearby.length > 0 ? topNearby : fallbackHighRatedCafes;
-  }, [cafeCatalog, fallbackHighRatedCafes, userLocation]);
+    return rankedNearby.slice(0, 5);
+  }, [cafesWithDistance, fallbackHighRatedCafes, userLocation]);
 
   const { width: windowWidth } = useWindowDimensions();
   const picksCarousel = useMemo(() => {
@@ -374,6 +415,7 @@ export default function HomeScreen() {
                     localRating={ratingsByCafeId[cafe.id]}
                     recommendationReason={getRecommendationReason(cafe, tasteProfile)}
                     isSaved={isSaved(cafe.id)}
+                    distanceLabel={cafe.distanceLabel ?? null}
                     onSavePress={() => void toggleSaved(cafe.id)}
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
@@ -410,6 +452,7 @@ export default function HomeScreen() {
                     localRating={ratingsByCafeId[cafe.id]}
                     recommendationReason={null}
                     isSaved={isSaved(cafe.id)}
+                    distanceLabel={cafe.distanceLabel ?? null}
                     onSavePress={() => void toggleSaved(cafe.id)}
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
