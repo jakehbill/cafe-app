@@ -14,6 +14,8 @@ import {
   Alert,
   Image,
   Linking,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Share,
   ScrollView,
   StyleSheet,
@@ -104,6 +106,7 @@ export default function CafeDetailScreen() {
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [cafeLoading, setCafeLoading] = useState(true);
   const [heroGSize, setHeroGSize] = useState({ w: 0, h: 0 });
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [featureTags, setFeatureTags] = useState<string[]>([]);
   const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
 
@@ -154,6 +157,10 @@ export default function CafeDetailScreen() {
       cancelled = true;
     };
   }, [cafe?.id]);
+
+  useEffect(() => {
+    setCurrentPhotoIndex(0);
+  }, [cafe?.id, photoUrls.length]);
 
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) {
@@ -301,12 +308,29 @@ export default function CafeDetailScreen() {
                 offset: heroPageW * index,
                 index,
               })}
+              onMomentumScrollEnd={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+                const offsetX = e.nativeEvent.contentOffset.x;
+                const nextIndex = Math.round(offsetX / heroPageW);
+                const boundedIndex = Math.max(0, Math.min(photoUrls.length - 1, nextIndex));
+                setCurrentPhotoIndex((prev) => (prev === boundedIndex ? prev : boundedIndex));
+              }}
               renderItem={({ item: uri }) => (
                 <Image source={{ uri }} style={{ width: heroPageW, height: heroPageH }} resizeMode="cover" />
               )}
             >
             </FlatList>
           )}
+
+          {photoUrls.length > 1 ? (
+            <View pointerEvents="none" style={styles.heroPagerDotsWrap}>
+              {photoUrls.map((_, index) => (
+                <View
+                  key={`${cafe.id}-dot-${index}`}
+                  style={[styles.heroPagerDot, index === currentPhotoIndex && styles.heroPagerDotActive]}
+                />
+              ))}
+            </View>
+          ) : null}
 
           <View style={styles.heroGradientSlot} pointerEvents="none">
             {heroGSize.h > 0 && heroGSize.w > 0 ? (
@@ -445,6 +469,26 @@ const styles = StyleSheet.create({
   heroGradientSlot: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
+  },
+  heroPagerDotsWrap: {
+    position: 'absolute',
+    bottom: 14,
+    left: 0,
+    right: 0,
+    zIndex: 3,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroPagerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  heroPagerDotActive: {
+    backgroundColor: COLORS.accent,
   },
   heroTopFadeSlot: {
     position: 'absolute',
