@@ -371,6 +371,14 @@ export default function CafeDetailScreen() {
           <View style={styles.heroTopRight}>
             <TouchableOpacity
               accessibilityRole="button"
+              accessibilityLabel="Open directions"
+              onPress={() => void handleOpenGoogleMaps()}
+              style={styles.heroIconFab}
+            >
+              <Ionicons name="navigate-outline" size={20} color="rgba(255,255,255,0.95)" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityRole="button"
               accessibilityLabel={isSaved(cafe.id) ? 'Saved' : 'Save cafe'}
               onPress={() => void handleSavePress()}
               style={styles.heroIconFab}
@@ -567,7 +575,7 @@ const styles = StyleSheet.create({
     top: 12,
     right: 12,
     zIndex: 4,
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 8,
   },
   heroIconFab: {
