@@ -390,6 +390,8 @@ export default function CafeDetailScreen() {
             <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
           </View>
 
+          {cafe.summary ? <View style={styles.identitySummaryDivider} /> : null}
+
           {cafe.summary ? (
             <Text style={styles.summaryText} numberOfLines={8}>
               {cafe.summary}
@@ -569,8 +571,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontFamily: FONTS.sans.regular,
-    color: COLORS.muted,
+    color: 'rgba(103,94,83,0.82)',
     letterSpacing: -0.1,
+  },
+  identitySummaryDivider: {
+    height: 1,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    marginTop: 6,
+    marginBottom: 10,
   },
   summaryText: {
     color: COLORS.muted,
