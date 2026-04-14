@@ -277,7 +277,6 @@ export default function SearchScreen() {
                     key={cafe.id}
                     cafe={cafe}
                     scorePosition="cardTopRight"
-                    compactNameMetaGap
                     reserveTagSpaceWhenEmpty
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
