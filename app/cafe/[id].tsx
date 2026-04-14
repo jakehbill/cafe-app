@@ -439,7 +439,7 @@ export default function CafeDetailScreen() {
 
           {recentReviews.length > 0 ? (
             <View style={styles.reviewsSection}>
-              <Text style={styles.sectionHeading}>Reviews</Text>
+              <Text style={styles.sectionHeading}>Notes</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -452,7 +452,6 @@ export default function CafeDetailScreen() {
                       key={`${review.createdAt ?? 'no-date'}-${index}`}
                       style={styles.reviewCard}
                     >
-                      <Text style={styles.reviewQuoteAccent}>“</Text>
                       <Text style={styles.reviewText} numberOfLines={5}>
                         {'\u201C'}
                         {review.note}
@@ -697,28 +696,20 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.cardBorder,
     backgroundColor: 'rgba(248, 243, 235, 0.96)',
-    paddingTop: 8,
-    paddingBottom: 9,
+    paddingTop: 7,
+    paddingBottom: 8,
     paddingHorizontal: 11,
-    gap: 4,
-  },
-  reviewQuoteAccent: {
-    fontSize: 13,
-    lineHeight: 14,
-    fontFamily: FONTS.display.semibold,
-    color: COLORS.accent,
-    opacity: 0.72,
-    marginBottom: 0,
+    gap: 3,
   },
   reviewText: {
     fontSize: 14,
-    lineHeight: 18,
+    lineHeight: 17,
     fontFamily: FONTS.sans.regular,
     color: COLORS.text,
     letterSpacing: -0.05,
   },
   reviewAttribution: {
-    marginTop: 2,
+    marginTop: 1,
     fontSize: 12,
     lineHeight: 15,
     fontFamily: FONTS.sans.regular,
