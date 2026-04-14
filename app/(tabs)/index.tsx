@@ -312,11 +312,12 @@ export default function HomeScreen() {
 
   const { width: windowWidth } = useWindowDimensions();
   const picksCarousel = useMemo(() => {
-    const peek = 28;
+    const cardWidthRatio = 0.84;
+    const peek = 26;
     const gap = 14;
     const cardWidth = Math.max(
-      280,
-      Math.min(windowWidth - SCREEN_HORIZONTAL_PADDING * 2 - peek, windowWidth * 0.88)
+      260,
+      Math.min(windowWidth * cardWidthRatio, windowWidth - SCREEN_HORIZONTAL_PADDING * 2 - peek)
     );
     const snapInterval = cardWidth + gap;
     return { cardWidth, gap, snapInterval };
@@ -343,43 +344,6 @@ export default function HomeScreen() {
       >
         <View style={styles.topSection}>
           <BrandTopBar />
-
-          <View style={styles.homeSection}>
-            <View style={styles.homeSectionHeader}>
-              <Text style={styles.homeSectionTitle}>Trending nearby</Text>
-              <Text style={styles.homeSectionSubtitle}>Popular around you right now</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator
-              decelerationRate="fast"
-              snapToInterval={picksCarousel.snapInterval}
-              snapToAlignment="start"
-              disableIntervalMomentum
-              contentContainerStyle={styles.picksRowContent}
-              style={styles.picksRow}
-            >
-              {trendingNearby.map((cafe, index) => (
-                <View
-                  key={`trending-${cafe.id}`}
-                  style={{
-                    width: picksCarousel.cardWidth,
-                    marginRight: index === trendingNearby.length - 1 ? 0 : picksCarousel.gap,
-                  }}
-                >
-                  <HomeCafeCard
-                    cafe={cafe}
-                    layout="carousel"
-                    localRating={ratingsByCafeId[cafe.id]}
-                    recommendationReason={null}
-                    isSaved={isSaved(cafe.id)}
-                    onSavePress={() => void toggleSaved(cafe.id)}
-                    onPress={() => router.push(`/cafe/${cafe.id}`)}
-                  />
-                </View>
-              ))}
-            </ScrollView>
-          </View>
 
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
@@ -417,6 +381,42 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
           </View>
+
+          <View style={styles.homeSection}>
+            <View style={styles.homeSectionHeader}>
+              <Text style={styles.secondarySectionTitle}>Trending nearby</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator
+              decelerationRate="fast"
+              snapToInterval={picksCarousel.snapInterval}
+              snapToAlignment="start"
+              disableIntervalMomentum
+              contentContainerStyle={styles.picksRowContent}
+              style={styles.picksRow}
+            >
+              {trendingNearby.map((cafe, index) => (
+                <View
+                  key={`trending-${cafe.id}`}
+                  style={{
+                    width: picksCarousel.cardWidth,
+                    marginRight: index === trendingNearby.length - 1 ? 0 : picksCarousel.gap,
+                  }}
+                >
+                  <HomeCafeCard
+                    cafe={cafe}
+                    layout="carousel"
+                    localRating={ratingsByCafeId[cafe.id]}
+                    recommendationReason={null}
+                    isSaved={isSaved(cafe.id)}
+                    onSavePress={() => void toggleSaved(cafe.id)}
+                    onPress={() => router.push(`/cafe/${cafe.id}`)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -434,14 +434,14 @@ const styles = StyleSheet.create({
     paddingBottom: 42,
   },
   topSection: {
-    gap: 14,
+    gap: 18,
   },
   homeSection: {
-    gap: 18,
+    gap: 9,
   },
   homeSectionHeader: {
     gap: 6,
-    marginBottom: 8,
+    marginBottom: 0,
     paddingTop: 0,
   },
   homeSectionTitle: {
@@ -458,13 +458,20 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     letterSpacing: -0.1,
   },
+  secondarySectionTitle: {
+    fontSize: 24,
+    lineHeight: 30,
+    fontFamily: FONTS.display.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.45,
+  },
   picksRow: {
     marginHorizontal: -SCREEN_HORIZONTAL_PADDING,
-    marginTop: 4,
+    marginTop: 0,
   },
   picksRowContent: {
-    paddingLeft: SCREEN_HORIZONTAL_PADDING,
-    paddingRight: SCREEN_HORIZONTAL_PADDING,
+    paddingLeft: 16,
+    paddingRight: 16,
     paddingBottom: 4,
   },
   featuredCard: {
