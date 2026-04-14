@@ -59,6 +59,10 @@ export type CompactCafeCardProps = {
    * `contentColumn` — Visited: same inline metadata directly under title; not on image.
    */
   scorePosition?: 'bottomRight' | 'cardTopRight' | 'contentColumn';
+  /** Search-only: tighten title + inline metadata block. */
+  compactNameMetaGap?: boolean;
+  /** Search-only: reserve tag row space even when no tags. */
+  reserveTagSpaceWhenEmpty?: boolean;
 };
 
 export function CompactCafeCard({
@@ -71,6 +75,8 @@ export function CompactCafeCard({
   trailing,
   showTagsUI = true,
   scorePosition = 'bottomRight',
+  compactNameMetaGap = false,
+  reserveTagSpaceWhenEmpty = false,
 }: CompactCafeCardProps) {
   /** Visited list (with trailing): when tags are shown, cap count and lighter styling. */
   const effectiveMaxTags = trailing != null ? Math.min(maxTags, 2) : maxTags;
@@ -87,6 +93,7 @@ export function CompactCafeCard({
   const scoreInContentColumn = scorePosition === 'contentColumn';
   const scoreOnThumbnail = !scoreOnCardTopRight && !scoreInContentColumn;
   const metadataLine = buildScoreLocationMeta(cafe);
+  const showTagSpacer = reserveTagSpaceWhenEmpty && !showTagRow;
 
   useEffect(() => {
     if (!showTagsUI) return;
@@ -141,12 +148,14 @@ export function CompactCafeCard({
         <View style={[styles.body, scoreInContentColumn && styles.bodyContentColumn]}>
           {scoreInContentColumn ? (
             <>
-              <Text style={[styles.name, styles.nameContentColumn]} numberOfLines={2}>
-                {cafe.name}
-              </Text>
-              <Text style={styles.location} numberOfLines={1}>
-                {renderScoreLocationMeta(metadataLine)}
-              </Text>
+              <View style={[styles.nameMetaStack, compactNameMetaGap && styles.nameMetaStackCompact]}>
+                <Text style={[styles.name, styles.nameContentColumn]} numberOfLines={2}>
+                  {cafe.name}
+                </Text>
+                <Text style={styles.location} numberOfLines={1}>
+                  {renderScoreLocationMeta(metadataLine)}
+                </Text>
+              </View>
               {recommendationReason ? (
                 <View style={styles.recommendationReasonWrap}>
                   <Text style={styles.recommendationReason} numberOfLines={1}>
@@ -172,9 +181,10 @@ export function CompactCafeCard({
             </>
           ) : (
             <>
-              <Text style={styles.name} numberOfLines={2}>
-                {cafe.name}
-              </Text>
+              <View style={[styles.nameMetaStack, compactNameMetaGap && styles.nameMetaStackCompact]}>
+                <Text style={[styles.name, compactNameMetaGap && styles.nameCompactMetaGap]} numberOfLines={2}>
+                  {cafe.name}
+                </Text>
               {recommendationReason ? (
                 <View style={styles.recommendationReasonWrap}>
                   <Text style={styles.recommendationReason} numberOfLines={1}>
@@ -182,11 +192,18 @@ export function CompactCafeCard({
                   </Text>
                 </View>
               ) : null}
-              <Text style={styles.location} numberOfLines={1}>
-                {scoreOnCardTopRight ? renderScoreLocationMeta(metadataLine) : cafe.neighborhood}
-              </Text>
+                <Text style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]} numberOfLines={1}>
+                  {scoreOnCardTopRight ? renderScoreLocationMeta(metadataLine) : cafe.neighborhood}
+                </Text>
+              </View>
               {showTagRow ? (
-                <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
+                <View
+                  style={[
+                    styles.tagsRow,
+                    compactNameMetaGap && styles.tagsRowAfterCompactMeta,
+                    tagsSubtle && styles.tagsRowSubtle,
+                  ]}
+                >
                   {tagSlice.map((tag) => (
                     <View key={tag} style={[styles.tagChip, tagsSubtle && styles.tagChipSubtle]}>
                       <TagWithOptionalIcon
@@ -199,6 +216,8 @@ export function CompactCafeCard({
                     </View>
                   ))}
                 </View>
+              ) : showTagSpacer ? (
+                <View style={[styles.tagsSpacer, compactNameMetaGap && styles.tagsSpacerAfterCompactMeta]} />
               ) : null}
             </>
           )}
@@ -303,7 +322,7 @@ const styles = StyleSheet.create({
   },
   body: {
     flex: 1,
-    gap: 5,
+    gap: 2,
     minWidth: 0,
   },
   /**
@@ -311,11 +330,19 @@ const styles = StyleSheet.create({
    * `name` uses `nameContentColumn` so `flex: 1` does not stretch the title and break even gaps.
    */
   bodyContentColumn: {
-    gap: 4,
+    gap: 2,
   },
   nameContentColumn: {
     flex: 0,
     alignSelf: 'stretch',
+  },
+  nameMetaStack: {
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
+    rowGap: 2,
+  },
+  nameMetaStackCompact: {
+    rowGap: 0,
   },
   name: {
     flex: 1,
@@ -325,6 +352,10 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.35,
     lineHeight: 24,
+  },
+  nameCompactMetaGap: {
+    marginBottom: 0,
+    lineHeight: 18,
   },
   recommendationReasonWrap: {
     alignSelf: 'stretch',
@@ -351,6 +382,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.05,
     opacity: 0.88,
   },
+  locationCompactMetaGap: {
+    marginTop: 0,
+    marginBottom: 0,
+  },
   locationScore: {
     fontFamily: FONTS.sans.medium,
     color: COLORS.text,
@@ -364,7 +399,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginTop: 4,
+    marginTop: 5,
+  },
+  tagsRowAfterCompactMeta: {
+    marginTop: 7,
+  },
+  tagsSpacer: {
+    minHeight: 7,
+    marginTop: 5,
+  },
+  tagsSpacerAfterCompactMeta: {
+    marginTop: 7,
   },
   tagsRowSubtle: {
     gap: 6,
