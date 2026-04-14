@@ -2,7 +2,7 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { COLORS, FONTS } from '@/components/theme';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { formatTagLabel } from '@/lib/cafeTags';
-import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getCafeCommunityTagInsight, getTopCafeTags, type CafeCommunityTagInsight } from '@/lib/supabase';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -380,14 +380,14 @@ export default function CafeDetailScreen() {
         </View>
 
         <View style={styles.mainPad}>
-          <View style={styles.identityRow}>
-            <View style={styles.identityTextBlock}>
-              <Text style={styles.identityName}>{cafe.name}</Text>
-              <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
-            </View>
-            <View style={styles.identityScoreColumn}>
-              <PublicCoffeeScoreText cafe={cafe} presentation="text" />
-            </View>
+          <View style={styles.identityTextBlock}>
+            <Text style={styles.identityName}>{cafe.name}</Text>
+            <Text style={styles.identityMeta} numberOfLines={1}>
+              <Text style={styles.identityMetaScore}>{formatPublicCoffeeOutOf5(cafe.publicCoffeeScore)}</Text>
+              <Text style={styles.identityMetaDot}> {'\u00b7'} </Text>
+              <Text>{cafe.neighborhood}</Text>
+            </Text>
+            <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
           </View>
 
           {cafe.summary ? (
@@ -541,22 +541,8 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     gap: 16,
   },
-  identityRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
   identityTextBlock: {
-    flex: 1,
-    minWidth: 0,
     gap: 6,
-  },
-  /** Aligns lockup with the name’s first line vs Playfair cap height. */
-  identityScoreColumn: {
-    flexShrink: 0,
-    alignSelf: 'flex-start',
-    paddingTop: 3,
   },
   identityName: {
     fontSize: 28,
@@ -565,9 +551,23 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.5,
   },
-  identityAddress: {
+  identityMeta: {
     fontSize: 15,
     lineHeight: 22,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    letterSpacing: -0.1,
+  },
+  identityMetaScore: {
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.text,
+  },
+  identityMetaDot: {
+    color: COLORS.muted,
+  },
+  identityAddress: {
+    fontSize: 14,
+    lineHeight: 20,
     fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
     letterSpacing: -0.1,

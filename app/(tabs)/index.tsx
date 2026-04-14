@@ -25,8 +25,8 @@ import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPrefere
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
-import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getTopCafeTags } from '@/lib/supabase';
 
 const MAX_VISIBLE_TAGS = 3;
@@ -113,6 +113,7 @@ function HomeCafeCard({
 
   const isCarousel = layout === 'carousel';
   const primaryPhoto = getPrimaryPhotoUrl(cafe);
+  const scoreLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
 
   const onShare = async () => {
     try {
@@ -195,7 +196,9 @@ function HomeCafeCard({
             {cafe.name}
           </Text>
           <Text style={styles.heroLocation} numberOfLines={1}>
-            {cafe.neighborhood}
+            <Text style={styles.heroLocationScore}>{scoreLabel}</Text>
+            <Text style={styles.heroLocationDot}> {'\u00b7'} </Text>
+            <Text>{cafe.neighborhood}</Text>
           </Text>
           {distanceLabel ? (
             <Text style={styles.heroMeta} numberOfLines={1}>
@@ -211,23 +214,18 @@ function HomeCafeCard({
       </View>
 
         <View style={[styles.featuredBody, isCarousel && styles.featuredBodyCarousel]}>
-        <View style={styles.tagsScoreRow}>
-          <View style={styles.tagsWithIcons}>
-            {topTags.map((tag) => (
-              <View key={tag} style={styles.tagWithIcon}>
-                <TagWithOptionalIcon
-                  tag={tag}
-                  iconSize={14}
-                  color={COLORS.roastedBrown}
-                  textStyle={styles.tagWithIconLabel}
-                  gap={5}
-                />
-              </View>
-            ))}
-          </View>
-          <View style={styles.homeTagsScoreWrap}>
-            <PublicCoffeeScoreText cafe={cafe} variant="homeTagsRow" />
-          </View>
+        <View style={styles.tagsWithIcons}>
+          {topTags.map((tag) => (
+            <View key={tag} style={styles.tagWithIcon}>
+              <TagWithOptionalIcon
+                tag={tag}
+                iconSize={14}
+                color={COLORS.roastedBrown}
+                textStyle={styles.tagWithIconLabel}
+                gap={5}
+              />
+            </View>
+          ))}
         </View>
 
         <Text numberOfLines={3} style={styles.featuredSummary}>
@@ -514,9 +512,16 @@ const styles = StyleSheet.create({
   },
   heroLocation: {
     fontSize: 13,
-    fontFamily: FONTS.sans.medium,
+    fontFamily: FONTS.sans.regular,
     color: 'rgba(250,248,245,0.88)',
     letterSpacing: -0.05,
+  },
+  heroLocationScore: {
+    fontFamily: FONTS.sans.medium,
+    color: 'rgba(250,248,245,0.96)',
+  },
+  heroLocationDot: {
+    color: 'rgba(250,248,245,0.7)',
   },
   heroMeta: {
     fontSize: 12,
@@ -535,22 +540,10 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     gap: 12,
   },
-  /** Tags left, Home score right — same row under the hero. */
-  tagsScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
   tagsWithIcons: {
-    flex: 1,
-    minWidth: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-  },
-  homeTagsScoreWrap: {
-    flexShrink: 0,
   },
   tagWithIcon: {
     flexDirection: 'row',
