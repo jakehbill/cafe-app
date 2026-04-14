@@ -147,11 +147,7 @@ export default function CafeDetailScreen() {
         getCafeCommunityTagInsight(c.id),
       ]);
       if (cancelled) return;
-      let tags = popular;
-      if (tags.length === 0 && c.tags.length > 0) {
-        tags = [...c.tags].slice(0, FEATURE_TAG_COUNT);
-      }
-      setFeatureTags(tags);
+      setFeatureTags(popular);
       setTagInsight(insight);
     })();
     return () => {
@@ -382,10 +378,9 @@ export default function CafeDetailScreen() {
             </Text>
           ) : null}
 
-          <Text style={styles.sectionHeading}>Features</Text>
-          {featureTags.length === 0 ? (
-            <Text style={styles.featuresEmpty}>No community tags yet — rate to add yours.</Text>
-          ) : (
+          {featureTags.length > 0 ? (
+            <>
+              <Text style={styles.sectionHeading}>Features</Text>
             <View style={styles.featuresGrid}>
               {featureTags.map((tag) => (
                 <View key={tag} style={styles.featureTag}>
@@ -399,7 +394,8 @@ export default function CafeDetailScreen() {
                 </View>
               ))}
             </View>
-          )}
+            </>
+          ) : null}
 
           <View style={styles.insightBubble}>
             <Text style={styles.insightBubbleText}>{insightBubbleText}</Text>
