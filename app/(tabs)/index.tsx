@@ -114,6 +114,7 @@ function HomeCafeCard({
   const isCarousel = layout === 'carousel';
   const primaryPhoto = getPrimaryPhotoUrl(cafe);
   const scoreLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
+  const hasTopTags = topTags.length > 0;
 
   const onShare = async () => {
     try {
@@ -213,20 +214,22 @@ function HomeCafeCard({
         </View>
       </View>
 
-        <View style={[styles.featuredBody, isCarousel && styles.featuredBodyCarousel]}>
-        <View style={styles.tagsWithIcons}>
-          {topTags.map((tag) => (
-            <View key={tag} style={styles.tagWithIcon}>
-              <TagWithOptionalIcon
-                tag={tag}
-                iconSize={14}
-                color={COLORS.roastedBrown}
-                textStyle={styles.tagWithIconLabel}
-                gap={5}
-              />
-            </View>
-          ))}
-        </View>
+      <View style={[styles.featuredBody, isCarousel && styles.featuredBodyCarousel, !hasTopTags && styles.featuredBodyNoTags]}>
+        {hasTopTags ? (
+          <View style={styles.tagsWithIcons}>
+            {topTags.map((tag) => (
+              <View key={tag} style={styles.tagWithIcon}>
+                <TagWithOptionalIcon
+                  tag={tag}
+                  iconSize={14}
+                  color={COLORS.roastedBrown}
+                  textStyle={styles.tagWithIconLabel}
+                  gap={5}
+                />
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         <Text numberOfLines={3} style={styles.featuredSummary}>
           {cafe.summary}
@@ -539,6 +542,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 18,
     gap: 12,
+  },
+  featuredBodyNoTags: {
+    gap: 8,
   },
   tagsWithIcons: {
     flexDirection: 'row',
