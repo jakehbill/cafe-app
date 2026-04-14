@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import MapView, { Callout, Marker } from 'react-native-maps';
 
-import { MapCafeCallout } from '@/components/maps/MapCafeCallout';
 import { BeanMapMarkerContent } from '@/components/maps/BeanMapMarkerContent';
+import { MapCafeCallout } from '@/components/maps/MapCafeCallout';
 import { COLORS } from '@/components/theme';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
