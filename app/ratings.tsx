@@ -147,6 +147,8 @@ export default function MyRatingsScreen() {
             <CompactCafeCard
               key={rating.cafe_id}
               cafe={cafe}
+              scorePosition="cardTopRight"
+              reserveTagSpaceWhenEmpty
               tags={rating.tags ?? undefined}
               maxTags={3}
               onPress={() => router.push(`/cafe/${cafe.id}`)}
