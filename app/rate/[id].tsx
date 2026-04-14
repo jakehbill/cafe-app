@@ -5,6 +5,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import Slider from '@react-native-community/slider';
 import {
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
@@ -110,6 +112,24 @@ export default function RateCafeScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const scrollRef = React.useRef<ScrollView>(null);
+  const [notesSectionY, setNotesSectionY] = useState(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  React.useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -237,26 +257,38 @@ export default function RateCafeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-      <View style={styles.heroBackRow}>
-        <TouchableOpacity
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          onPress={handleBack}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={styles.heroBackHit}
-        >
-          <Ionicons name="chevron-back" size={24} color={COLORS.text} />
-        </TouchableOpacity>
-      </View>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-        <View style={styles.titleBlock}>
-          <Text style={styles.pageTitle}>Rate this cafe</Text>
-          <Text style={styles.pageSubtitle}>Help others find great cafes</Text>
+        <View style={styles.heroBackRow}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            onPress={handleBack}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.heroBackHit}
+          >
+            <Ionicons name="chevron-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
         </View>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(32, keyboardHeight + 40) },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentInset={{ bottom: Math.max(0, keyboardHeight) }}
+          contentInsetAdjustmentBehavior="automatic"
+        >
+          <View style={styles.titleBlock}>
+            <Text style={styles.pageTitle}>Rate this cafe</Text>
+            <Text style={styles.pageSubtitle}>Help others find great cafes</Text>
+          </View>
 
         <View style={styles.previewCard}>
           {ratePreviewPhoto ? (
@@ -317,7 +349,12 @@ export default function RateCafeScreen() {
           ))}
         </View>
 
-        <View style={styles.sectionCard}>
+        <View
+          style={styles.sectionCard}
+          onLayout={(e) => {
+            setNotesSectionY(e.nativeEvent.layout.y);
+          }}
+        >
           <Text style={styles.sectionTitle}>Notes (optional)</Text>
           <TextInput
             style={styles.notesInput}
@@ -329,6 +366,12 @@ export default function RateCafeScreen() {
             maxLength={180}
             value={notes}
             onChangeText={setNotes}
+            onFocus={() => {
+              const targetY = Math.max(0, notesSectionY - 20);
+              setTimeout(() => {
+                scrollRef.current?.scrollTo({ y: targetY, animated: true });
+              }, 60);
+            }}
           />
         </View>
 
@@ -345,21 +388,22 @@ export default function RateCafeScreen() {
           </View>
         ) : null}
 
-        <TouchableOpacity
-          activeOpacity={0.88}
-          style={[
-            styles.submitButton,
-            submitDisabled && styles.submitButtonDisabled,
-            submitted && styles.submitButtonSuccess,
-          ]}
-          onPress={() => void handleSubmit()}
-          disabled={submitDisabled}
-        >
-          <Text style={styles.submitButtonText}>
-            {submitted ? 'Rating saved' : submitting ? 'Saving…' : 'Submit'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={[
+              styles.submitButton,
+              submitDisabled && styles.submitButtonDisabled,
+              submitted && styles.submitButtonSuccess,
+            ]}
+            onPress={() => void handleSubmit()}
+            disabled={submitDisabled}
+          >
+            <Text style={styles.submitButtonText}>
+              {submitted ? 'Rating saved' : submitting ? 'Saving…' : 'Submit'}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -368,6 +412,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  keyboardAvoid: {
+    flex: 1,
   },
   scroll: {
     flex: 1,
