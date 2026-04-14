@@ -326,60 +326,76 @@ export default function SearchScreen() {
                 Default
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.85}
-              style={[
-                styles.distancePill,
-                sortMode === 'nearest' && styles.distancePillActive,
-                !userLocation && styles.distancePillDisabled,
-              ]}
-              onPress={() => setSortMode('nearest')}
-              disabled={!userLocation}
-            >
-              <Text
+            {userLocation ? (
+              <TouchableOpacity
+                activeOpacity={0.85}
                 style={[
-                  styles.distancePillLabel,
-                  sortMode === 'nearest' && styles.distancePillLabelActive,
-                  !userLocation && styles.distancePillLabelDisabled,
+                  styles.distancePill,
+                  sortMode === 'nearest' && styles.distancePillActive,
                 ]}
+                onPress={() => setSortMode('nearest')}
               >
-                Nearest
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.radiusRow}
-          >
-            {(['any', 0.5, 1, 2, 5] as const).map((radius) => {
-              const selected = radiusFilter === radius;
-              const disabled = radius !== 'any' && !userLocation;
-              return (
-                <TouchableOpacity
-                  key={`radius-${radius}`}
-                  activeOpacity={0.85}
+                <Text
                   style={[
-                    styles.distancePill,
-                    selected && styles.distancePillActive,
-                    disabled && styles.distancePillDisabled,
+                    styles.distancePillLabel,
+                    sortMode === 'nearest' && styles.distancePillLabelActive,
                   ]}
-                  onPress={() => setRadiusFilter(radius)}
-                  disabled={disabled}
                 >
-                  <Text
+                  Nearest
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          {userLocation ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.radiusRow}
+            >
+              {([0.5, 1, 2, 5] as const).map((radius) => {
+                const selected = radiusFilter === radius;
+                return (
+                  <TouchableOpacity
+                    key={`radius-${radius}`}
+                    activeOpacity={0.85}
                     style={[
-                      styles.distancePillLabel,
-                      selected && styles.distancePillLabelActive,
-                      disabled && styles.distancePillLabelDisabled,
+                      styles.distancePill,
+                      selected && styles.distancePillActive,
                     ]}
+                    onPress={() => setRadiusFilter(radius)}
                   >
-                    {radius === 'any' ? 'Any distance' : `${radius} mi`}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                    <Text
+                      style={[
+                        styles.distancePillLabel,
+                        selected && styles.distancePillLabelActive,
+                      ]}
+                    >
+                      {`${radius} mi`}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[
+                  styles.distancePill,
+                  radiusFilter === 'any' && styles.distancePillActive,
+                ]}
+                onPress={() => setRadiusFilter('any')}
+              >
+                <Text
+                  style={[
+                    styles.distancePillLabel,
+                    radiusFilter === 'any' && styles.distancePillLabelActive,
+                  ]}
+                >
+                  Any distance
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            <Text style={styles.distanceUnavailableHint}>Enable location to sort/filter by distance</Text>
+          )}
         </View>
       </View>
 
@@ -619,9 +635,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accentSubtleBorder,
     backgroundColor: COLORS.accentSubtleFill,
   },
-  distancePillDisabled: {
-    opacity: 0.5,
-  },
   distancePillLabel: {
     fontSize: 12,
     fontFamily: FONTS.sans.semibold,
@@ -630,8 +643,11 @@ const styles = StyleSheet.create({
   distancePillLabelActive: {
     color: COLORS.accent,
   },
-  distancePillLabelDisabled: {
+  distanceUnavailableHint: {
+    fontSize: 12,
+    lineHeight: 16,
     color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
   },
   scrollContent: {
     paddingHorizontal: 20,

@@ -322,7 +322,10 @@ export default function HomeScreen() {
   const trendingNearby = useMemo(() => {
     if (!userLocation) {
       // Permission denied/unavailable path: keep Home usable with non-distance fallback.
-      return rankCafesForTrending([...cafesWithDistance]).slice(0, 5);
+      return {
+        cafes: rankCafesForTrending([...cafesWithDistance]).slice(0, 5),
+        activeRadiusMiles: null as number | null,
+      };
     }
 
     const radiusSteps = [1, 2, 3];
@@ -339,7 +342,9 @@ export default function HomeScreen() {
       }
       activeRadius = radius;
     }
-    if (pool.length === 0) return fallbackHighRatedCafes;
+    if (pool.length === 0) {
+      return { cafes: fallbackHighRatedCafes, activeRadiusMiles: null as number | null };
+    }
 
     const rankedNearby = [...pool].sort((a, b) => {
       const aDistBonus = a.distanceMiles == null ? 0 : Math.max(0, activeRadius - a.distanceMiles) * 1.8;
@@ -348,8 +353,14 @@ export default function HomeScreen() {
       const bScore = computeTrendingScore(b) + bDistBonus;
       return bScore - aScore;
     });
-    return rankedNearby.slice(0, 5);
+    return { cafes: rankedNearby.slice(0, 5), activeRadiusMiles: activeRadius };
   }, [cafesWithDistance, fallbackHighRatedCafes, userLocation]);
+
+  const trendingSubtitle = useMemo(() => {
+    if (!userLocation) return 'Popular right now';
+    if (trendingNearby.activeRadiusMiles == null) return 'Popular around you';
+    return `Popular around you · Within ${trendingNearby.activeRadiusMiles} mi`;
+  }, [trendingNearby.activeRadiusMiles, userLocation]);
 
   const { width: windowWidth } = useWindowDimensions();
   const picksCarousel = useMemo(() => {
@@ -427,6 +438,7 @@ export default function HomeScreen() {
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
               <Text style={styles.secondarySectionTitle}>Trending nearby</Text>
+              <Text style={styles.secondarySectionSubtitle}>{trendingSubtitle}</Text>
             </View>
             <ScrollView
               horizontal
@@ -438,12 +450,12 @@ export default function HomeScreen() {
               contentContainerStyle={styles.picksRowContent}
               style={styles.picksRow}
             >
-              {trendingNearby.map((cafe, index) => (
+              {trendingNearby.cafes.map((cafe, index) => (
                 <View
                   key={`trending-${cafe.id}`}
                   style={{
                     width: picksCarousel.cardWidth,
-                    marginRight: index === trendingNearby.length - 1 ? 0 : picksCarousel.gap,
+                    marginRight: index === trendingNearby.cafes.length - 1 ? 0 : picksCarousel.gap,
                   }}
                 >
                   <HomeCafeCard
@@ -507,6 +519,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.display.semibold,
     color: COLORS.text,
     letterSpacing: -0.45,
+  },
+  secondarySectionSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    letterSpacing: -0.1,
   },
   picksRow: {
     marginHorizontal: -SCREEN_HORIZONTAL_PADDING,

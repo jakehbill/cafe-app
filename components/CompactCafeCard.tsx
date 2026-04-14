@@ -247,8 +247,8 @@ function renderScoreLocationMeta(meta: { score: string; location: string; distan
         <Text>{meta.location}</Text>
         {hasDistance ? (
           <>
-            <Text style={styles.locationDot}> {'\u00b7'} </Text>
-            <Text>{meta.distance}</Text>
+            <Text style={styles.locationDot}> {'\u2022'} </Text>
+            <Text style={styles.locationDistance}>{meta.distance}</Text>
           </>
         ) : null}
       </>
@@ -258,8 +258,8 @@ function renderScoreLocationMeta(meta: { score: string; location: string; distan
     return hasDistance ? (
       <>
         <Text>{meta.location}</Text>
-        <Text style={styles.locationDot}> {'\u00b7'} </Text>
-        <Text>{meta.distance}</Text>
+        <Text style={styles.locationDot}> {'\u2022'} </Text>
+        <Text style={styles.locationDistance}>{meta.distance}</Text>
       </>
     ) : meta.location;
   }
@@ -267,12 +267,12 @@ function renderScoreLocationMeta(meta: { score: string; location: string; distan
     return hasDistance ? (
       <>
         <Text style={styles.locationScore}>{meta.score}</Text>
-        <Text style={styles.locationDot}> {'\u00b7'} </Text>
-        <Text>{meta.distance}</Text>
+        <Text style={styles.locationDot}> {'\u2022'} </Text>
+        <Text style={styles.locationDistance}>{meta.distance}</Text>
       </>
     ) : <Text style={styles.locationScore}>{meta.score}</Text>;
   }
-  return meta.distance;
+  return <Text style={styles.locationDistance}>{meta.distance}</Text>;
 }
 
 const styles = StyleSheet.create({
@@ -421,6 +421,10 @@ const styles = StyleSheet.create({
   locationDot: {
     color: COLORS.muted,
     opacity: 0.7,
+  },
+  locationDistance: {
+    color: COLORS.muted,
+    opacity: 0.82,
   },
   tagsRow: {
     flexDirection: 'row',
