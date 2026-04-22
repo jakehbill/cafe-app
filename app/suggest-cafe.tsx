@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,6 +15,7 @@ import {
 } from 'react-native';
 
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import {
@@ -40,6 +43,8 @@ function formatDate(dateIso: string): string {
 }
 
 export default function SuggestCafeScreen() {
+  const navigation = useNavigation();
+  const router = useRouter();
   const [cafeName, setCafeName] = useState('');
   const [addressText, setAddressText] = useState('');
   const [area, setArea] = useState('');
@@ -87,6 +92,14 @@ export default function SuggestCafeScreen() {
     setGoogleMapsUrl('');
     setNotes('');
     setSelectedTags([]);
+  }
+
+  function handleBack() {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    router.replace('/(tabs)/profile');
   }
 
   async function handleSubmit() {
@@ -140,6 +153,18 @@ export default function SuggestCafeScreen() {
           keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.headerRow}>
+            <View style={styles.headerLeft}>
+              <StackHeaderBackButton
+                canGoBack
+                tintColor={COLORS.text}
+                onPress={handleBack}
+              />
+            </View>
+            <Text style={styles.headerTitle}>Suggest a cafe</Text>
+            <View style={styles.headerRight} />
+          </View>
+
           <View style={styles.titleBlock}>
             <Text style={styles.pageTitle}>Suggest a cafe</Text>
             <Text style={styles.pageSubtitle}>
@@ -306,9 +331,31 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 10,
     paddingBottom: 36,
     gap: 16,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 40,
+    marginBottom: 2,
+  },
+  headerLeft: {
+    width: 40,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 17,
+    lineHeight: 22,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
+  },
+  headerRight: {
+    width: 40,
   },
   titleBlock: {
     gap: 6,

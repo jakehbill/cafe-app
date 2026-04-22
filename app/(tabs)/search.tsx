@@ -188,7 +188,19 @@ export default function SearchScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <Text style={styles.title}>Search</Text>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.title}>Search</Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Suggest a cafe"
+            onPress={() => router.push('/suggest-cafe')}
+            style={styles.suggestButton}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="add" size={18} color={COLORS.accent} />
+          </TouchableOpacity>
+        </View>
         <TextInput
           value={query}
           onChangeText={setQuery}
@@ -471,11 +483,26 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     gap: 10,
   },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   title: {
     fontSize: 28,
     fontFamily: FONTS.display.bold,
     color: COLORS.text,
     letterSpacing: -0.4,
+  },
+  suggestButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
   },
   input: {
     borderRadius: 14,
