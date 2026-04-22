@@ -12,6 +12,13 @@ export type PendingCafeSuggestion = {
   notes: string | null;
   selected_tags: string[] | null;
   status?: string;
+  submissionPhotos: {
+    id: string;
+    storage_path: string;
+    sort_order: number | null;
+    created_at: string | null;
+    preview_url: string | null;
+  }[];
 };
 
 export type PendingPhotoSubmission = {
@@ -37,7 +44,78 @@ export async function fetchPendingCafeSuggestions(): Promise<PendingCafeSuggesti
     return [];
   }
 
-  return (res.data ?? []) as PendingCafeSuggestion[];
+  const rows = (res.data ?? []) as Omit<PendingCafeSuggestion, 'submissionPhotos'>[];
+  const submissionIds = rows.map((row) => String(row.id).trim()).filter((id) => id.length > 0);
+  let photosBySubmissionId = new Map<
+    string,
+    {
+      id: string;
+      storage_path: string;
+      sort_order: number | null;
+      created_at: string | null;
+      preview_url: string | null;
+    }[]
+  >();
+
+  if (submissionIds.length > 0) {
+    const photoRes = await supabase
+      .from('cafe_submission_photos')
+      .select('id, submission_id, storage_path, sort_order, created_at')
+      .in('submission_id', submissionIds);
+
+    if (!photoRes.error) {
+      const rawPhotos = (photoRes.data ?? []) as {
+        id: string;
+        submission_id: string;
+        storage_path: string;
+        sort_order: number | null;
+        created_at: string | null;
+      }[];
+
+      const withUrls = await Promise.all(
+        rawPhotos.map(async (photo) => {
+          const path = photo.storage_path?.trim();
+          if (!path) {
+            return { ...photo, preview_url: null };
+          }
+          const signed = await supabase.storage.from(CAFE_USER_PHOTO_BUCKET).createSignedUrl(path, 60 * 20);
+          return { ...photo, preview_url: signed.data?.signedUrl ?? null };
+        })
+      );
+
+      photosBySubmissionId = withUrls.reduce((map, photo) => {
+        const key = String(photo.submission_id ?? '').trim();
+        if (!key) return map;
+        const current = map.get(key) ?? [];
+        current.push({
+          id: photo.id,
+          storage_path: photo.storage_path,
+          sort_order: photo.sort_order,
+          created_at: photo.created_at,
+          preview_url: photo.preview_url,
+        });
+        map.set(key, current);
+        return map;
+      }, new Map<string, PendingCafeSuggestion['submissionPhotos']>());
+
+      for (const [key, photos] of photosBySubmissionId.entries()) {
+        photos.sort((a, b) => {
+          const sortA = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+          const sortB = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+          if (sortA !== sortB) return sortA - sortB;
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return dateA - dateB;
+        });
+        photosBySubmissionId.set(key, photos);
+      }
+    }
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    submissionPhotos: photosBySubmissionId.get(String(row.id).trim()) ?? [],
+  }));
 }
 
 export async function fetchCafeSubmissionById(id: string): Promise<PendingCafeSuggestion | null> {

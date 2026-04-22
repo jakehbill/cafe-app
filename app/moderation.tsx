@@ -176,6 +176,24 @@ export default function ModerationScreen() {
               {cafeItems.map((item) => (
                 <View key={item.id} style={styles.card}>
                   <Text style={styles.cardTitle}>{item.cafe_name}</Text>
+                  {item.submissionPhotos.length > 0 ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.submissionPhotoRow}
+                    >
+                      {item.submissionPhotos.map((photo) =>
+                        photo.preview_url ? (
+                          <Image
+                            key={photo.id}
+                            source={{ uri: photo.preview_url }}
+                            style={styles.submissionPhotoThumb}
+                            resizeMode="cover"
+                          />
+                        ) : null
+                      )}
+                    </ScrollView>
+                  ) : null}
                   {item.address_text ? <Text style={styles.metaText}>{item.address_text}</Text> : null}
                   {item.area ? <Text style={styles.metaText}>Area: {item.area}</Text> : null}
                   {item.google_maps_url ? <Text style={styles.metaText}>{item.google_maps_url}</Text> : null}
@@ -448,6 +466,16 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 3 / 2,
     borderRadius: 10,
+    backgroundColor: COLORS.imagePlaceholder,
+  },
+  submissionPhotoRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  submissionPhotoThumb: {
+    width: 104,
+    height: 78,
+    borderRadius: 8,
     backgroundColor: COLORS.imagePlaceholder,
   },
   photoPreviewFallback: {
