@@ -18,6 +18,9 @@ export type PendingPhotoSubmission = {
   id: string;
   created_at: string;
   cafe_id: number;
+  cafe_name: string | null;
+  cafe_address: string | null;
+  cafe_google_maps_url: string | null;
   storage_path: string;
   caption: string | null;
   preview_url: string | null;
@@ -54,33 +57,56 @@ export async function fetchCafeSubmissionById(id: string): Promise<PendingCafeSu
 }
 
 export async function fetchPendingPhotoSubmissions(): Promise<PendingPhotoSubmission[]> {
-  const res = await supabase
+  const pendingRes = await supabase
     .from('cafe_photos')
-    .select('id, created_at, cafe_id, storage_path, caption')
+    .select('id, created_at, cafe_id, storage_path, caption, cafes(name)')
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
 
-  if (res.error) {
+  if (__DEV__ && pendingRes.error) {
+    console.log('[moderationQueue] pending photos query error:', pendingRes.error.message);
+  }
+
+  if (pendingRes.error) {
     return [];
   }
 
-  const rows = (res.data ?? []) as {
+  const rows = (pendingRes.data ?? []) as {
     id: string;
     created_at: string;
-    cafe_id: number;
+    cafe_id: number | string;
     storage_path: string;
     caption: string | null;
+    cafes?: { name?: string | null } | null;
   }[];
 
   const withUrls = await Promise.all(
     rows.map(async (row) => {
+      const normalizedCafeId = Number.isFinite(Number(row.cafe_id)) ? Number(row.cafe_id) : -1;
       const path = row.storage_path?.trim();
       if (!path) {
-        return { ...row, preview_url: null } satisfies PendingPhotoSubmission;
+        return {
+          id: row.id,
+          created_at: row.created_at,
+          cafe_id: normalizedCafeId,
+          cafe_name: row.cafes?.name?.trim() || null,
+          cafe_address: null,
+          cafe_google_maps_url: null,
+          storage_path: row.storage_path,
+          caption: row.caption,
+          preview_url: null,
+        } satisfies PendingPhotoSubmission;
       }
       const signed = await supabase.storage.from(CAFE_USER_PHOTO_BUCKET).createSignedUrl(path, 60 * 20);
       return {
-        ...row,
+        id: row.id,
+        created_at: row.created_at,
+        cafe_id: normalizedCafeId,
+        cafe_name: row.cafes?.name?.trim() || null,
+        cafe_address: null,
+        cafe_google_maps_url: null,
+        storage_path: row.storage_path,
+        caption: row.caption,
         preview_url: signed.data?.signedUrl ?? null,
       } satisfies PendingPhotoSubmission;
     })

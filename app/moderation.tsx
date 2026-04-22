@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -38,6 +39,14 @@ function formatCreatedAt(iso: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
+}
+
+async function handleOpenMaps(url: string) {
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert('Cannot open link', 'This maps link could not be opened on your device.');
+  }
 }
 
 export default function ModerationScreen() {
@@ -228,7 +237,22 @@ export default function ModerationScreen() {
                       <Text style={styles.photoPreviewFallbackText}>Preview unavailable</Text>
                     </View>
                   )}
-                  <Text style={styles.metaText}>Cafe #{item.cafe_id}</Text>
+                  <Text style={styles.cardTitle}>
+                    {item.cafe_name && item.cafe_name.trim().length > 0
+                      ? item.cafe_name
+                      : `Cafe #${item.cafe_id}`}
+                  </Text>
+                  {item.cafe_address ? <Text style={styles.metaText}>{item.cafe_address}</Text> : null}
+                  <Text style={styles.metaText}>Cafe ID: {item.cafe_id}</Text>
+                  {item.cafe_google_maps_url ? (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => void handleOpenMaps(item.cafe_google_maps_url!)}
+                      style={styles.mapsLinkButton}
+                    >
+                      <Text style={styles.mapsLinkText}>Open in Maps</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   {item.caption ? <Text style={styles.bodyText}>{item.caption}</Text> : null}
                   <Text style={styles.dateText}>{formatCreatedAt(item.created_at)}</Text>
                   <View style={styles.actionsRow}>
@@ -346,6 +370,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: COLORS.muted,
     fontFamily: FONTS.sans.regular,
+  },
+  mapsLinkButton: {
+    alignSelf: 'flex-start',
+    marginTop: 1,
+  },
+  mapsLinkText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
   },
   bodyText: {
     fontSize: 14,
