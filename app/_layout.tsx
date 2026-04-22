@@ -215,6 +215,14 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen
+            name="suggest-cafe"
+            options={{
+              ...stackHeaderOn,
+              title: 'Suggest a cafe',
+              headerTitle: 'Suggest a cafe',
+            }}
+          />
+          <Stack.Screen
             name="onboarding-preferences"
             options={{
               headerShown: false,

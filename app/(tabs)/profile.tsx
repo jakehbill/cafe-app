@@ -469,6 +469,24 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        <View style={styles.contributionSection}>
+          <Text style={styles.sectionHeading}>Contribute</Text>
+          <Text style={styles.activitySectionIntro}>
+            Know a great spot we should review? Send it in and we&apos;ll curate from there.
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={styles.activityRow}
+            onPress={() => router.push('/suggest-cafe')}
+          >
+            <View style={styles.activityTextWrap}>
+              <Text style={styles.activityTitle}>Suggest a cafe</Text>
+              <Text style={styles.activityHint}>Share a recommendation for editorial review</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         <Text style={[styles.sectionHeading, styles.achievementsHeading]}>Achievements</Text>
         <Text style={styles.badgesExplainer}>
           Milestones along your points journey. Unlocked badges appear first.
@@ -672,6 +690,9 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   activitySection: {
+    marginBottom: 28,
+  },
+  contributionSection: {
     marginBottom: 28,
   },
   activitySectionIntro: {

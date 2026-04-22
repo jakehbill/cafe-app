@@ -1,6 +1,11 @@
-import { useCafeState } from '@/contexts/CafeStateContext';
-import { COLORS, FONTS } from '@/components/theme';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { COLORS, FONTS } from '@/components/theme';
+import { useCafeState } from '@/contexts/CafeStateContext';
+import { useUserLocation } from '@/contexts/UserLocationContext';
+import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
+import { withCafeDistances } from '@/lib/cafeDistance';
+import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
+import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import {
@@ -16,29 +21,24 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Alert,
+  FlatList,
   Image,
   Linking,
   Pressable,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
-  Share,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   useWindowDimensions,
   View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { getCafePhotoUrls, type Cafe } from '../../data/cafes';
-import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
-import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
-import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
-import { useUserLocation } from '@/contexts/UserLocationContext';
-import { withCafeDistances } from '@/lib/cafeDistance';
 
 const FEATURE_TAG_COUNT = 6;
 
