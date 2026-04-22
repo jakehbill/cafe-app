@@ -268,13 +268,13 @@ export async function reviewCafeSuggestion(
 export type LikelyCafeDuplicate = {
   id: string;
   name: string;
-  neighborhood: string | null;
+  area: string | null;
   address: string | null;
 };
 
 export async function findLikelyCafeDuplicates(input: {
   name: string;
-  neighborhood?: string;
+  area?: string;
   addressLine?: string;
 }): Promise<LikelyCafeDuplicate[]> {
   const name = input.name.trim();
@@ -282,19 +282,19 @@ export async function findLikelyCafeDuplicates(input: {
 
   const res = await supabase
     .from('cafes')
-    .select('id, name, neighborhood, address')
+    .select('id, name, area, address')
     .ilike('name', `%${name}%`)
     .limit(12);
 
   if (res.error) return [];
 
-  const neighborhood = input.neighborhood?.trim().toLowerCase() ?? '';
+  const area = input.area?.trim().toLowerCase() ?? '';
   const addressLine = input.addressLine?.trim().toLowerCase() ?? '';
 
   const rows = (res.data ?? []) as {
     id: string | number;
     name: string | null;
-    neighborhood: string | null;
+    area: string | null;
     address: string | null;
   }[];
 
@@ -305,18 +305,18 @@ export async function findLikelyCafeDuplicates(input: {
       const directNameMatch = rowName === name.toLowerCase() || rowName.includes(name.toLowerCase());
       if (!directNameMatch) return false;
 
-      if (!neighborhood && !addressLine) return true;
+      if (!area && !addressLine) return true;
 
-      const rowNeighborhood = (row.neighborhood ?? '').trim().toLowerCase();
+      const rowArea = (row.area ?? '').trim().toLowerCase();
       const rowAddress = (row.address ?? '').trim().toLowerCase();
-      const neighborhoodMatch = neighborhood.length > 0 && rowNeighborhood.includes(neighborhood);
+      const areaMatch = area.length > 0 && rowArea.includes(area);
       const addressMatch = addressLine.length > 0 && rowAddress.includes(addressLine);
-      return neighborhoodMatch || addressMatch;
+      return areaMatch || addressMatch;
     })
     .map((row) => ({
       id: String(row.id),
       name: (row.name ?? '').trim(),
-      neighborhood: row.neighborhood,
+      area: row.area,
       address: row.address ?? null,
     }));
 }
@@ -324,7 +324,7 @@ export async function findLikelyCafeDuplicates(input: {
 export type CreateCafeFromSubmissionInput = {
   submissionId: string;
   name: string;
-  neighborhood: string;
+  area: string;
   latitude: number;
   longitude: number;
   addressLine?: string;
@@ -354,7 +354,7 @@ export async function createCafeAndApproveSubmission(
   const imageUrls = Array.from(new Set(selectedPhotoUrls));
   const insertPayload = {
     name: input.name.trim(),
-    neighborhood: input.neighborhood.trim(),
+    area: input.area.trim(),
     latitude: input.latitude,
     longitude: input.longitude,
     address: input.addressLine?.trim() || null,

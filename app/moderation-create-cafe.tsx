@@ -51,7 +51,7 @@ export default function ModerationCreateCafeScreen() {
   const [selectedPhotoIds, setSelectedPhotoIds] = React.useState<Set<string>>(new Set());
   const [photoOrderIds, setPhotoOrderIds] = React.useState<string[]>([]);
   const [name, setName] = React.useState('');
-  const [neighborhood, setNeighborhood] = React.useState('');
+  const [area, setArea] = React.useState('');
   const [addressLine, setAddressLine] = React.useState('');
   const [googleMapsUrl, setGoogleMapsUrl] = React.useState('');
   const [summary, setSummary] = React.useState('');
@@ -78,7 +78,7 @@ export default function ModerationCreateCafeScreen() {
       setPhotoOrderIds(photos.map((photo) => photo.id));
       if (row) {
         setName(row.cafe_name ?? '');
-        setNeighborhood(row.area ?? '');
+        setArea(row.area ?? '');
         setAddressLine(row.address_text ?? '');
         setGoogleMapsUrl(row.google_maps_url ?? '');
         setSummary(row.notes ?? '');
@@ -148,7 +148,7 @@ export default function ModerationCreateCafeScreen() {
   async function continueSave(ignoreDuplicateWarning: boolean) {
     const submissionIdValue = String(submissionId ?? '').trim();
     const cleanedName = name.trim();
-    const cleanedNeighborhood = neighborhood.trim();
+    const cleanedArea = area.trim();
     const latitude = Number.parseFloat(latitudeText.trim());
     const longitude = Number.parseFloat(longitudeText.trim());
 
@@ -156,8 +156,8 @@ export default function ModerationCreateCafeScreen() {
       Alert.alert('Missing submission', 'No submission id was provided.');
       return;
     }
-    if (!cleanedName || !cleanedNeighborhood) {
-      Alert.alert('Required fields missing', 'Cafe name and neighbourhood are required.');
+    if (!cleanedName || !cleanedArea) {
+      Alert.alert('Required fields missing', 'Cafe name and area are required.');
       return;
     }
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
@@ -168,13 +168,13 @@ export default function ModerationCreateCafeScreen() {
     if (!ignoreDuplicateWarning) {
       const duplicates = await findLikelyCafeDuplicates({
         name: cleanedName,
-        neighborhood: cleanedNeighborhood,
+        area: cleanedArea,
         addressLine,
       });
       if (duplicates.length > 0) {
         const duplicateLines = duplicates
           .slice(0, 3)
-          .map((dup) => `${dup.name}${dup.neighborhood ? ` · ${dup.neighborhood}` : ''}`)
+          .map((dup) => `${dup.name}${dup.area ? ` · ${dup.area}` : ''}`)
           .join('\n');
         Alert.alert(
           'Possible duplicate',
@@ -202,7 +202,7 @@ export default function ModerationCreateCafeScreen() {
     const res = await createCafeAndApproveSubmission({
       submissionId: submissionIdValue,
       name: cleanedName,
-      neighborhood: cleanedNeighborhood,
+      area: cleanedArea,
       latitude,
       longitude,
       addressLine,
@@ -249,8 +249,8 @@ export default function ModerationCreateCafeScreen() {
                 <Text style={styles.label}>Cafe name</Text>
                 <TextInput style={styles.input} value={name} onChangeText={setName} />
 
-                <Text style={styles.label}>Area / neighbourhood</Text>
-                <TextInput style={styles.input} value={neighborhood} onChangeText={setNeighborhood} />
+                <Text style={styles.label}>Area</Text>
+                <TextInput style={styles.input} value={area} onChangeText={setArea} />
 
                 <Text style={styles.label}>Address</Text>
                 <TextInput style={styles.input} value={addressLine} onChangeText={setAddressLine} />
