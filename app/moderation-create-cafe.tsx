@@ -54,7 +54,7 @@ export default function ModerationCreateCafeScreen() {
   const [area, setArea] = React.useState('');
   const [addressLine, setAddressLine] = React.useState('');
   const [googleMapsUrl, setGoogleMapsUrl] = React.useState('');
-  const [summary, setSummary] = React.useState('');
+  const [shortDescription, setShortDescription] = React.useState('');
   const [tagsText, setTagsText] = React.useState('');
   const [latitudeText, setLatitudeText] = React.useState('');
   const [longitudeText, setLongitudeText] = React.useState('');
@@ -81,7 +81,7 @@ export default function ModerationCreateCafeScreen() {
         setArea(row.area ?? '');
         setAddressLine(row.address_text ?? '');
         setGoogleMapsUrl(row.google_maps_url ?? '');
-        setSummary(row.notes ?? '');
+        setShortDescription(row.notes ?? '');
         setTagsText((row.selected_tags ?? []).join(', '));
       }
       setLoading(false);
@@ -207,7 +207,7 @@ export default function ModerationCreateCafeScreen() {
       longitude,
       addressLine,
       googleMapsUrl,
-      summary,
+      shortDescription,
       tags: parseTags(tagsText),
       moderatorUserId: user?.id ?? '',
       selectedSubmissionPhotos: orderedSelectedSubmissionPhotos,
@@ -263,11 +263,11 @@ export default function ModerationCreateCafeScreen() {
                   autoCapitalize="none"
                 />
 
-                <Text style={styles.label}>Summary</Text>
+                <Text style={styles.label}>Short description</Text>
                 <TextInput
                   style={styles.textArea}
-                  value={summary}
-                  onChangeText={setSummary}
+                  value={shortDescription}
+                  onChangeText={setShortDescription}
                   multiline
                   textAlignVertical="top"
                 />

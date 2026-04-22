@@ -329,7 +329,7 @@ export type CreateCafeFromSubmissionInput = {
   longitude: number;
   addressLine?: string;
   googleMapsUrl?: string;
-  summary?: string;
+  shortDescription?: string;
   tags?: string[];
   moderatorUserId: string;
   selectedSubmissionPhotos?: SubmissionPhotoForModeration[];
@@ -359,7 +359,7 @@ export async function createCafeAndApproveSubmission(
     longitude: input.longitude,
     address: input.addressLine?.trim() || null,
     google_maps_url: input.googleMapsUrl?.trim() || null,
-    summary: input.summary?.trim() || null,
+    short_description: input.shortDescription?.trim() || null,
     tags,
     image_urls: imageUrls,
   };

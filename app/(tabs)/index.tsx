@@ -236,7 +236,7 @@ function HomeCafeCard({
         ) : null}
 
         <Text numberOfLines={3} style={styles.featuredSummary}>
-          {cafe.summary}
+          {cafe.short_description}
         </Text>
 
         {recommendationReason ? (

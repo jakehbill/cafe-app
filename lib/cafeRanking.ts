@@ -49,7 +49,7 @@ const RANK = {
   nameContains: 125,
   nameStartsWith: 52,
   neighborhood: 38,
-  summary: 11,
+  shortDescription: 11,
   tagWord: 18,
 } as const;
 
@@ -101,7 +101,7 @@ export function textRelevancePoints(cafe: Cafe, queryLower: string): number {
 
   const name = cafe.name.toLowerCase();
   const area = cafe.neighborhood.toLowerCase();
-  const summary = cafe.summary.toLowerCase();
+  const shortDescription = cafe.short_description.toLowerCase();
 
   let pts = 0;
   if (name.includes(queryLower)) {
@@ -113,8 +113,8 @@ export function textRelevancePoints(cafe: Cafe, queryLower: string): number {
   if (area.includes(queryLower)) {
     pts += RANK.neighborhood;
   }
-  if (summary.includes(queryLower)) {
-    pts += RANK.summary;
+  if (shortDescription.includes(queryLower)) {
+    pts += RANK.shortDescription;
   }
   for (const tag of cafe.tags) {
     if (tag.toLowerCase().includes(queryLower)) {

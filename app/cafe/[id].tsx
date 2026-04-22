@@ -461,13 +461,13 @@ export default function CafeDetailScreen() {
             <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
           </View>
 
-          {cafe.summary ? <View style={styles.identitySummaryDivider} /> : null}
+          {cafe.short_description ? <View style={styles.identitySummaryDivider} /> : null}
 
-          {cafe.summary ? (
+          {cafe.short_description ? (
             <>
               <Text style={styles.sectionHeading}>About</Text>
               <Text style={styles.summaryText} numberOfLines={8}>
-                {cafe.summary}
+                {cafe.short_description}
               </Text>
             </>
           ) : null}

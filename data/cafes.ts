@@ -23,7 +23,7 @@ export type Cafe = {
   /** Number of user ratings included in `publicCoffeeScore` (from the view). */
   coffeeRatingCount: number;
   tags: string[];
-  summary: string;
+  short_description: string;
   /**
    * Google Maps URL from Supabase `google_maps_url` (optional when absent in the row).
    */

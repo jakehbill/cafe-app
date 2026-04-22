@@ -133,7 +133,7 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     publicCoffeeScore: null,
     coffeeRatingCount: 0,
     tags: tagsFromRow(row),
-    summary: str(row.summary ?? row.short_description ?? row.description),
+    short_description: str(row.short_description ?? row.summary ?? row.description),
     ...(googleMapsUrl.length > 0 ? { googleMapsUrl } : {}),
     ...(primaryUrl.length > 0
       ? photoUrls.length > 1
