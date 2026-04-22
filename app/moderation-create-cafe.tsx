@@ -49,6 +49,7 @@ export default function ModerationCreateCafeScreen() {
   const [submission, setSubmission] = React.useState<PendingCafeSuggestion | null>(null);
   const [submissionPhotos, setSubmissionPhotos] = React.useState<SubmissionPhotoForModeration[]>([]);
   const [selectedPhotoIds, setSelectedPhotoIds] = React.useState<Set<string>>(new Set());
+  const [photoOrderIds, setPhotoOrderIds] = React.useState<string[]>([]);
   const [name, setName] = React.useState('');
   const [neighborhood, setNeighborhood] = React.useState('');
   const [addressLine, setAddressLine] = React.useState('');
@@ -57,7 +58,6 @@ export default function ModerationCreateCafeScreen() {
   const [tagsText, setTagsText] = React.useState('');
   const [latitudeText, setLatitudeText] = React.useState('');
   const [longitudeText, setLongitudeText] = React.useState('');
-  const [imageUrl, setImageUrl] = React.useState('');
 
   React.useEffect(() => {
     const id = String(submissionId ?? '').trim();
@@ -75,6 +75,7 @@ export default function ModerationCreateCafeScreen() {
       setSubmission(row);
       setSubmissionPhotos(photos);
       setSelectedPhotoIds(new Set(photos.map((photo) => photo.id)));
+      setPhotoOrderIds(photos.map((photo) => photo.id));
       if (row) {
         setName(row.cafe_name ?? '');
         setNeighborhood(row.area ?? '');
@@ -98,6 +99,35 @@ export default function ModerationCreateCafeScreen() {
       } else {
         next.add(photoId);
       }
+      return next;
+    });
+  }
+
+  function movePhoto(photoId: string, direction: 'left' | 'right') {
+    setPhotoOrderIds((prev) => {
+      const index = prev.indexOf(photoId);
+      if (index < 0) return prev;
+      const delta = direction === 'left' ? -1 : 1;
+      const nextIndex = index + delta;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+      return next;
+    });
+  }
+
+  function setAsPrimary(photoId: string) {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      next.add(photoId);
+      return next;
+    });
+    setPhotoOrderIds((prev) => {
+      const index = prev.indexOf(photoId);
+      if (index <= 0) return prev;
+      const next = [...prev];
+      next.splice(index, 1);
+      next.unshift(photoId);
       return next;
     });
   }
@@ -163,6 +193,12 @@ export default function ModerationCreateCafeScreen() {
     }
 
     setSaving(true);
+    const photoById = new Map(submissionPhotos.map((photo) => [photo.id, photo] as const));
+    const orderedSelectedSubmissionPhotos = photoOrderIds
+      .filter((photoId) => selectedPhotoIds.has(photoId))
+      .map((photoId) => photoById.get(photoId))
+      .filter((photo): photo is SubmissionPhotoForModeration => Boolean(photo));
+
     const res = await createCafeAndApproveSubmission({
       submissionId: submissionIdValue,
       name: cleanedName,
@@ -173,9 +209,8 @@ export default function ModerationCreateCafeScreen() {
       googleMapsUrl,
       summary,
       tags: parseTags(tagsText),
-      imageUrl,
       moderatorUserId: user?.id ?? '',
-      selectedSubmissionPhotos: submissionPhotos.filter((photo) => selectedPhotoIds.has(photo.id)),
+      selectedSubmissionPhotos: orderedSelectedSubmissionPhotos,
     });
     setSaving(false);
 
@@ -260,47 +295,105 @@ export default function ModerationCreateCafeScreen() {
                   placeholderTextColor={COLORS.muted}
                 />
 
-                <Text style={styles.label}>Primary image URL (optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={imageUrl}
-                  onChangeText={setImageUrl}
-                  autoCapitalize="none"
-                />
               </View>
 
               {submissionPhotos.length > 0 ? (
                 <View style={styles.card}>
-                  <Text style={styles.label}>Add photos to this cafe</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.photoRow}
-                  >
-                    {submissionPhotos.map((photo) => {
+                  <Text style={styles.label}>Photos for this cafe</Text>
+                  <Text style={styles.helperText}>
+                    Choose which photos to include. The first included photo is used as the primary image in
+                    the app.
+                  </Text>
+                  <View style={styles.photoGrid}>
+                    {photoOrderIds.map((photoId, index) => {
+                      const photo = submissionPhotos.find((item) => item.id === photoId);
+                      if (!photo) return null;
                       const selected = selectedPhotoIds.has(photo.id);
+                      const isPrimary =
+                        selected && index === photoOrderIds.findIndex((id) => selectedPhotoIds.has(id));
                       return (
-                        <TouchableOpacity
+                        <View
                           key={photo.id}
-                          activeOpacity={0.9}
                           style={[
                             styles.photoTile,
                             selected ? styles.photoTileSelected : styles.photoTileUnselected,
                           ]}
-                          onPress={() => toggleSelectedPhoto(photo.id)}
                         >
                           {photo.preview_url ? (
                             <Image source={{ uri: photo.preview_url }} style={styles.photoTileImage} />
                           ) : (
                             <View style={[styles.photoTileImage, styles.photoTileFallback]} />
                           )}
-                          <View style={styles.photoTileBadge}>
-                            <Text style={styles.photoTileBadgeText}>{selected ? 'Selected' : 'Tap to add'}</Text>
+                          <View style={styles.photoTileBody}>
+                            <View style={styles.photoTileHeaderRow}>
+                              <Text style={styles.photoOrderLabel}>#{index + 1}</Text>
+                              {isPrimary ? (
+                                <View style={styles.primaryBadge}>
+                                  <Text style={styles.primaryBadgeText}>Primary</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                            <View style={styles.photoTileActionsRow}>
+                              <TouchableOpacity
+                                style={styles.photoActionButton}
+                                onPress={() => toggleSelectedPhoto(photo.id)}
+                              >
+                                <Text style={styles.photoActionText}>
+                                  {selected ? 'Remove' : 'Include'}
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.photoActionButton}
+                                onPress={() => setAsPrimary(photo.id)}
+                                disabled={!selected}
+                              >
+                                <Text
+                                  style={[
+                                    styles.photoActionText,
+                                    !selected ? styles.photoActionTextDisabled : null,
+                                  ]}
+                                >
+                                  Set as primary
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
+                            <View style={styles.photoTileActionsRow}>
+                              <TouchableOpacity
+                                style={styles.photoActionButton}
+                                onPress={() => movePhoto(photo.id, 'left')}
+                                disabled={index === 0}
+                              >
+                                <Text
+                                  style={[
+                                    styles.photoActionText,
+                                    index === 0 ? styles.photoActionTextDisabled : null,
+                                  ]}
+                                >
+                                  ← Left
+                                </Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.photoActionButton}
+                                onPress={() => movePhoto(photo.id, 'right')}
+                                disabled={index === photoOrderIds.length - 1}
+                              >
+                                <Text
+                                  style={[
+                                    styles.photoActionText,
+                                    index === photoOrderIds.length - 1
+                                      ? styles.photoActionTextDisabled
+                                      : null,
+                                  ]}
+                                >
+                                  Right →
+                                </Text>
+                              </TouchableOpacity>
+                            </View>
                           </View>
-                        </TouchableOpacity>
+                        </View>
                       );
                     })}
-                  </ScrollView>
+                  </View>
                 </View>
               ) : null}
 
@@ -428,12 +521,17 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontFamily: FONTS.sans.regular,
   },
-  photoRow: {
+  helperText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+    marginBottom: 2,
+  },
+  photoGrid: {
     gap: 10,
-    paddingVertical: 2,
   },
   photoTile: {
-    width: 132,
     borderRadius: 10,
     borderWidth: 1,
     overflow: 'hidden',
@@ -448,25 +546,62 @@ const styles = StyleSheet.create({
   },
   photoTileImage: {
     width: '100%',
-    aspectRatio: 3 / 2,
+    aspectRatio: 16 / 9,
     backgroundColor: COLORS.imagePlaceholder,
   },
   photoTileFallback: {
     backgroundColor: COLORS.imagePlaceholder,
   },
-  photoTileBadge: {
-    paddingVertical: 7,
+  photoTileBody: {
+    paddingVertical: 8,
     paddingHorizontal: 8,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.cardBorder,
-    backgroundColor: COLORS.cardBackground,
+    gap: 8,
   },
-  photoTileBadgeText: {
+  photoTileHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  photoOrderLabel: {
     fontSize: 11,
     lineHeight: 14,
     color: COLORS.muted,
     fontFamily: FONTS.sans.semibold,
-    textAlign: 'center',
+  },
+  primaryBadge: {
+    borderRadius: 999,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    backgroundColor: COLORS.accent,
+  },
+  primaryBadgeText: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: '#ffffff',
+    fontFamily: FONTS.sans.semibold,
+  },
+  photoTileActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  photoActionButton: {
+    flex: 1,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  photoActionText: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
+  },
+  photoActionTextDisabled: {
+    color: COLORS.muted,
   },
 });
 

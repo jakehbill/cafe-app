@@ -331,7 +331,6 @@ export type CreateCafeFromSubmissionInput = {
   googleMapsUrl?: string;
   summary?: string;
   tags?: string[];
-  imageUrl?: string;
   moderatorUserId: string;
   selectedSubmissionPhotos?: SubmissionPhotoForModeration[];
 };
@@ -344,6 +343,15 @@ export async function createCafeAndApproveSubmission(
   }
 
   const tags = Array.from(new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean)));
+  const selectedPhotos = input.selectedSubmissionPhotos ?? [];
+  const selectedPhotoUrls = selectedPhotos
+    .map((photo) => {
+      const path = photo.storage_path?.trim();
+      if (!path) return '';
+      return supabase.storage.from(CAFE_USER_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl ?? '';
+    })
+    .filter((url) => url.length > 0);
+  const imageUrls = Array.from(new Set(selectedPhotoUrls));
   const insertPayload = {
     name: input.name.trim(),
     neighborhood: input.neighborhood.trim(),
@@ -353,7 +361,7 @@ export async function createCafeAndApproveSubmission(
     google_maps_url: input.googleMapsUrl?.trim() || null,
     summary: input.summary?.trim() || null,
     tags,
-    image_urls: input.imageUrl?.trim() ? [input.imageUrl.trim()] : [],
+    image_urls: imageUrls,
   };
 
   const insertRes = await supabase.from('cafes').insert(insertPayload).select('id').maybeSingle();
@@ -367,7 +375,6 @@ export async function createCafeAndApproveSubmission(
   const createdCafeId = String(insertRes.data.id);
 
   // Promote selected submission photos into live cafe photos (approved), without re-uploading.
-  const selectedPhotos = input.selectedSubmissionPhotos ?? [];
   if (selectedPhotos.length > 0) {
     const photoRows = selectedPhotos.map((photo) => ({
       cafe_id: Number(createdCafeId),
