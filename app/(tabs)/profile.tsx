@@ -29,6 +29,7 @@ import {
   type ActivitySnapshot,
 } from '@/lib/profileGamification';
 import { getCurrentUserProfile, updateProfile, type UserProfile } from '@/lib/profile';
+import { isModerator } from '@/lib/moderators';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
@@ -178,6 +179,7 @@ export default function ProfileScreen() {
   const totalPoints = useMemo(() => computeTotalPoints(activitySnapshot), [activitySnapshot]);
   const levelProgress = useMemo(() => getLevelProgress(totalPoints), [totalPoints]);
   const badges = useMemo(() => computeProfileBadges(activitySnapshot), [activitySnapshot]);
+  const canAccessModeration = useMemo(() => isModerator(user?.id), [user?.id]);
 
   const headlineName = useMemo(() => {
     const fromProfile = profileRow?.display_name?.trim();
@@ -485,6 +487,19 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
+          {canAccessModeration ? (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={styles.activityRow}
+              onPress={() => router.push('/moderation')}
+            >
+              <View style={styles.activityTextWrap}>
+                <Text style={styles.activityTitle}>Moderation</Text>
+                <Text style={styles.activityHint}>Internal review queue and tools</Text>
+              </View>
+              <Text style={styles.chevron}>›</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <Text style={[styles.sectionHeading, styles.achievementsHeading]}>Achievements</Text>

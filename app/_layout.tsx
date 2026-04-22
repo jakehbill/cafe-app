@@ -223,6 +223,14 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen
+            name="moderation"
+            options={{
+              ...stackHeaderOn,
+              title: 'Moderation',
+              headerTitle: 'Moderation',
+            }}
+          />
+          <Stack.Screen
             name="onboarding-preferences"
             options={{
               headerShown: false,
