@@ -114,7 +114,7 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     fromGallery.length > 0 ? fromGallery : legacySingle.length > 0 ? [legacySingle] : [];
   const primaryUrl = photoUrls[0] ?? '';
   const addressRaw = str(
-    row.address ?? row.address_line ?? row.formatted_address ?? row.street_address ?? row.full_address ?? ''
+    row.address ?? row.formatted_address ?? row.street_address ?? row.full_address ?? ''
   ).trim();
 
   const googleMapsUrl = str(

@@ -21,6 +21,15 @@ export type PendingCafeSuggestion = {
   }[];
 };
 
+export type SubmissionPhotoForModeration = {
+  id: string;
+  submission_id: string;
+  storage_path: string;
+  sort_order: number | null;
+  created_at: string | null;
+  preview_url: string | null;
+};
+
 export type PendingPhotoSubmission = {
   id: string;
   created_at: string;
@@ -131,7 +140,53 @@ export async function fetchCafeSubmissionById(id: string): Promise<PendingCafeSu
     return null;
   }
 
-  return (res.data ?? null) as PendingCafeSuggestion | null;
+  const row = (res.data ?? null) as Omit<PendingCafeSuggestion, 'submissionPhotos'> | null;
+  if (!row) return null;
+  return { ...row, submissionPhotos: [] };
+}
+
+export async function fetchSubmissionPhotosForSubmission(
+  submissionId: string
+): Promise<SubmissionPhotoForModeration[]> {
+  const key = String(submissionId ?? '').trim();
+  if (!key) return [];
+
+  const photoRes = await supabase
+    .from('cafe_submission_photos')
+    .select('id, submission_id, storage_path, sort_order, created_at')
+    .eq('submission_id', key);
+
+  if (photoRes.error) return [];
+
+  const rows = (photoRes.data ?? []) as {
+    id: string;
+    submission_id: string;
+    storage_path: string;
+    sort_order: number | null;
+    created_at: string | null;
+  }[];
+
+  const withUrls = await Promise.all(
+    rows.map(async (photo) => {
+      const path = photo.storage_path?.trim();
+      if (!path) {
+        return { ...photo, preview_url: null } satisfies SubmissionPhotoForModeration;
+      }
+      const signed = await supabase.storage.from(CAFE_USER_PHOTO_BUCKET).createSignedUrl(path, 60 * 20);
+      return { ...photo, preview_url: signed.data?.signedUrl ?? null } satisfies SubmissionPhotoForModeration;
+    })
+  );
+
+  withUrls.sort((a, b) => {
+    const sortA = a.sort_order ?? Number.MAX_SAFE_INTEGER;
+    const sortB = b.sort_order ?? Number.MAX_SAFE_INTEGER;
+    if (sortA !== sortB) return sortA - sortB;
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return dateA - dateB;
+  });
+
+  return withUrls;
 }
 
 export async function fetchPendingPhotoSubmissions(): Promise<PendingPhotoSubmission[]> {
@@ -227,7 +282,7 @@ export async function findLikelyCafeDuplicates(input: {
 
   const res = await supabase
     .from('cafes')
-    .select('id, name, neighborhood, address_line, address')
+    .select('id, name, neighborhood, address')
     .ilike('name', `%${name}%`)
     .limit(12);
 
@@ -240,7 +295,6 @@ export async function findLikelyCafeDuplicates(input: {
     id: string | number;
     name: string | null;
     neighborhood: string | null;
-    address_line: string | null;
     address: string | null;
   }[];
 
@@ -254,7 +308,7 @@ export async function findLikelyCafeDuplicates(input: {
       if (!neighborhood && !addressLine) return true;
 
       const rowNeighborhood = (row.neighborhood ?? '').trim().toLowerCase();
-      const rowAddress = (row.address_line ?? row.address ?? '').trim().toLowerCase();
+      const rowAddress = (row.address ?? '').trim().toLowerCase();
       const neighborhoodMatch = neighborhood.length > 0 && rowNeighborhood.includes(neighborhood);
       const addressMatch = addressLine.length > 0 && rowAddress.includes(addressLine);
       return neighborhoodMatch || addressMatch;
@@ -263,7 +317,7 @@ export async function findLikelyCafeDuplicates(input: {
       id: String(row.id),
       name: (row.name ?? '').trim(),
       neighborhood: row.neighborhood,
-      address: row.address_line ?? row.address ?? null,
+      address: row.address ?? null,
     }));
 }
 
@@ -278,22 +332,28 @@ export type CreateCafeFromSubmissionInput = {
   summary?: string;
   tags?: string[];
   imageUrl?: string;
+  moderatorUserId: string;
+  selectedSubmissionPhotos?: SubmissionPhotoForModeration[];
 };
 
 export async function createCafeAndApproveSubmission(
   input: CreateCafeFromSubmissionInput
 ): Promise<{ ok: true; cafeId: string } | { ok: false; error: string }> {
+  if (!input.moderatorUserId?.trim()) {
+    return { ok: false, error: 'Moderator user id is required.' };
+  }
+
   const tags = Array.from(new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean)));
   const insertPayload = {
     name: input.name.trim(),
     neighborhood: input.neighborhood.trim(),
     latitude: input.latitude,
     longitude: input.longitude,
-    address_line: input.addressLine?.trim() || null,
+    address: input.addressLine?.trim() || null,
     google_maps_url: input.googleMapsUrl?.trim() || null,
     summary: input.summary?.trim() || null,
     tags,
-    image_url: input.imageUrl?.trim() || null,
+    image_urls: input.imageUrl?.trim() ? [input.imageUrl.trim()] : [],
   };
 
   const insertRes = await supabase.from('cafes').insert(insertPayload).select('id').maybeSingle();
@@ -305,6 +365,26 @@ export async function createCafeAndApproveSubmission(
   }
 
   const createdCafeId = String(insertRes.data.id);
+
+  // Promote selected submission photos into live cafe photos (approved), without re-uploading.
+  const selectedPhotos = input.selectedSubmissionPhotos ?? [];
+  if (selectedPhotos.length > 0) {
+    const photoRows = selectedPhotos.map((photo) => ({
+      cafe_id: Number(createdCafeId),
+      user_id: input.moderatorUserId,
+      storage_path: photo.storage_path,
+      image_url: null,
+      status: 'approved',
+    }));
+    const photoInsertRes = await supabase.from('cafe_photos').insert(photoRows);
+    if (photoInsertRes.error) {
+      console.warn(
+        '[createCafeAndApproveSubmission] cafe created but photo promotion failed:',
+        photoInsertRes.error.message
+      );
+    }
+  }
+
   const reviewRes = await supabase
     .from('cafe_submissions')
     .update({

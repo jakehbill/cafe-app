@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import {
+  Image,
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
@@ -20,8 +21,10 @@ import { isModerator } from '@/lib/moderator';
 import {
   createCafeAndApproveSubmission,
   fetchCafeSubmissionById,
+  fetchSubmissionPhotosForSubmission,
   findLikelyCafeDuplicates,
   type PendingCafeSuggestion,
+  type SubmissionPhotoForModeration,
 } from '@/lib/moderationQueue';
 
 function parseTags(raw: string): string[] {
@@ -44,6 +47,8 @@ export default function ModerationCreateCafeScreen() {
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [submission, setSubmission] = React.useState<PendingCafeSuggestion | null>(null);
+  const [submissionPhotos, setSubmissionPhotos] = React.useState<SubmissionPhotoForModeration[]>([]);
+  const [selectedPhotoIds, setSelectedPhotoIds] = React.useState<Set<string>>(new Set());
   const [name, setName] = React.useState('');
   const [neighborhood, setNeighborhood] = React.useState('');
   const [addressLine, setAddressLine] = React.useState('');
@@ -62,9 +67,14 @@ export default function ModerationCreateCafeScreen() {
     }
     let cancelled = false;
     void (async () => {
-      const row = await fetchCafeSubmissionById(id);
+      const [row, photos] = await Promise.all([
+        fetchCafeSubmissionById(id),
+        fetchSubmissionPhotosForSubmission(id),
+      ]);
       if (cancelled) return;
       setSubmission(row);
+      setSubmissionPhotos(photos);
+      setSelectedPhotoIds(new Set(photos.map((photo) => photo.id)));
       if (row) {
         setName(row.cafe_name ?? '');
         setNeighborhood(row.area ?? '');
@@ -79,6 +89,18 @@ export default function ModerationCreateCafeScreen() {
       cancelled = true;
     };
   }, [submissionId, allowed]);
+
+  function toggleSelectedPhoto(photoId: string) {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) {
+        next.delete(photoId);
+      } else {
+        next.add(photoId);
+      }
+      return next;
+    });
+  }
 
   if (!allowed) {
     return (
@@ -152,6 +174,8 @@ export default function ModerationCreateCafeScreen() {
       summary,
       tags: parseTags(tagsText),
       imageUrl,
+      moderatorUserId: user?.id ?? '',
+      selectedSubmissionPhotos: submissionPhotos.filter((photo) => selectedPhotoIds.has(photo.id)),
     });
     setSaving(false);
 
@@ -244,6 +268,41 @@ export default function ModerationCreateCafeScreen() {
                   autoCapitalize="none"
                 />
               </View>
+
+              {submissionPhotos.length > 0 ? (
+                <View style={styles.card}>
+                  <Text style={styles.label}>Add photos to this cafe</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.photoRow}
+                  >
+                    {submissionPhotos.map((photo) => {
+                      const selected = selectedPhotoIds.has(photo.id);
+                      return (
+                        <TouchableOpacity
+                          key={photo.id}
+                          activeOpacity={0.9}
+                          style={[
+                            styles.photoTile,
+                            selected ? styles.photoTileSelected : styles.photoTileUnselected,
+                          ]}
+                          onPress={() => toggleSelectedPhoto(photo.id)}
+                        >
+                          {photo.preview_url ? (
+                            <Image source={{ uri: photo.preview_url }} style={styles.photoTileImage} />
+                          ) : (
+                            <View style={[styles.photoTileImage, styles.photoTileFallback]} />
+                          )}
+                          <View style={styles.photoTileBadge}>
+                            <Text style={styles.photoTileBadgeText}>{selected ? 'Selected' : 'Tap to add'}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              ) : null}
 
               <TouchableOpacity
                 activeOpacity={0.88}
@@ -368,6 +427,46 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: COLORS.muted,
     fontFamily: FONTS.sans.regular,
+  },
+  photoRow: {
+    gap: 10,
+    paddingVertical: 2,
+  },
+  photoTile: {
+    width: 132,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
+    backgroundColor: COLORS.inputBackground,
+  },
+  photoTileSelected: {
+    borderColor: COLORS.accentSubtleBorder,
+  },
+  photoTileUnselected: {
+    borderColor: COLORS.cardBorder,
+    opacity: 0.72,
+  },
+  photoTileImage: {
+    width: '100%',
+    aspectRatio: 3 / 2,
+    backgroundColor: COLORS.imagePlaceholder,
+  },
+  photoTileFallback: {
+    backgroundColor: COLORS.imagePlaceholder,
+  },
+  photoTileBadge: {
+    paddingVertical: 7,
+    paddingHorizontal: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+  },
+  photoTileBadgeText: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
   },
 });
 
