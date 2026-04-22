@@ -5,9 +5,7 @@ import { supabase } from '@/lib/supabase';
  * Replace with DB roles/claims when admin roles are available.
  */
 const MODERATOR_USER_IDS = new Set<string>([
-  // Add your real Supabase auth user ID here.
-  // Example: '11111111-2222-3333-4444-555555555555',
-]);
+  '1f189db7-a89a-4239-85b6-0b3cdbddf1ed',]);
 
 export function isModerator(userId?: string | null): boolean {
   if (!userId) return false;
