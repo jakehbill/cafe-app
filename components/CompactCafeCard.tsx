@@ -3,10 +3,11 @@ import type { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { getPrimaryPhotoUrl, type Cafe } from '@/data/cafes';
+import { type Cafe } from '@/data/cafes';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { getTopCafeTags } from '@/lib/supabase';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -88,7 +89,7 @@ export function CompactCafeCard({
   }, [showTagsUI, tags, topTags, effectiveMaxTags]);
   const showTagRow = showTagsUI && tagSlice.length > 0;
   const tagsSubtle = trailing != null && showTagsUI;
-  const primaryPhoto = getPrimaryPhotoUrl(cafe);
+  const primaryPhoto = resolveLiveCafePrimaryImageUrl({ cafe });
   const scoreOnCardTopRight = scorePosition === 'cardTopRight';
   const scoreInContentColumn = scorePosition === 'contentColumn';
   const scoreOnThumbnail = !scoreOnCardTopRight && !scoreInContentColumn;

@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 
-import { getPrimaryPhotoUrl, type Cafe } from '../../data/cafes';
+import { type Cafe } from '../../data/cafes';
 import type { CafeRating } from '@/contexts/CafeStateContext';
 import { BrandTopBar } from '@/components/BrandTopBar';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -32,6 +32,7 @@ import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
 import { computeTrendingScore, rankCafesForTrending } from '@/lib/cafeTrending';
 import { withCafeDistances } from '@/lib/cafeDistance';
 import { useUserLocation } from '@/contexts/UserLocationContext';
+import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -116,7 +117,7 @@ function HomeCafeCard({
   }, [cafe.id]);
 
   const isCarousel = layout === 'carousel';
-  const primaryPhoto = getPrimaryPhotoUrl(cafe);
+  const primaryPhoto = resolveLiveCafePrimaryImageUrl({ cafe });
   const scoreLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   const hasTopTags = topTags.length > 0;
 

@@ -8,6 +8,7 @@ import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
+import { resolveLiveCafeImageUrls } from '@/lib/cafeLiveImages';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import {
   getCafeCommunityTagInsight,
@@ -39,7 +40,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { getCafePhotoUrls, type Cafe } from '../../data/cafes';
+import { type Cafe } from '../../data/cafes';
 
 const FEATURE_TAG_COUNT = 6;
 
@@ -131,10 +132,11 @@ export default function CafeDetailScreen() {
 
   const { width: windowWidth } = useWindowDimensions();
   const photoUrls = useMemo(() => {
-    const catalogUrls = cafe ? getCafePhotoUrls(cafe) : [];
-    if (approvedUserPhotoUrls.length === 0) return catalogUrls;
-    // Prefer approved cafe_photos first, then fallback to catalog image_urls.
-    return Array.from(new Set([...approvedUserPhotoUrls, ...catalogUrls]));
+    if (!cafe) return [];
+    return resolveLiveCafeImageUrls({
+      cafe,
+      approvedPhotoUrls: approvedUserPhotoUrls,
+    });
   }, [cafe, approvedUserPhotoUrls]);
   const heroPageW = heroGSize.w > 0 ? heroGSize.w : windowWidth;
   const heroPageH = heroGSize.h > 0 ? heroGSize.h : heroPageW / (3 / 2);

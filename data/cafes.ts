@@ -51,13 +51,21 @@ export type Cafe = {
   distanceLabel?: string | null;
 };
 
+function sanitizeImageUrl(url: string | undefined | null): string {
+  return String(url ?? '').trim();
+}
+
+function uniqueValidImageUrls(urls: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(urls.map(sanitizeImageUrl).filter((url) => url.length > 0)));
+}
+
 /** All photo URLs for a cafe (gallery or single legacy `imageUrl`). */
 export function getCafePhotoUrls(cafe: Cafe): string[] {
   if (cafe.imageUrls && cafe.imageUrls.length > 0) {
-    return cafe.imageUrls;
+    return uniqueValidImageUrls(cafe.imageUrls);
   }
   if (cafe.imageUrl) {
-    return [cafe.imageUrl];
+    return uniqueValidImageUrls([cafe.imageUrl]);
   }
   return [];
 }

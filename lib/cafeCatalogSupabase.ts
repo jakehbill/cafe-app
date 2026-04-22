@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 
 /** Set to false to silence temporary catalog debug logs after fixing Supabase. */
 const DEBUG_CAFE_CATALOG = true;
+const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
 
 function debugCatalog(label: string, payload: Record<string, unknown>) {
   if (!DEBUG_CAFE_CATALOG || !__DEV__) return;
@@ -31,6 +32,10 @@ function num(v: unknown, fallback = 0): number {
 
 function str(v: unknown): string {
   return v == null ? '' : String(v);
+}
+
+function uniqueValidUrls(urls: Array<string | undefined | null>): string[] {
+  return Array.from(new Set(urls.map((url) => str(url).trim()).filter((url) => url.length > 0)));
 }
 
 /**
@@ -71,6 +76,85 @@ function tagsFromRow(row: Record<string, unknown>): string[] {
     }
   }
   return [];
+}
+
+async function fetchApprovedPhotoUrlsByCafeId(cafeIds: string[]): Promise<Map<string, string[]>> {
+  const numericCafeIds = Array.from(
+    new Set(
+      cafeIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id))
+    )
+  );
+  if (numericCafeIds.length === 0) return new Map();
+
+  const res = await supabase
+    .from('cafe_photos')
+    .select('cafe_id, image_url, storage_path, created_at')
+    .in('cafe_id', numericCafeIds)
+    .eq('status', 'approved')
+    .order('created_at', { ascending: true });
+  if (res.error) {
+    return new Map();
+  }
+
+  const rows = (res.data ?? []) as {
+    cafe_id: number | string;
+    image_url: string | null;
+    storage_path: string | null;
+    created_at: string | null;
+  }[];
+
+  const mappedRows = await Promise.all(
+    rows.map(async (row) => {
+      const cafeId = str(row.cafe_id).trim();
+      if (!cafeId) return null;
+
+      const directUrl = str(row.image_url).trim();
+      if (directUrl.length > 0) {
+        return { cafeId, url: directUrl };
+      }
+
+      const storagePath = str(row.storage_path).trim();
+      if (!storagePath) return null;
+      const signed = await supabase.storage
+        .from(CAFE_USER_PHOTO_BUCKET)
+        .createSignedUrl(storagePath, 60 * 20);
+      const signedUrl = signed.data?.signedUrl ? str(signed.data.signedUrl).trim() : '';
+      if (!signedUrl) return null;
+      return { cafeId, url: signedUrl };
+    })
+  );
+
+  const out = new Map<string, string[]>();
+  for (const item of mappedRows) {
+    if (!item) continue;
+    const current = out.get(item.cafeId) ?? [];
+    current.push(item.url);
+    out.set(item.cafeId, current);
+  }
+  for (const [key, urls] of out.entries()) {
+    out.set(key, uniqueValidUrls(urls));
+  }
+  return out;
+}
+
+async function applyApprovedPhotosPriority(cafes: Cafe[]): Promise<Cafe[]> {
+  // Defensive guard: this helper only accepts a cafe array.
+  const safeCafes = Array.isArray(cafes) ? cafes : [];
+  if (safeCafes.length === 0) return safeCafes;
+  const approvedByCafeId = await fetchApprovedPhotoUrlsByCafeId(safeCafes.map((cafe) => cafe.id));
+  return safeCafes.map((cafe) => {
+    const approved = approvedByCafeId.get(cafe.id) ?? [];
+    if (approved.length > 0) {
+      return { ...cafe, imageUrls: approved, imageUrl: approved[0] };
+    }
+    const fallback = uniqueValidUrls(cafe.imageUrls ?? (cafe.imageUrl ? [cafe.imageUrl] : []));
+    if (fallback.length > 0) {
+      return { ...cafe, imageUrls: fallback, imageUrl: fallback[0] };
+    }
+    return { ...cafe, imageUrls: [], imageUrl: undefined };
+  });
 }
 
 /**
@@ -351,7 +435,9 @@ export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null
     const base = mapCafeRowToCafe(raw);
     if (!base) return null;
     const pub = await fetchPublicScoreRowForCafeBase(base, raw);
-    return mergePublicIntoCafe(base, pub);
+    const merged = mergePublicIntoCafe(base, pub);
+    const withPhotos = await applyApprovedPhotosPriority([merged]);
+    return withPhotos[0] ?? merged;
   }
 
   // Safe fallback: some schemas use cafe_id as the primary column name, not id.
@@ -370,7 +456,9 @@ export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null
   const base = mapCafeRowToCafe(raw2);
   if (!base) return null;
   const pub = await fetchPublicScoreRowForCafeBase(base, raw2);
-  return mergePublicIntoCafe(base, pub);
+  const merged = mergePublicIntoCafe(base, pub);
+  const withPhotos = await applyApprovedPhotosPriority([merged]);
+  return withPhotos[0] ?? merged;
 }
 
 /** Preserves caller order (e.g. visited rank or saved order). */
@@ -424,5 +512,6 @@ export async function fetchCafesByIdsOrdered(ids: string[]): Promise<Cafe[]> {
     if (!base) continue;
     byId.set(base.id, mergePublicIntoCafe(base, resolvePublicScoreRowFromMap(base, row, pubMap)));
   }
-  return ids.map((id) => byId.get(id)).filter((c): c is Cafe => c != null);
+  const ordered = ids.map((id) => byId.get(id)).filter((c): c is Cafe => c != null);
+  return applyApprovedPhotosPriority(ordered);
 }

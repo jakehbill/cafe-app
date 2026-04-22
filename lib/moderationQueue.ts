@@ -347,13 +347,17 @@ export async function createCafeAndApproveSubmission(
   const selectedPhotos = input.selectedSubmissionPhotos ?? [];
   const moderatorUserId = input.moderatorUserId.trim();
   const validSelectedPhotos = (() => {
+    const seenPhotoIds = new Set<string>();
     const seenPaths = new Set<string>();
     const out: SubmissionPhotoForModeration[] = [];
     for (const photo of selectedPhotos) {
       if (!photo) continue;
+      const photoId = String(photo.id ?? '').trim();
+      if (!photoId || seenPhotoIds.has(photoId)) continue;
       const storagePath = String(photo.storage_path ?? '').trim();
       if (!storagePath) continue;
       if (seenPaths.has(storagePath)) continue;
+      seenPhotoIds.add(photoId);
       seenPaths.add(storagePath);
       out.push({ ...photo, storage_path: storagePath });
     }
@@ -415,6 +419,8 @@ export async function createCafeAndApproveSubmission(
       .filter((row) => Number.isFinite(row.cafe_id) && row.user_id.length > 0 && row.storage_path.length > 0);
 
     if (photoRows.length > 0) {
+      // Temporary debug aid during moderation-photo hardening:
+      // console.log('[createCafeAndApproveSubmission] final photoRows', photoRows);
       const photoInsertRes = await supabase.from('cafe_photos').insert(photoRows);
       if (photoInsertRes.error) {
         console.warn(

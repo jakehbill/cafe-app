@@ -20,7 +20,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { getPrimaryPhotoUrl, type Cafe } from '@/data/cafes';
+import { type Cafe } from '@/data/cafes';
+import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
@@ -300,7 +301,7 @@ export default function RateCafeScreen() {
     }
   }
 
-  const ratePreviewPhoto = cafe ? getPrimaryPhotoUrl(cafe) : undefined;
+  const ratePreviewPhoto = cafe ? resolveLiveCafePrimaryImageUrl({ cafe }) : undefined;
 
   /** Full street address when catalog has it; else area/neighborhood. */
   const rateLocationLine =
