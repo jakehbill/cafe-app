@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -19,12 +21,13 @@ import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackBu
 import { COLORS, FONTS } from '@/components/theme';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import {
+  createCafeSuggestionWithId,
   getMyCafeSubmissions,
   isValidOptionalUrl,
-  submitCafeSuggestion,
   type CafeSubmissionStatus,
   type MyCafeSubmissionRow,
 } from '@/lib/cafeSubmissions';
+import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
 
 const STATUS_LABEL: Record<CafeSubmissionStatus, string> = {
   pending: 'Pending review',
@@ -56,6 +59,11 @@ export default function SuggestCafeScreen() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [mySubmissions, setMySubmissions] = useState<MyCafeSubmissionRow[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
+  const [selectedPhotos, setSelectedPhotos] = useState<({
+    uri: string;
+    mimeType?: string | null;
+    fileName?: string | null;
+  } | null)[]>([null, null, null]);
 
   const urlLooksValid = useMemo(
     () => isValidOptionalUrl(googleMapsUrl),
@@ -92,6 +100,7 @@ export default function SuggestCafeScreen() {
     setGoogleMapsUrl('');
     setNotes('');
     setSelectedTags([]);
+    setSelectedPhotos([null, null, null]);
   }
 
   function handleBack() {
@@ -100,6 +109,42 @@ export default function SuggestCafeScreen() {
       return;
     }
     router.replace('/(tabs)/profile');
+  }
+
+  async function pickPhotoForSlot(index: number) {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setSubmitError('Please allow photo library access to add photos.');
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.86,
+    });
+
+    if (pickerResult.canceled) return;
+    const asset = pickerResult.assets?.[0];
+    if (!asset?.uri) return;
+
+    setSelectedPhotos((prev) => {
+      const next = [...prev];
+      next[index] = {
+        uri: asset.uri,
+        mimeType: asset.mimeType,
+        fileName: asset.fileName,
+      };
+      return next;
+    });
+  }
+
+  function removePhotoForSlot(index: number) {
+    setSelectedPhotos((prev) => {
+      const next = [...prev];
+      next[index] = null;
+      return next;
+    });
   }
 
   async function handleSubmit() {
@@ -118,7 +163,7 @@ export default function SuggestCafeScreen() {
     setSuccessMessage(null);
 
     try {
-      const result = await submitCafeSuggestion({
+      const result = await createCafeSuggestionWithId({
         cafeName: nameTrimmed,
         addressText,
         area,
@@ -132,7 +177,26 @@ export default function SuggestCafeScreen() {
         return;
       }
 
-      setSuccessMessage('Thanks — we’ll review this before adding it to Beaned.');
+      const imagesToUpload = selectedPhotos.filter(
+        (photo): photo is { uri: string; mimeType?: string | null; fileName?: string | null } => photo != null
+      );
+
+      let uploadSummary: { uploadedCount: number; failedCount: number } | null = null;
+      if (imagesToUpload.length > 0) {
+        uploadSummary = await uploadSubmissionPhotos({
+          userId: result.userId,
+          submissionId: result.submissionId,
+          images: imagesToUpload,
+        });
+      }
+
+      if (uploadSummary && uploadSummary.failedCount > 0) {
+        setSuccessMessage(
+          `Thanks — we’ll review this before adding it to Beaned. (${uploadSummary.uploadedCount}/${imagesToUpload.length} photos uploaded)`
+        );
+      } else {
+        setSuccessMessage('Thanks — we’ll review this before adding it to Beaned.');
+      }
       resetForm();
       const rows = await getMyCafeSubmissions(6);
       setMySubmissions(rows);
@@ -233,6 +297,51 @@ export default function SuggestCafeScreen() {
               textAlignVertical="top"
               maxLength={400}
             />
+          </View>
+
+          <View style={styles.sectionCard}>
+            <Text style={styles.fieldLabel}>Add photos (recommended)</Text>
+            <View style={styles.photoSlotsWrap}>
+              {[
+                { label: 'Front / exterior', index: 0 },
+                { label: 'Coffee or interior', index: 1 },
+                { label: 'Optional third photo', index: 2 },
+              ].map((slot) => {
+                const photo = selectedPhotos[slot.index];
+                return (
+                  <View key={`suggest-photo-slot-${slot.index}`} style={styles.photoSlotCard}>
+                    <Text style={styles.photoSlotLabel}>{slot.label}</Text>
+                    {photo ? (
+                      <Image source={{ uri: photo.uri }} style={styles.photoPreview} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.photoEmptyState}>
+                        <Text style={styles.photoEmptyStateText}>No photo selected</Text>
+                      </View>
+                    )}
+                    <View style={styles.photoSlotActionsRow}>
+                      <TouchableOpacity
+                        activeOpacity={0.88}
+                        style={styles.photoSlotButton}
+                        onPress={() => void pickPhotoForSlot(slot.index)}
+                        disabled={submitting}
+                      >
+                        <Text style={styles.photoSlotButtonText}>{photo ? 'Replace' : 'Add photo'}</Text>
+                      </TouchableOpacity>
+                      {photo ? (
+                        <TouchableOpacity
+                          activeOpacity={0.88}
+                          style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
+                          onPress={() => removePhotoForSlot(slot.index)}
+                          disabled={submitting}
+                        >
+                          <Text style={styles.photoSlotButtonSecondaryText}>Remove</Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           </View>
 
           <View style={styles.sectionCard}>
@@ -463,6 +572,72 @@ const styles = StyleSheet.create({
   },
   tagChipTextSelected: {
     color: COLORS.accent,
+  },
+  photoSlotsWrap: {
+    gap: 10,
+  },
+  photoSlotCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    padding: 10,
+    gap: 8,
+  },
+  photoSlotLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.semibold,
+  },
+  photoPreview: {
+    width: '100%',
+    aspectRatio: 3 / 2,
+    borderRadius: 10,
+    backgroundColor: COLORS.imagePlaceholder,
+  },
+  photoEmptyState: {
+    width: '100%',
+    aspectRatio: 3 / 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoEmptyStateText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+  },
+  photoSlotActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  photoSlotButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  photoSlotButtonSecondary: {
+    backgroundColor: COLORS.inputBackground,
+  },
+  photoSlotButtonText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
+  },
+  photoSlotButtonSecondaryText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.semibold,
   },
   submitButton: {
     borderRadius: 14,

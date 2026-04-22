@@ -11,6 +11,10 @@ export type CafeSubmissionInsertInput = {
   selectedTags?: string[];
 };
 
+export type CafeSubmissionCreateResult =
+  | { ok: true; submissionId: string; userId: string }
+  | { ok: false; error: string };
+
 export type MyCafeSubmissionRow = {
   id: string;
   created_at: string;
@@ -33,6 +37,16 @@ export function isValidOptionalUrl(rawUrl: string): boolean {
 export async function submitCafeSuggestion(
   input: CafeSubmissionInsertInput
 ): Promise<SupabaseActionResult> {
+  const res = await createCafeSuggestionWithId(input);
+  if (!res.ok) {
+    return { ok: false, error: res.error };
+  }
+  return { ok: true };
+}
+
+export async function createCafeSuggestionWithId(
+  input: CafeSubmissionInsertInput
+): Promise<CafeSubmissionCreateResult> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
     return { ok: false, error: authError.message };
@@ -67,12 +81,16 @@ export async function submitCafeSuggestion(
     selected_tags: selectedTags,
   };
 
-  const res = await supabase.from('cafe_submissions').insert(payload);
-  if (res.error) {
-    return { ok: false, error: res.error.message };
+  const res = await supabase
+    .from('cafe_submissions')
+    .insert(payload)
+    .select('id')
+    .maybeSingle();
+  if (res.error || !res.data?.id) {
+    return { ok: false, error: res.error?.message ?? 'Submission could not be created.' };
   }
 
-  return { ok: true };
+  return { ok: true, submissionId: String(res.data.id), userId };
 }
 
 export async function getMyCafeSubmissions(limit = 8): Promise<MyCafeSubmissionRow[]> {
