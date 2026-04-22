@@ -149,15 +149,27 @@ export async function getApprovedCafePhotoUrls(cafeId: string): Promise<string[]
     return [];
   }
 
-  const urls = (res.data ?? [])
-    .map((row) => {
-      const imageUrl = typeof row.image_url === 'string' ? row.image_url.trim() : '';
-      if (imageUrl.length > 0) return imageUrl;
-      const storagePath = typeof row.storage_path === 'string' ? row.storage_path.trim() : '';
-      if (!storagePath) return '';
-      return supabase.storage.from(CAFE_USER_PHOTO_BUCKET).getPublicUrl(storagePath).data.publicUrl ?? '';
-    })
-    .filter((url) => url.length > 0);
+  const urls: string[] = [];
+  for (const row of res.data ?? []) {
+    const imageUrl = typeof row.image_url === 'string' ? row.image_url.trim() : '';
+    if (imageUrl.length > 0) {
+      urls.push(imageUrl);
+      continue;
+    }
+
+    const storagePath = typeof row.storage_path === 'string' ? row.storage_path.trim() : '';
+    if (!storagePath) continue;
+
+    const signed = await supabase.storage
+      .from(CAFE_USER_PHOTO_BUCKET)
+      .createSignedUrl(storagePath, 60 * 20);
+    if (signed.error) {
+      continue;
+    }
+    if (signed.data?.signedUrl) {
+      urls.push(signed.data.signedUrl);
+    }
+  }
 
   return Array.from(new Set(urls));
 }

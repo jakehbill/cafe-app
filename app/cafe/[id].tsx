@@ -133,7 +133,8 @@ export default function CafeDetailScreen() {
   const photoUrls = useMemo(() => {
     const catalogUrls = cafe ? getCafePhotoUrls(cafe) : [];
     if (approvedUserPhotoUrls.length === 0) return catalogUrls;
-    return Array.from(new Set([...catalogUrls, ...approvedUserPhotoUrls]));
+    // Prefer approved cafe_photos first, then fallback to catalog image_urls.
+    return Array.from(new Set([...approvedUserPhotoUrls, ...catalogUrls]));
   }, [cafe, approvedUserPhotoUrls]);
   const heroPageW = heroGSize.w > 0 ? heroGSize.w : windowWidth;
   const heroPageH = heroGSize.h > 0 ? heroGSize.h : heroPageW / (3 / 2);
