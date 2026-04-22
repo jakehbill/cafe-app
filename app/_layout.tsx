@@ -231,6 +231,14 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen
+            name="moderation-create-cafe"
+            options={{
+              ...stackHeaderOn,
+              title: 'Create cafe',
+              headerTitle: 'Create cafe',
+            }}
+          />
+          <Stack.Screen
             name="onboarding-preferences"
             options={{
               headerShown: false,

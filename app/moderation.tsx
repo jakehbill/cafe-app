@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
 import React from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Alert,
@@ -74,6 +75,13 @@ export default function ModerationScreen() {
     if (!allowed) return;
     void loadQueues(false);
   }, [allowed, loadQueues]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!allowed) return;
+      void loadQueues(false);
+    }, [allowed, loadQueues])
+  );
 
   async function handleCafeDecision(id: string, decision: 'approved' | 'rejected') {
     if (workingItemId) return;
@@ -168,6 +176,21 @@ export default function ModerationScreen() {
                   ) : null}
                   <Text style={styles.dateText}>{formatCreatedAt(item.created_at)}</Text>
                   <View style={styles.actionsRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      style={[styles.actionButton, styles.createButton]}
+                      disabled={workingItemId === item.id}
+                      onPress={() =>
+                        router.push({
+                          pathname: '/moderation-create-cafe',
+                          params: { submissionId: item.id },
+                        })
+                      }
+                    >
+                      <Text style={[styles.actionButtonText, styles.createButtonText]}>
+                        Create cafe
+                      </Text>
+                    </TouchableOpacity>
                     <TouchableOpacity
                       activeOpacity={0.88}
                       style={[styles.actionButton, styles.approveButton]}
@@ -361,6 +384,10 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accentSubtleBorder,
     backgroundColor: COLORS.accentSubtleFill,
   },
+  createButton: {
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accent,
+  },
   rejectButton: {
     backgroundColor: COLORS.inputBackground,
   },
@@ -372,6 +399,9 @@ const styles = StyleSheet.create({
   },
   approveButtonText: {
     color: COLORS.accent,
+  },
+  createButtonText: {
+    color: '#ffffff',
   },
   emptyText: {
     marginTop: 10,
