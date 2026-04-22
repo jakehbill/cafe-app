@@ -93,6 +93,13 @@ export default function ModerationScreen() {
   );
 
   async function handleCafeDecision(id: string, decision: 'approved' | 'rejected') {
+    if (decision === 'approved') {
+      Alert.alert(
+        'Use Create cafe',
+        'To approve a cafe suggestion, use "Create cafe" so the live cafe row is created first.'
+      );
+      return;
+    }
     if (workingItemId) return;
     setWorkingItemId(id);
     const res = await reviewCafeSuggestion(id, decision);
@@ -224,7 +231,7 @@ export default function ModerationScreen() {
                       disabled={workingItemId === item.id}
                       onPress={() => void handleCafeDecision(item.id, 'approved')}
                     >
-                      <Text style={[styles.actionButtonText, styles.approveButtonText]}>Approve</Text>
+                      <Text style={[styles.actionButtonText, styles.approveButtonText]}>Approve only</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       activeOpacity={0.88}

@@ -345,7 +345,21 @@ export async function createCafeAndApproveSubmission(
 
   const tags = Array.from(new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean)));
   const selectedPhotos = input.selectedSubmissionPhotos ?? [];
-  const selectedPhotoUrls = selectedPhotos
+  const moderatorUserId = input.moderatorUserId.trim();
+  const validSelectedPhotos = (() => {
+    const seenPaths = new Set<string>();
+    const out: SubmissionPhotoForModeration[] = [];
+    for (const photo of selectedPhotos) {
+      if (!photo) continue;
+      const storagePath = String(photo.storage_path ?? '').trim();
+      if (!storagePath) continue;
+      if (seenPaths.has(storagePath)) continue;
+      seenPaths.add(storagePath);
+      out.push({ ...photo, storage_path: storagePath });
+    }
+    return out;
+  })();
+  const selectedPhotoUrls = validSelectedPhotos
     .map((photo) => {
       const path = photo.storage_path?.trim();
       if (!path) return '';
@@ -377,7 +391,7 @@ export async function createCafeAndApproveSubmission(
     image_urls: imageUrls,
   };
 
-  const insertRes = await supabase.from('cafes').insert(insertPayload).select('id').maybeSingle();
+  const insertRes = await supabase.from('cafes').insert(insertPayload).select('id, slug').single();
   if (insertRes.error || !insertRes.data?.id) {
     return {
       ok: false,
@@ -386,22 +400,28 @@ export async function createCafeAndApproveSubmission(
   }
 
   const createdCafeId = String(insertRes.data.id);
+  const createdCafeIdNum = Number(createdCafeId);
 
   // Promote selected submission photos into live cafe photos (approved), without re-uploading.
-  if (selectedPhotos.length > 0) {
-    const photoRows = selectedPhotos.map((photo) => ({
-      cafe_id: Number(createdCafeId),
-      user_id: input.moderatorUserId,
-      storage_path: photo.storage_path,
-      image_url: null,
-      status: 'approved',
-    }));
-    const photoInsertRes = await supabase.from('cafe_photos').insert(photoRows);
-    if (photoInsertRes.error) {
-      console.warn(
-        '[createCafeAndApproveSubmission] cafe created but photo promotion failed:',
-        photoInsertRes.error.message
-      );
+  if (validSelectedPhotos.length > 0 && Number.isFinite(createdCafeIdNum) && moderatorUserId.length > 0) {
+    const photoRows = validSelectedPhotos
+      .map((photo) => ({
+        cafe_id: createdCafeIdNum,
+        user_id: moderatorUserId,
+        storage_path: String(photo.storage_path ?? '').trim(),
+        image_url: null as string | null,
+        status: 'approved' as const,
+      }))
+      .filter((row) => Number.isFinite(row.cafe_id) && row.user_id.length > 0 && row.storage_path.length > 0);
+
+    if (photoRows.length > 0) {
+      const photoInsertRes = await supabase.from('cafe_photos').insert(photoRows);
+      if (photoInsertRes.error) {
+        console.warn(
+          '[createCafeAndApproveSubmission] cafe created but photo promotion failed:',
+          photoInsertRes.error.message
+        );
+      }
     }
   }
 
