@@ -7,6 +7,7 @@ import { withCafeDistances } from '@/lib/cafeDistance';
 import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatTagLabel } from '@/lib/cafeTags';
+import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import {
   getCafeCommunityTagInsight,
@@ -125,10 +126,15 @@ export default function CafeDetailScreen() {
   const [featureTags, setFeatureTags] = useState<string[]>([]);
   const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
   const [recentReviews, setRecentReviews] = useState<CafeRecentReview[]>([]);
+  const [approvedUserPhotoUrls, setApprovedUserPhotoUrls] = useState<string[]>([]);
   const { coords: userLocation, refreshLocation } = useUserLocation();
 
   const { width: windowWidth } = useWindowDimensions();
-  const photoUrls = cafe ? getCafePhotoUrls(cafe) : [];
+  const photoUrls = useMemo(() => {
+    const catalogUrls = cafe ? getCafePhotoUrls(cafe) : [];
+    if (approvedUserPhotoUrls.length === 0) return catalogUrls;
+    return Array.from(new Set([...catalogUrls, ...approvedUserPhotoUrls]));
+  }, [cafe, approvedUserPhotoUrls]);
   const heroPageW = heroGSize.w > 0 ? heroGSize.w : windowWidth;
   const heroPageH = heroGSize.h > 0 ? heroGSize.h : heroPageW / (3 / 2);
 
@@ -177,6 +183,22 @@ export default function CafeDetailScreen() {
       setFeatureTags(popular);
       setTagInsight(insight);
       setRecentReviews(reviews);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cafe?.id]);
+
+  useEffect(() => {
+    if (!cafe?.id) {
+      setApprovedUserPhotoUrls([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const approvedUrls = await getApprovedCafePhotoUrls(cafe.id);
+      if (cancelled) return;
+      setApprovedUserPhotoUrls(approvedUrls);
     })();
     return () => {
       cancelled = true;

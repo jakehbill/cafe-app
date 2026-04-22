@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,6 +24,7 @@ import { getPrimaryPhotoUrl, type Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
+import { submitCafePhoto } from '@/lib/cafePhotoSubmissions';
 import { getUserCoffeeRating, rateCafe } from '@/lib/supabase';
 
 function rateDebug(label: string, payload: Record<string, unknown>) {
@@ -112,6 +114,9 @@ export default function RateCafeScreen() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const scrollRef = React.useRef<ScrollView>(null);
   const [notesSectionY, setNotesSectionY] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -184,6 +189,54 @@ export default function RateCafeScreen() {
       if (prev.includes(tag)) return prev.filter((item) => item !== tag);
       return [...prev, tag];
     });
+  }
+
+  async function handleAddPhoto() {
+    if (photoUploading) return;
+
+    setPhotoError(null);
+    setPhotoSuccess(null);
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setPhotoError('Please allow photo library access to submit a photo.');
+      return;
+    }
+
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.86,
+    });
+
+    if (pickerResult.canceled) {
+      return;
+    }
+
+    const asset = pickerResult.assets?.[0];
+    if (!asset?.uri) {
+      setPhotoError('No image selected. Please try again.');
+      return;
+    }
+
+    setPhotoUploading(true);
+    try {
+      const uploadResult = await submitCafePhoto({
+        cafeId: targetCafeId,
+        asset: {
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          fileName: asset.fileName,
+        },
+      });
+      if (!uploadResult.ok) {
+        setPhotoError(uploadResult.error);
+        return;
+      }
+      setPhotoSuccess('Photo submitted for review.');
+    } finally {
+      setPhotoUploading(false);
+    }
   }
 
   async function handleSubmit() {
@@ -302,6 +355,23 @@ export default function RateCafeScreen() {
               {rateLocationLine}
             </Text>
           </View>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Add a photo</Text>
+          <Text style={styles.photoHelperText}>Photos are reviewed before appearing publicly</Text>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={[styles.photoUploadButton, photoUploading && styles.submitButtonDisabled]}
+            onPress={() => void handleAddPhoto()}
+            disabled={photoUploading}
+          >
+            <Text style={styles.photoUploadButtonText}>
+              {photoUploading ? 'Uploading…' : 'Add photo'}
+            </Text>
+          </TouchableOpacity>
+          {photoError ? <Text style={styles.photoErrorText}>{photoError}</Text> : null}
+          {photoSuccess ? <Text style={styles.photoSuccessText}>{photoSuccess}</Text> : null}
         </View>
 
         <View style={styles.sectionCard}>
@@ -545,6 +615,42 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     lineHeight: 20,
+  },
+  photoHelperText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+    marginTop: -2,
+  },
+  photoUploadButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.inputBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  photoUploadButtonText: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
+  },
+  photoErrorText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#8B4A4A',
+    fontFamily: FONTS.sans.medium,
+  },
+  photoSuccessText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#4A5A49',
+    fontFamily: FONTS.sans.medium,
   },
 
   tagsWrap: {
