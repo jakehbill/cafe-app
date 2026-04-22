@@ -16,7 +16,7 @@ import {
 
 import { COLORS, FONTS } from '@/components/theme';
 import { useAuth } from '@/contexts/AuthContext';
-import { isModerator } from '@/lib/moderators';
+import { isModerator } from '@/lib/moderator';
 import {
   createCafeAndApproveSubmission,
   fetchCafeSubmissionById,

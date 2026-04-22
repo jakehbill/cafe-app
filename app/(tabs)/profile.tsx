@@ -29,7 +29,7 @@ import {
   type ActivitySnapshot,
 } from '@/lib/profileGamification';
 import { getCurrentUserProfile, updateProfile, type UserProfile } from '@/lib/profile';
-import { isModerator } from '@/lib/moderators';
+import { isModerator, logCurrentAuthUserId } from '@/lib/moderator';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
@@ -143,6 +143,11 @@ export default function ProfileScreen() {
   useEffect(() => {
     void loadProfileRow();
   }, [loadProfileRow]);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    void logCurrentAuthUserId();
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
