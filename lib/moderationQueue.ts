@@ -1,4 +1,5 @@
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
+import { generateUniqueCafeSlug } from '@/lib/cafeSlug';
 
 const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
 
@@ -352,8 +353,20 @@ export async function createCafeAndApproveSubmission(
     })
     .filter((url) => url.length > 0);
   const imageUrls = Array.from(new Set(selectedPhotoUrls));
+  let slug: string;
+  try {
+    slug = await generateUniqueCafeSlug(input.name, input.area);
+  } catch (error) {
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message : 'Could not generate a unique slug for this cafe.',
+    };
+  }
+
   const insertPayload = {
     name: input.name.trim(),
+    slug,
     area: input.area.trim(),
     latitude: input.latitude,
     longitude: input.longitude,
