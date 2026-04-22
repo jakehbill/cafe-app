@@ -1,5 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import {
@@ -272,7 +273,7 @@ export default function HomeScreen() {
       console.log('[RouteHeaderDebug Home] segments:', segments, 'err:', e);
     }
   }, [navigation, segments]);
-  const { cafes: cafeCatalog } = useCafeCatalog();
+  const { cafes: cafeCatalog, refetch: refetchCafeCatalog } = useCafeCatalog();
   const { coords: userLocation, refreshLocation } = useUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
 
@@ -280,6 +281,13 @@ export default function HomeScreen() {
     // Refresh once on Home mount; avoids stale distance labels after app resume.
     void refreshLocation();
   }, [refreshLocation]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Home cards use signed URLs for approved photos; refresh on focus to keep URLs fresh.
+      void refetchCafeCatalog();
+    }, [refetchCafeCatalog])
+  );
 
   const cafesWithDistance = useMemo(
     () => withCafeDistances(cafeCatalog, userLocation),

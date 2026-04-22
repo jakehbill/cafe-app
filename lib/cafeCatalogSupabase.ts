@@ -90,7 +90,7 @@ async function fetchApprovedPhotoUrlsByCafeId(cafeIds: string[]): Promise<Map<st
 
   const res = await supabase
     .from('cafe_photos')
-    .select('cafe_id, image_url, storage_path, created_at')
+    .select('*')
     .in('cafe_id', numericCafeIds)
     .eq('status', 'approved')
     .order('created_at', { ascending: true });
@@ -102,8 +102,23 @@ async function fetchApprovedPhotoUrlsByCafeId(cafeIds: string[]): Promise<Map<st
     cafe_id: number | string;
     image_url: string | null;
     storage_path: string | null;
+    sort_order?: number | null;
+    is_primary?: boolean | null;
     created_at: string | null;
   }[];
+  rows.sort((a, b) => {
+    const aPrimary = a.is_primary === true ? 1 : 0;
+    const bPrimary = b.is_primary === true ? 1 : 0;
+    if (aPrimary !== bPrimary) return bPrimary - aPrimary;
+
+    const aOrder = typeof a.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
+    const bOrder = typeof b.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+
+    const aTime = a.created_at ? Date.parse(a.created_at) : 0;
+    const bTime = b.created_at ? Date.parse(b.created_at) : 0;
+    return aTime - bTime;
+  });
 
   const mappedRows = await Promise.all(
     rows.map(async (row) => {
@@ -414,7 +429,7 @@ export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
           : null,
   });
 
-  return out;
+  return applyApprovedPhotosPriority(out);
 }
 
 export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null> {

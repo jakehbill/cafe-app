@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Cafe } from '@/data/cafes';
 import { fetchAllCafesFromSupabase } from '@/lib/cafeCatalogSupabase';
@@ -11,26 +11,46 @@ export function useCafeCatalog() {
   const [cafes, setCafes] = useState<Cafe[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const loadCatalog = useCallback(async () => {
+    setLoading(true);
+    const list = await fetchAllCafesFromSupabase();
+    setCafes(list);
+    setLoading(false);
+    if (__DEV__) {
+      const payload = {
+        loading: false,
+        finalCafeCountPassedToUI: list.length,
+        firstCafeSample: list[0] ? { id: list[0].id, name: list[0].name } : null,
+      };
+      try {
+        console.log(
+          `[DEBUG useCafeCatalog → Home/Search/Map]\n${JSON.stringify(payload, null, 2)}`
+        );
+      } catch {
+        console.log('[DEBUG useCafeCatalog → Home/Search/Map]', payload);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       const list = await fetchAllCafesFromSupabase();
-      if (!cancelled) {
-        setCafes(list);
-        setLoading(false);
-        if (__DEV__) {
-          const payload = {
-            loading: false,
-            finalCafeCountPassedToUI: list.length,
-            firstCafeSample: list[0] ? { id: list[0].id, name: list[0].name } : null,
-          };
-          try {
-            console.log(
-              `[DEBUG useCafeCatalog → Home/Search/Map]\n${JSON.stringify(payload, null, 2)}`
-            );
-          } catch {
-            console.log('[DEBUG useCafeCatalog → Home/Search/Map]', payload);
-          }
+      if (cancelled) return;
+      setCafes(list);
+      setLoading(false);
+      if (__DEV__) {
+        const payload = {
+          loading: false,
+          finalCafeCountPassedToUI: list.length,
+          firstCafeSample: list[0] ? { id: list[0].id, name: list[0].name } : null,
+        };
+        try {
+          console.log(
+            `[DEBUG useCafeCatalog → Home/Search/Map]\n${JSON.stringify(payload, null, 2)}`
+          );
+        } catch {
+          console.log('[DEBUG useCafeCatalog → Home/Search/Map]', payload);
         }
       }
     })();
@@ -47,5 +67,5 @@ export function useCafeCatalog() {
     return next;
   }, [cafes]);
 
-  return { cafes, loading, byId };
+  return { cafes, loading, byId, refetch: loadCatalog };
 }

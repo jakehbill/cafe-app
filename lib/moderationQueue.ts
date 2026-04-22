@@ -409,11 +409,12 @@ export async function createCafeAndApproveSubmission(
   // Promote selected submission photos into live cafe photos (approved), without re-uploading.
   if (validSelectedPhotos.length > 0 && Number.isFinite(createdCafeIdNum) && moderatorUserId.length > 0) {
     const photoRows = validSelectedPhotos
-      .map((photo) => ({
+      .map((photo, index) => ({
         cafe_id: createdCafeIdNum,
         user_id: moderatorUserId,
         storage_path: String(photo.storage_path ?? '').trim(),
         image_url: null as string | null,
+        sort_order: index,
         status: 'approved' as const,
       }))
       .filter((row) => Number.isFinite(row.cafe_id) && row.user_id.length > 0 && row.storage_path.length > 0);
