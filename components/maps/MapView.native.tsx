@@ -8,6 +8,7 @@ import { BeanMapMarkerContent } from '@/components/maps/BeanMapMarkerContent';
 import { MapCafeCallout } from '@/components/maps/MapCafeCallout';
 import { COLORS } from '@/components/theme';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { hasValidCafeCoordinates } from '@/lib/cafeMapsUrl';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 
 /**
@@ -19,7 +20,7 @@ export default function MapViewNative() {
   const { cafes } = useCafeCatalog();
 
   const initialRegion = useMemo(() => {
-    const firstCafe = cafes[0];
+    const firstCafe = cafes.find((cafe) => hasValidCafeCoordinates(cafe));
     return {
       latitude: firstCafe?.latitude ?? 51.5256,
       longitude: firstCafe?.longitude ?? -0.0754,
@@ -36,7 +37,7 @@ export default function MapViewNative() {
       </View>
 
       <MapView style={styles.map} initialRegion={initialRegion}>
-        {cafes.map((cafe) => {
+        {cafes.filter(hasValidCafeCoordinates).map((cafe) => {
           const coffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
           return (
             <Marker

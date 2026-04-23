@@ -25,6 +25,7 @@ import SearchResultsMap from '@/components/maps/SearchResultsMap';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useUserLocation } from '@/contexts/UserLocationContext';
 import { withCafeDistances } from '@/lib/cafeDistance';
+import { hasValidCafeCoordinates } from '@/lib/cafeMapsUrl';
 import {
   cafeMatchesSelectedCanonicalTagsMeaningfully,
   fetchMeaningfulCafeIdsByCanonicalTag,
@@ -34,9 +35,11 @@ type ViewMode = 'list' | 'map';
 type SearchSortMode = 'default' | 'nearest';
 type RadiusFilter = 'any' | 0.5 | 1 | 2 | 5;
 const SEARCH_RESULT_LIMIT = 10;
+const MAP_RESULT_LIMIT = 150;
 
 function regionForCafes(cafeList: Cafe[]) {
-  if (cafeList.length === 0) {
+  const cafesWithValidCoords = cafeList.filter((cafe) => hasValidCafeCoordinates(cafe));
+  if (cafesWithValidCoords.length === 0) {
     return {
       latitude: 51.5256,
       longitude: -0.0754,
@@ -44,8 +47,10 @@ function regionForCafes(cafeList: Cafe[]) {
       longitudeDelta: 0.06,
     };
   }
-  const lat = cafeList.reduce((sum, c) => sum + c.latitude, 0) / cafeList.length;
-  const lng = cafeList.reduce((sum, c) => sum + c.longitude, 0) / cafeList.length;
+  const lat =
+    cafesWithValidCoords.reduce((sum, c) => sum + c.latitude, 0) / cafesWithValidCoords.length;
+  const lng =
+    cafesWithValidCoords.reduce((sum, c) => sum + c.longitude, 0) / cafesWithValidCoords.length;
   return {
     latitude: lat,
     longitude: lng,
@@ -130,7 +135,7 @@ export default function SearchScreen() {
     };
   }, [selectedTagSlugs, ranked]);
 
-  const results = useMemo(() => {
+  const filteredRankedResults = useMemo(() => {
     let next = ranked;
     if (selectedTagSlugs.length > 0) {
       // Wait for rating_tags-derived sets; do not use cafes.tags for filtering.
@@ -153,7 +158,7 @@ export default function SearchScreen() {
       });
     }
 
-    return next.slice(0, SEARCH_RESULT_LIMIT);
+    return next;
   }, [
     ranked,
     selectedTagSlugs,
@@ -163,6 +168,14 @@ export default function SearchScreen() {
     radiusFilter,
     sortMode,
   ]);
+  const listResults = useMemo(
+    () => filteredRankedResults.slice(0, SEARCH_RESULT_LIMIT),
+    [filteredRankedResults]
+  );
+  const mapResults = useMemo(() => {
+    // Map mode intentionally uses a much larger pin set than curated list mode.
+    return filteredRankedResults.filter(hasValidCafeCoordinates).slice(0, MAP_RESULT_LIMIT);
+  }, [filteredRankedResults]);
 
   const toggleTagSlug = (slug: string) => {
     setSelectedTagSlugs((prev) =>
@@ -175,7 +188,8 @@ export default function SearchScreen() {
   const selectedCountForSection = (sectionTags: readonly string[]) =>
     selectedTagSlugs.filter((s) => sectionTags.includes(s)).length;
 
-  const showNoResults = results.length === 0;
+  const activeResults = viewMode === 'map' ? mapResults : listResults;
+  const showNoResults = activeResults.length === 0;
   const hasQuery = query.trim().length > 0;
   const resultsLabel =
     selectedTagSlugs.length === 0
@@ -184,7 +198,7 @@ export default function SearchScreen() {
         ? `Filtering · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}…`
         : `Filtered · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}`;
 
-  const mapRegion = useMemo(() => regionForCafes(results), [results]);
+  const mapRegion = useMemo(() => regionForCafes(mapResults), [mapResults]);
   const isWeb = Platform.OS === 'web';
 
   return (
@@ -428,7 +442,7 @@ export default function SearchScreen() {
           ) : (
             <>
               <Text style={styles.resultsLabel}>{resultsLabel}</Text>
-              {results.map((cafe) => {
+              {listResults.map((cafe) => {
                 return (
                   <CompactCafeCard
                     key={cafe.id}
@@ -457,7 +471,7 @@ export default function SearchScreen() {
               showsVerticalScrollIndicator={false}
             >
               <Text style={styles.resultsLabel}>{resultsLabel}</Text>
-              {results.map((cafe) => (
+              {mapResults.map((cafe) => (
                 <TouchableOpacity
                   key={cafe.id}
                   activeOpacity={0.85}
@@ -471,7 +485,7 @@ export default function SearchScreen() {
             </ScrollView>
           ) : (
             <SearchResultsMap
-              results={results}
+              results={mapResults}
               initialRegion={mapRegion}
               onPressCafe={(cafeId: string) => router.push(`/cafe/${cafeId}`)}
             />

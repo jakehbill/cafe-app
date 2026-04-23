@@ -30,6 +30,12 @@ function num(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function coordinateNum(v: unknown): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : Number.NaN;
+}
+
 function str(v: unknown): string {
   return v == null ? '' : String(v);
 }
@@ -224,8 +230,9 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     id,
     name: str(row.name ?? row.title),
     neighborhood: str(row.neighborhood ?? row.area ?? row.location ?? row.district),
-    latitude: num(row.latitude ?? row.lat),
-    longitude: num(row.longitude ?? row.lng),
+    // Keep invalid coordinates as NaN (instead of 0) so consumers can safely ignore bad pins/links.
+    latitude: coordinateNum(row.latitude ?? row.lat),
+    longitude: coordinateNum(row.longitude ?? row.lng),
     coffeeScore: coffee,
     workScore: work,
     vibeScore: vibe,

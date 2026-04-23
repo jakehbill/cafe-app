@@ -6,6 +6,7 @@ import type { Cafe } from '@/data/cafes';
 import { MapCafeCallout } from '@/components/maps/MapCafeCallout';
 import { BeanMapMarkerContent } from '@/components/maps/BeanMapMarkerContent';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { hasValidCafeCoordinates } from '@/lib/cafeMapsUrl';
 
 /**
  * Native-only map implementation for Search (iOS/Android).
@@ -26,7 +27,7 @@ export default function SearchResultsMap({
       style={styles.map}
       initialRegion={initialRegion}
     >
-      {results.map((cafe) => {
+      {results.filter(hasValidCafeCoordinates).map((cafe) => {
         const coffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
         return (
           <Marker

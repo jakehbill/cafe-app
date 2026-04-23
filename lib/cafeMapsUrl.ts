@@ -2,6 +2,23 @@ import type { Cafe } from '@/data/cafes';
 
 const MAPS_SEARCH_BASE = 'https://www.google.com/maps/search/?api=1&query=';
 
+function hasValidCoordinatePair(latitude: unknown, longitude: unknown): boolean {
+  return (
+    typeof latitude === 'number' &&
+    Number.isFinite(latitude) &&
+    latitude >= -90 &&
+    latitude <= 90 &&
+    typeof longitude === 'number' &&
+    Number.isFinite(longitude) &&
+    longitude >= -180 &&
+    longitude <= 180
+  );
+}
+
+export function hasValidCafeCoordinates(cafe: Cafe): boolean {
+  return hasValidCoordinatePair(cafe.latitude, cafe.longitude);
+}
+
 /** Ensures `Linking.openURL` receives an absolute https URL on mobile. */
 export function normalizeExternalMapsUrl(url: string): string {
   const t = url.trim();
@@ -12,23 +29,24 @@ export function normalizeExternalMapsUrl(url: string): string {
 
 /**
  * Resolves a Google Maps URL for opening or sharing.
- * 1. `googleMapsUrl` from Supabase when present
- * 2. Search URL from street / formatted address when present
- * 3. Search URL from coordinates (listing cafes always have lat/lng)
+ * 1. Search URL from coordinates (preferred source of truth when valid)
+ * 2. `googleMapsUrl` from Supabase when present
+ * 3. Search URL from street / formatted address when present
  * 4. Search URL from name + neighborhood
  */
 export function resolveCafeMapsUrl(cafe: Cafe): string | null {
+  const { latitude, longitude } = cafe;
+  if (hasValidCoordinatePair(latitude, longitude)) {
+    // Google Maps query expects latitude,longitude ordering.
+    return `${MAPS_SEARCH_BASE}${encodeURIComponent(`${latitude},${longitude}`)}`;
+  }
+
   const direct = cafe.googleMapsUrl?.trim();
   if (direct) return normalizeExternalMapsUrl(direct);
 
   const addr = (cafe.addressLine ?? '').trim();
   if (addr.length > 0) {
     return `${MAPS_SEARCH_BASE}${encodeURIComponent(addr)}`;
-  }
-
-  const { latitude, longitude } = cafe;
-  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-    return `${MAPS_SEARCH_BASE}${encodeURIComponent(`${latitude},${longitude}`)}`;
   }
 
   const q = `${cafe.name} ${cafe.neighborhood}`.trim();
