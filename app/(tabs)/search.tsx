@@ -33,6 +33,7 @@ import {
 type ViewMode = 'list' | 'map';
 type SearchSortMode = 'default' | 'nearest';
 type RadiusFilter = 'any' | 0.5 | 1 | 2 | 5;
+const SEARCH_RESULT_LIMIT = 10;
 
 function regionForCafes(cafeList: Cafe[]) {
   if (cafeList.length === 0) {
@@ -152,7 +153,7 @@ export default function SearchScreen() {
       });
     }
 
-    return next;
+    return next.slice(0, SEARCH_RESULT_LIMIT);
   }, [
     ranked,
     selectedTagSlugs,
@@ -175,6 +176,7 @@ export default function SearchScreen() {
     selectedTagSlugs.filter((s) => sectionTags.includes(s)).length;
 
   const showNoResults = results.length === 0;
+  const hasQuery = query.trim().length > 0;
   const resultsLabel =
     selectedTagSlugs.length === 0
       ? 'Top matches'
@@ -418,7 +420,11 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
         >
           {showNoResults ? (
-            <Text style={styles.emptyText}>No cafes found</Text>
+            <Text style={styles.emptyText}>
+              {hasQuery
+                ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
+                : 'No cafes found'}
+            </Text>
           ) : (
             <>
               <Text style={styles.resultsLabel}>{resultsLabel}</Text>
@@ -439,7 +445,11 @@ export default function SearchScreen() {
       ) : (
         <View style={styles.mapArea}>
           {showNoResults ? (
-            <Text style={styles.emptyText}>No cafes found</Text>
+            <Text style={styles.emptyText}>
+              {hasQuery
+                ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
+                : 'No cafes found'}
+            </Text>
           ) : isWeb ? (
             <ScrollView
               contentContainerStyle={styles.webList}

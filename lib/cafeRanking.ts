@@ -10,6 +10,11 @@ import {
   computeOnboardingPreferenceBoost,
   type OnboardingPreferenceRankInput,
 } from '@/lib/onboardingPreferenceRanking';
+import {
+  getCanonicalSlugsFromCafeTags,
+  resolveToCanonicalTagSlug,
+  type CanonicalTagSlug,
+} from '@/lib/tagRegistry';
 
 export type RankKey = 'work' | 'coffee' | 'atmosphere' | 'quick' | 'quiet';
 
@@ -51,6 +56,21 @@ const RANK = {
   neighborhood: 38,
   shortDescription: 11,
   tagWord: 18,
+
+  // Query-specific search weights (keep intentional and easy to tune).
+  searchExactName: 160,
+  searchPrefixName: 120,
+  searchContainsName: 80,
+  searchNameTokenMatch: 26,
+  searchTagIntentMatch: 38,
+  searchTagTokenMatch: 12,
+  searchAreaExact: 34,
+  searchAreaTokenMatch: 16,
+  searchDescriptionTokenMatch: 6,
+  searchQualityWeight: 1.4,
+  searchPersonalizationWeight: 3.2,
+  searchOnboardingWeight: 2,
+  searchMinRelevance: 36,
 } as const;
 
 /** Scale applied to the personalization add-on (tune vs base + chip weights) */
@@ -146,6 +166,127 @@ function intentPoints(
   }
 }
 
+type ParsedSearchQuery = {
+  normalized: string;
+  tokens: string[];
+  intentSlugs: Set<CanonicalTagSlug>;
+  areaTerms: Set<string>;
+};
+
+function normalizeSearchText(raw: string): string {
+  return raw.trim().toLowerCase().replace(/[^\w\s-]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function tokenizeSearchText(normalized: string): string[] {
+  return normalized.split(' ').map((t) => t.trim()).filter((t) => t.length >= 2);
+}
+
+const INTENT_PHRASE_TO_TAGS: ReadonlyArray<{
+  phrase: string;
+  slugs: readonly CanonicalTagSlug[];
+}> = [
+  { phrase: 'good to work from', slugs: ['good_for_working', 'good_wifi', 'has_outlets'] },
+  { phrase: 'good for work', slugs: ['good_for_working', 'good_wifi'] },
+  { phrase: 'work friendly', slugs: ['good_for_working'] },
+  { phrase: 'laptop friendly', slugs: ['good_for_working', 'has_outlets', 'good_wifi'] },
+  { phrase: 'settle in', slugs: ['good_for_working', 'quiet'] },
+  { phrase: 'great coffee', slugs: ['specialty_coffee', 'great_espresso', 'great_filter'] },
+  { phrase: 'specialty coffee', slugs: ['specialty_coffee'] },
+  { phrase: 'top coffee', slugs: ['specialty_coffee', 'great_espresso'] },
+  { phrase: 'quiet', slugs: ['quiet'] },
+  { phrase: 'calm', slugs: ['quiet'] },
+  { phrase: 'focus', slugs: ['quiet', 'good_for_working'] },
+  { phrase: 'cosy', slugs: ['cosy'] },
+  { phrase: 'cozy', slugs: ['cosy'] },
+  { phrase: 'bright', slugs: ['aesthetic', 'spacious'] },
+];
+
+function parseSearchQuery(queryTrimmedLower: string): ParsedSearchQuery {
+  const normalized = normalizeSearchText(queryTrimmedLower);
+  const tokens = tokenizeSearchText(normalized);
+  const intentSlugs = new Set<CanonicalTagSlug>();
+
+  // Direct canonical/alias resolution by token and full query phrase.
+  const fullSlug = resolveToCanonicalTagSlug(normalized);
+  if (fullSlug) intentSlugs.add(fullSlug);
+  for (const token of tokens) {
+    const tokenSlug = resolveToCanonicalTagSlug(token);
+    if (tokenSlug) intentSlugs.add(tokenSlug);
+  }
+
+  // Natural language phrase mapping to intent tags.
+  for (const mapping of INTENT_PHRASE_TO_TAGS) {
+    if (normalized.includes(mapping.phrase)) {
+      for (const slug of mapping.slugs) intentSlugs.add(slug);
+    }
+  }
+
+  // Area terms are discovered from longer tokens (single-word area names like "soho", "camden").
+  const areaTerms = new Set(tokens.filter((t) => t.length >= 3));
+  return { normalized, tokens, intentSlugs, areaTerms };
+}
+
+function computeQueryIntentionalScore(
+  cafe: Cafe,
+  parsedQuery: ParsedSearchQuery,
+  ratingsByCafeId: Record<string, CafeRating>,
+  tasteProfile: UserTasteProfile | null,
+  onboardingPrefs: OnboardingPreferenceRankInput | null
+): { score: number; relevance: number } {
+  const { normalized, tokens, intentSlugs, areaTerms } = parsedQuery;
+  if (!normalized) return { score: 0, relevance: 0 };
+
+  const name = normalizeSearchText(cafe.name);
+  const neighborhood = normalizeSearchText(cafe.neighborhood);
+  const description = normalizeSearchText(cafe.short_description);
+  const cafeTagSlugs = getCanonicalSlugsFromCafeTags(cafe.tags);
+  const scores = scoresForCafe(cafe, ratingsByCafeId);
+  const quality = avgScore(scores);
+
+  let relevance = 0;
+
+  // Name matching is intentionally strongest.
+  if (name === normalized) {
+    relevance += RANK.searchExactName;
+  } else if (name.startsWith(normalized)) {
+    relevance += RANK.searchPrefixName;
+  } else if (name.includes(normalized)) {
+    relevance += RANK.searchContainsName;
+  }
+
+  for (const token of tokens) {
+    if (name.includes(token)) relevance += RANK.searchNameTokenMatch;
+    if (description.includes(token)) relevance += RANK.searchDescriptionTokenMatch;
+    for (const rawTag of cafe.tags) {
+      const normTag = normalizeSearchText(rawTag);
+      if (normTag.includes(token)) relevance += RANK.searchTagTokenMatch;
+    }
+  }
+
+  // Intent tags from natural language sit below name matches, above area.
+  for (const slug of intentSlugs) {
+    if (cafeTagSlugs.has(slug)) {
+      relevance += RANK.searchTagIntentMatch;
+    }
+  }
+
+  // Area is a boost, not a hard filter.
+  if (neighborhood === normalized || neighborhood.includes(normalized)) {
+    relevance += RANK.searchAreaExact;
+  } else {
+    for (const areaToken of areaTerms) {
+      if (neighborhood.includes(areaToken)) relevance += RANK.searchAreaTokenMatch;
+    }
+  }
+
+  const behaviorBoost =
+    tasteProfile === null ? 0 : personalizationBoost(cafe, tasteProfile, scores) * RANK.searchPersonalizationWeight;
+  const onboardingBoost = computeOnboardingPreferenceBoost(cafe, onboardingPrefs) * RANK.searchOnboardingWeight;
+
+  const score = relevance + quality * RANK.searchQualityWeight + behaviorBoost + onboardingBoost;
+  return { score, relevance };
+}
+
 export function computeBaseSearchRankScore(
   cafe: Cafe,
   queryTrimmedLower: string,
@@ -194,6 +335,20 @@ export function rankCafesForSearch(
   tasteProfile: UserTasteProfile | null,
   onboardingPrefs: OnboardingPreferenceRankInput | null = null
 ): Cafe[] {
+  const parsedQuery = parseSearchQuery(queryTrimmedLower);
+  const hasQuery = parsedQuery.normalized.length > 0;
+
+  if (hasQuery) {
+    return list
+      .map((cafe) => ({
+        cafe,
+        ...computeQueryIntentionalScore(cafe, parsedQuery, ratingsByCafeId, tasteProfile, onboardingPrefs),
+      }))
+      .filter((entry) => entry.relevance >= RANK.searchMinRelevance)
+      .sort((a, b) => b.score - a.score)
+      .map((entry) => entry.cafe);
+  }
+
   const copy = [...list];
   copy.sort(
     (a, b) =>
