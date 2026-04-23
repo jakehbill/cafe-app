@@ -37,6 +37,10 @@ type ProfileCounts = {
   saved: number;
   visited: number;
   ratings: number;
+  cafesSuggested: number;
+  cafesApproved: number;
+  photosSubmitted: number;
+  photosApproved: number;
 };
 
 /**
@@ -44,7 +48,7 @@ type ProfileCounts = {
  * Uses `cafe_id` in select so PostgREST returns a reliable `count` with `head: true`.
  */
 async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCounts> {
-  const [savedRes, visitedRes, ratingsRes] = await Promise.all([
+  const [savedRes, visitedRes, ratingsRes, submissionRes, approvedSubmissionRes, photoRes, approvedPhotoRes, submissionPhotoRes] = await Promise.all([
     supabase
       .from('user_saved_cafes')
       .select('cafe_id', { count: 'exact', head: true })
@@ -57,6 +61,28 @@ async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCo
       .from('user_cafe_ratings')
       .select('cafe_id', { count: 'exact', head: true })
       .eq('user_id', userId),
+    supabase
+      .from('cafe_submissions')
+      .select('cafe_name, area')
+      .eq('user_id', userId),
+    supabase
+      .from('cafe_submissions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'approved'),
+    supabase
+      .from('cafe_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('cafe_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('status', 'approved'),
+    supabase
+      .from('cafe_submission_photos')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId),
   ]);
 
   if (savedRes.error) {
@@ -68,11 +94,39 @@ async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCo
   if (ratingsRes.error) {
     console.error('Profile count ratings:', ratingsRes.error);
   }
+  if (submissionRes.error) {
+    console.error('Profile count submissions:', submissionRes.error);
+  }
+  if (approvedSubmissionRes.error) {
+    console.error('Profile count approved submissions:', approvedSubmissionRes.error);
+  }
+  if (photoRes.error) {
+    console.error('Profile count photos:', photoRes.error);
+  }
+  if (approvedPhotoRes.error) {
+    console.error('Profile count approved photos:', approvedPhotoRes.error);
+  }
+  if (submissionPhotoRes.error) {
+    console.error('Profile count submission photos:', submissionPhotoRes.error);
+  }
+
+  // Anti-spam: award suggestion points once per meaningful cafe key for this user.
+  const meaningfulSuggestionKeys = new Set(
+    (submissionRes.data ?? []).map((row) => {
+      const name = String(row.cafe_name ?? '').trim().toLowerCase();
+      const area = String(row.area ?? '').trim().toLowerCase();
+      return `${name}::${area}`;
+    }).filter((key) => key !== '::')
+  );
 
   return {
     saved: savedRes.count ?? 0,
     visited: visitedRes.count ?? 0,
     ratings: ratingsRes.count ?? 0,
+    cafesSuggested: meaningfulSuggestionKeys.size,
+    cafesApproved: approvedSubmissionRes.count ?? 0,
+    photosSubmitted: (photoRes.count ?? 0) + (submissionPhotoRes.count ?? 0),
+    photosApproved: approvedPhotoRes.count ?? 0,
   };
 }
 
@@ -123,7 +177,15 @@ export default function ProfileScreen() {
   const loadCounts = useCallback(async () => {
     const userId = user?.id;
     if (!userId) {
-      setCounts({ saved: 0, visited: 0, ratings: 0 });
+      setCounts({
+        saved: 0,
+        visited: 0,
+        ratings: 0,
+        cafesSuggested: 0,
+        cafesApproved: 0,
+        photosSubmitted: 0,
+        photosApproved: 0,
+      });
       setCountsLoading(false);
       return;
     }
@@ -156,7 +218,15 @@ export default function ProfileScreen() {
     }, [loadCounts, loadProfileRow])
   );
 
-  const displayCounts = counts ?? { saved: 0, visited: 0, ratings: 0 };
+  const displayCounts = counts ?? {
+    saved: 0,
+    visited: 0,
+    ratings: 0,
+    cafesSuggested: 0,
+    cafesApproved: 0,
+    photosSubmitted: 0,
+    photosApproved: 0,
+  };
 
   const activitySnapshot: ActivitySnapshot = useMemo(() => {
     const tagCount = countTagsInRatings(ratingsByCafeId);
@@ -171,11 +241,19 @@ export default function ProfileScreen() {
         visitedCafeIds,
         ratingsByCafeId
       ),
+      cafesSuggestedCount: displayCounts.cafesSuggested,
+      cafesApprovedCount: displayCounts.cafesApproved,
+      photosSubmittedCount: displayCounts.photosSubmitted,
+      photosApprovedCount: displayCounts.photosApproved,
     };
   }, [
     displayCounts.saved,
     displayCounts.visited,
     displayCounts.ratings,
+    displayCounts.cafesSuggested,
+    displayCounts.cafesApproved,
+    displayCounts.photosSubmitted,
+    displayCounts.photosApproved,
     ratingsByCafeId,
     savedCafeIds,
     visitedCafeIds,
@@ -392,7 +470,9 @@ export default function ProfileScreen() {
 
               <Text style={styles.pointsHint}>
                 {POINTS.perRating} pts per rating · {POINTS.perVisited} per visit · {POINTS.perSaved} per
-                save · {POINTS.perTag} per tag
+                save · {POINTS.perTag} per tag · {POINTS.perCafeSuggestion} per cafe suggestion ·{' '}
+                {POINTS.perCafeApproved} per cafe approved · {POINTS.perPhotoSubmitted} per photo submission
+                · {POINTS.perPhotoApproved} per photo approved
               </Text>
             </>
           ) : null}
@@ -492,6 +572,67 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.cafesSuggested}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Cafes Suggested
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.cafesApproved}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Cafes Approved
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.cafesApproved}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Cafes Approved
+              </Text>
+            </View>
+          </View>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.photosSubmitted}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Photos Submitted
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.photosApproved}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Photos Approved
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.activitySectionIntro}>
+            Credibility: {displayCounts.cafesApproved + displayCounts.photosApproved >= 8
+              ? 'Trusted contributor'
+              : displayCounts.cafesApproved + displayCounts.photosApproved >= 3
+                ? 'Growing contributor'
+                : 'New contributor'}
+          </Text>
           {canAccessModeration ? (
             <TouchableOpacity
               activeOpacity={0.88}

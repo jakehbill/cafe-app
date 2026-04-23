@@ -6,12 +6,20 @@ import type { CafeRating } from '@/contexts/CafeStateContext';
  * - Marking visited = 10 pts per visited cafe
  * - Saving = 5 pts per saved cafe
  * - Each tag on a rating = 2 pts (from `user_cafe_ratings.tags`)
+ * - Suggesting a cafe = 10 pts (one meaningful suggestion per cafe key)
+ * - Cafe approved = 50 pts
+ * - Submitting a photo = 3 pts
+ * - Photo approved = 12 pts
  */
 export const POINTS = {
   perRating: 20,
   perVisited: 10,
   perSaved: 5,
   perTag: 2,
+  perCafeSuggestion: 10,
+  perCafeApproved: 50,
+  perPhotoSubmitted: 3,
+  perPhotoApproved: 12,
 } as const;
 
 export type ActivitySnapshot = {
@@ -27,6 +35,10 @@ export type ActivitySnapshot = {
    * the DB does not record repeat visits to the same cafe).
    */
   hasTripleEngagementCafe: boolean;
+  cafesSuggestedCount: number;
+  cafesApprovedCount: number;
+  photosSubmittedCount: number;
+  photosApprovedCount: number;
 };
 
 export function countTagsInRatings(ratingsByCafeId: Record<string, CafeRating>): number {
@@ -62,7 +74,11 @@ export function computeTotalPoints(snapshot: ActivitySnapshot): number {
     snapshot.ratingsCount * POINTS.perRating +
     snapshot.visitedCount * POINTS.perVisited +
     snapshot.savedCount * POINTS.perSaved +
-    snapshot.tagCount * POINTS.perTag
+    snapshot.tagCount * POINTS.perTag +
+    snapshot.cafesSuggestedCount * POINTS.perCafeSuggestion +
+    snapshot.cafesApprovedCount * POINTS.perCafeApproved +
+    snapshot.photosSubmittedCount * POINTS.perPhotoSubmitted +
+    snapshot.photosApprovedCount * POINTS.perPhotoApproved
   );
 }
 
@@ -181,6 +197,34 @@ export function computeProfileBadges(snapshot: ActivitySnapshot): ProfileBadge[]
       description: 'Visited the same cafe 3 times',
       icon: '♥',
       unlocked: snapshot.hasTripleEngagementCafe,
+    },
+    {
+      id: 'first-cafe-approved',
+      label: 'Greenlit Cafe',
+      description: 'First cafe suggestion approved',
+      icon: '✓',
+      unlocked: snapshot.cafesApprovedCount >= 1,
+    },
+    {
+      id: 'multiple-cafes-approved',
+      label: 'Curator',
+      description: '3 cafe suggestions approved',
+      icon: '☕',
+      unlocked: snapshot.cafesApprovedCount >= 3,
+    },
+    {
+      id: 'first-photo-approved',
+      label: 'Lens Approved',
+      description: 'First photo approved',
+      icon: '◍',
+      unlocked: snapshot.photosApprovedCount >= 1,
+    },
+    {
+      id: 'multiple-photos-approved',
+      label: 'Photo Regular',
+      description: '5 photos approved',
+      icon: '▣',
+      unlocked: snapshot.photosApprovedCount >= 5,
     },
   ];
 

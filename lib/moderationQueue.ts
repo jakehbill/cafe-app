@@ -25,6 +25,7 @@ export type PendingCafeSuggestion = {
 export type SubmissionPhotoForModeration = {
   id: string;
   submission_id: string;
+  user_id: string;
   storage_path: string;
   sort_order: number | null;
   created_at: string | null;
@@ -70,13 +71,14 @@ export async function fetchPendingCafeSuggestions(): Promise<PendingCafeSuggesti
   if (submissionIds.length > 0) {
     const photoRes = await supabase
       .from('cafe_submission_photos')
-      .select('id, submission_id, storage_path, sort_order, created_at')
+      .select('id, submission_id, user_id, storage_path, sort_order, created_at')
       .in('submission_id', submissionIds);
 
     if (!photoRes.error) {
       const rawPhotos = (photoRes.data ?? []) as {
         id: string;
         submission_id: string;
+        user_id: string;
         storage_path: string;
         sort_order: number | null;
         created_at: string | null;
@@ -154,7 +156,7 @@ export async function fetchSubmissionPhotosForSubmission(
 
   const photoRes = await supabase
     .from('cafe_submission_photos')
-    .select('id, submission_id, storage_path, sort_order, created_at')
+    .select('id, submission_id, user_id, storage_path, sort_order, created_at')
     .eq('submission_id', key);
 
   if (photoRes.error) return [];
@@ -162,6 +164,7 @@ export async function fetchSubmissionPhotosForSubmission(
   const rows = (photoRes.data ?? []) as {
     id: string;
     submission_id: string;
+    user_id: string;
     storage_path: string;
     sort_order: number | null;
     created_at: string | null;
@@ -411,7 +414,7 @@ export async function createCafeAndApproveSubmission(
     const photoRows = validSelectedPhotos
       .map((photo, index) => ({
         cafe_id: createdCafeIdNum,
-        user_id: moderatorUserId,
+        user_id: String(photo.user_id ?? '').trim(),
         storage_path: String(photo.storage_path ?? '').trim(),
         image_url: null as string | null,
         sort_order: index,

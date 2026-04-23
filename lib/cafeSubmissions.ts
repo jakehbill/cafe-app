@@ -23,6 +23,10 @@ export type MyCafeSubmissionRow = {
   status: CafeSubmissionStatus;
 };
 
+function normalizeSuggestionKey(name: string, area?: string | null): string {
+  return `${name.trim().toLowerCase()}::${(area ?? '').trim().toLowerCase()}`;
+}
+
 export function isValidOptionalUrl(rawUrl: string): boolean {
   const trimmed = rawUrl.trim();
   if (!trimmed) return true;
@@ -70,6 +74,25 @@ export async function createCafeSuggestionWithId(
   const selectedTags = Array.from(
     new Set((input.selectedTags ?? []).map((tag) => tag.trim()).filter(Boolean))
   );
+
+  // Anti-spam: prevent repeated rewards/rows for the same user's same cafe suggestion.
+  const existingRes = await supabase
+    .from('cafe_submissions')
+    .select('id, cafe_name, area')
+    .eq('user_id', userId);
+  if (existingRes.error) {
+    return { ok: false, error: existingRes.error.message };
+  }
+  const incomingKey = normalizeSuggestionKey(cafeName, input.area);
+  const hasDuplicate = (existingRes.data ?? []).some(
+    (row) => normalizeSuggestionKey(String(row.cafe_name ?? ''), String(row.area ?? '')) === incomingKey
+  );
+  if (hasDuplicate) {
+    return {
+      ok: false,
+      error: 'You have already suggested this cafe. Thanks — we already have it in review history.',
+    };
+  }
 
   const payload = {
     user_id: userId,
