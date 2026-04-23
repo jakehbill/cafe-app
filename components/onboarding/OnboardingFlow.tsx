@@ -121,9 +121,11 @@ function SlideBody({ index, slideWidth }: SlideRenderProps) {
     return (
       <View style={[styles.slideInner, innerPad]}>
         <FilterPreviewCard />
-        <Text style={[styles.headline, styles.headlineBelowArt]}>Work, quick stops, or great coffee</Text>
+        <Text style={[styles.headline, styles.headlineBelowArt]}>
+          Find work, quick stops or specialty coffee: wherever you are
+        </Text>
         <Text style={styles.bodyCopy}>
-          Filter by what you need right now — quiet, fast, or specialty
+          Filter by what you need right now: quiet, fast, or specialty.
         </Text>
       </View>
     );
@@ -144,7 +146,7 @@ function SlideBody({ index, slideWidth }: SlideRenderProps) {
   return (
     <View style={[styles.slideInner, innerPad, styles.ctaSlide]}>
       <AuthBrandBean />
-      <Text style={[styles.headline, styles.headlineBelowBean]}>Ready when you are</Text>
+      <Text style={[styles.headline, styles.headlineBelowBean]}>Ready to find the perfect cafe?</Text>
       <Text style={styles.bodyCopy}>
         Create an account or log in to start discovering cafes tailored to you.
       </Text>
