@@ -71,19 +71,37 @@ function FilterPreviewCard() {
 
 function SavedPreviewCard() {
   const rows = [
-    { name: 'Morning Ritual', detail: 'Saved · Downtown' },
-    { name: 'Focus & Wi‑Fi', detail: 'Visited · 3 tags' },
-    { name: 'Neighborhood gem', detail: 'On your list' },
+    {
+      state: 'Saved',
+      name: 'Oat & Ember',
+      meta: 'Shoreditch · 4.6',
+      note: 'Specialty coffee, cozy corners',
+    },
+    {
+      state: 'Visited',
+      name: 'Railhouse Coffee',
+      meta: 'Soho · 0.8 mi',
+      note: 'Fast service, good for quick stops',
+    },
+    {
+      state: 'Top pick for you',
+      name: 'Northline Roasters',
+      meta: 'Camden · 4.7',
+      note: 'Matches your saved coffee style',
+    },
   ];
 
   return (
     <View style={styles.savedCard}>
       {rows.map((row) => (
         <View key={row.name} style={styles.savedRow}>
-          <View style={styles.savedThumb} />
           <View style={styles.savedTextCol}>
+            <Text style={styles.savedStatePill}>{row.state}</Text>
             <Text style={styles.savedName}>{row.name}</Text>
-            <Text style={styles.savedDetail}>{row.detail}</Text>
+            <Text style={styles.savedDetail}>{row.meta}</Text>
+            <Text style={styles.savedNote} numberOfLines={1}>
+              {row.note}
+            </Text>
           </View>
         </View>
       ))}
@@ -338,35 +356,53 @@ const styles = StyleSheet.create({
   },
   savedCard: {
     borderRadius: 28,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    gap: 12,
+    gap: 8,
   },
   savedRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  savedThumb: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: COLORS.imagePlaceholder,
+    alignItems: 'flex-start',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
   },
   savedTextCol: {
     flex: 1,
-    gap: 4,
+    gap: 2,
+  },
+  savedStatePill: {
+    alignSelf: 'flex-start',
+    fontSize: 10,
+    lineHeight: 14,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.accent,
+    backgroundColor: COLORS.accentSubtleFill,
+    borderWidth: 1,
+    borderColor: COLORS.accentSubtleBorder,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
   },
   savedName: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
   },
   savedDetail: {
-    fontSize: 13,
+    fontSize: 12,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+  },
+  savedNote: {
+    fontSize: 11,
+    lineHeight: 15,
     fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
   },
