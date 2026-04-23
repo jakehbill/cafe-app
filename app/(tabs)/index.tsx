@@ -121,6 +121,7 @@ function HomeCafeCard({
   const primaryPhoto = resolveLiveCafePrimaryImageUrl({ cafe });
   const scoreLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   const hasTopTags = topTags.length > 0;
+  const areaText = (cafe.neighborhood ?? '').trim();
 
   const onShare = async () => {
     try {
@@ -204,14 +205,19 @@ function HomeCafeCard({
           </Text>
           <Text style={styles.heroLocation} numberOfLines={1}>
             <Text style={styles.heroLocationScore}>{scoreLabel}</Text>
-            <Text style={styles.heroLocationDot}> {'\u00b7'} </Text>
-            <Text>{cafe.neighborhood}</Text>
+            {areaText ? (
+              <>
+                <Text style={styles.heroLocationDot}> {'\u00b7'} </Text>
+                <Text>{areaText}</Text>
+              </>
+            ) : null}
+            {distanceLabel ? (
+              <>
+                <Text style={styles.heroLocationDot}> {'\u2022'} </Text>
+                <Text>{distanceLabel}</Text>
+              </>
+            ) : null}
           </Text>
-          {distanceLabel ? (
-            <Text style={styles.heroMeta} numberOfLines={1}>
-              {distanceLabel}
-            </Text>
-          ) : null}
           {hoursLabel ? (
             <Text style={styles.heroMeta} numberOfLines={1}>
               {hoursLabel}
