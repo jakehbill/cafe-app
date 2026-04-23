@@ -56,6 +56,7 @@ export default function SuggestCafeScreen() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [mySubmissions, setMySubmissions] = useState<MyCafeSubmissionRow[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
@@ -64,11 +65,20 @@ export default function SuggestCafeScreen() {
     mimeType?: string | null;
     fileName?: string | null;
   } | null)[]>([null, null, null]);
+  const redirectTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const urlLooksValid = useMemo(
     () => isValidOptionalUrl(googleMapsUrl),
     [googleMapsUrl]
   );
+
+  React.useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current);
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -84,7 +94,7 @@ export default function SuggestCafeScreen() {
   }, []);
 
   const submitDisabled =
-    submitting || cafeName.trim().length === 0 || !isValidOptionalUrl(googleMapsUrl);
+    submitting || redirecting || cafeName.trim().length === 0 || !isValidOptionalUrl(googleMapsUrl);
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => {
@@ -200,6 +210,11 @@ export default function SuggestCafeScreen() {
       resetForm();
       const rows = await getMyCafeSubmissions(6);
       setMySubmissions(rows);
+      setRedirecting(true);
+      // Briefly show success feedback before returning to the homepage.
+      redirectTimeoutRef.current = setTimeout(() => {
+        router.replace('/');
+      }, 600);
     } finally {
       setSubmitting(false);
     }
@@ -323,7 +338,7 @@ export default function SuggestCafeScreen() {
                         activeOpacity={0.88}
                         style={styles.photoSlotButton}
                         onPress={() => void pickPhotoForSlot(slot.index)}
-                        disabled={submitting}
+                        disabled={submitting || redirecting}
                       >
                         <Text style={styles.photoSlotButtonText}>{photo ? 'Replace' : 'Add photo'}</Text>
                       </TouchableOpacity>
@@ -332,7 +347,7 @@ export default function SuggestCafeScreen() {
                           activeOpacity={0.88}
                           style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
                           onPress={() => removePhotoForSlot(slot.index)}
-                          disabled={submitting}
+                          disabled={submitting || redirecting}
                         >
                           <Text style={styles.photoSlotButtonSecondaryText}>Remove</Text>
                         </TouchableOpacity>
