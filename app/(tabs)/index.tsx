@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import {
@@ -36,6 +37,7 @@ import { useUserLocation } from '@/contexts/UserLocationContext';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 
 const MAX_VISIBLE_TAGS = 3;
+const HOME_ONBOARDING_BANNER_DISMISSED_KEY = 'home_onboarding_banner_dismissed_v1';
 
 /** Matches horizontal padding for header, section titles, and card content below. */
 const SCREEN_HORIZONTAL_PADDING = 20;
@@ -282,6 +284,33 @@ export default function HomeScreen() {
   const { cafes: cafeCatalog, refetch: refetchCafeCatalog } = useCafeCatalog();
   const { coords: userLocation, refreshLocation } = useUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
+  const [homeBannerVisible, setHomeBannerVisible] = useState(false);
+  const [homeBannerPrefLoaded, setHomeBannerPrefLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const dismissed = await AsyncStorage.getItem(HOME_ONBOARDING_BANNER_DISMISSED_KEY);
+        if (cancelled) return;
+        setHomeBannerVisible(dismissed !== '1');
+      } finally {
+        if (!cancelled) setHomeBannerPrefLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function dismissHomeBanner() {
+    setHomeBannerVisible(false);
+    try {
+      await AsyncStorage.setItem(HOME_ONBOARDING_BANNER_DISMISSED_KEY, '1');
+    } catch {
+      // Keep UX smooth; missing persistence only means banner may reappear later.
+    }
+  }
 
   useEffect(() => {
     // Refresh once on Home mount; avoids stale distance labels after app resume.
@@ -411,6 +440,25 @@ export default function HomeScreen() {
       >
         <View style={styles.topSection}>
           <BrandTopBar />
+          {homeBannerPrefLoaded && homeBannerVisible ? (
+            <View style={styles.onboardingBanner}>
+              <View style={styles.onboardingBannerTextWrap}>
+                <Text style={styles.onboardingBannerTitle}>Welcome to Beaned</Text>
+                <Text style={styles.onboardingBannerBody}>
+                  Discover great coffee and work-friendly cafes. Save, visit and rate to get better picks.
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss welcome banner"
+                onPress={() => void dismissHomeBanner()}
+                hitSlop={8}
+                style={styles.onboardingBannerDismiss}
+              >
+                <Ionicons name="close" size={16} color={COLORS.muted} />
+              </Pressable>
+            </View>
+          ) : null}
 
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
@@ -505,6 +553,42 @@ const styles = StyleSheet.create({
   },
   topSection: {
     gap: 18,
+  },
+  onboardingBanner: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+    paddingVertical: 10,
+    paddingLeft: 12,
+    paddingRight: 8,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  onboardingBannerTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  onboardingBannerTitle: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+  },
+  onboardingBannerBody: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+  },
+  onboardingBannerDismiss: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
   },
   homeSection: {
     gap: 9,
