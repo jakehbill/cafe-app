@@ -18,6 +18,7 @@ import {
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { GamificationHelpModal } from '@/components/profile/GamificationHelpModal';
 import {
   computeProfileBadges,
   computeSavedVisitedUnionCount,
@@ -152,6 +153,7 @@ export default function ProfileScreen() {
   const [displayNameDraft, setDisplayNameDraft] = useState('');
   const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [editingDisplayName, setEditingDisplayName] = useState(false);
+  const [showGamificationHelp, setShowGamificationHelp] = useState(false);
 
   const loadProfileRow = useCallback(async () => {
     const userId = user?.id;
@@ -263,6 +265,19 @@ export default function ProfileScreen() {
   const levelProgress = useMemo(() => getLevelProgress(totalPoints), [totalPoints]);
   const badges = useMemo(() => computeProfileBadges(activitySnapshot), [activitySnapshot]);
   const canAccessModeration = useMemo(() => isModerator(user?.id), [user?.id]);
+  const gamificationHelpLines = useMemo(
+    () => [
+      { label: 'Rate a cafe', points: POINTS.perRating },
+      { label: 'Visit a cafe', points: POINTS.perVisited },
+      { label: 'Save a cafe', points: POINTS.perSaved },
+      { label: 'Add a tag', points: POINTS.perTag },
+      { label: 'Suggest a cafe', points: POINTS.perCafeSuggestion },
+      { label: 'Approved cafe', points: POINTS.perCafeApproved },
+      { label: 'Submit a photo', points: POINTS.perPhotoSubmitted },
+      { label: 'Approved photo', points: POINTS.perPhotoApproved },
+    ],
+    []
+  );
 
   const headlineName = useMemo(() => {
     const fromProfile = profileRow?.display_name?.trim();
@@ -429,6 +444,16 @@ export default function ProfileScreen() {
               <Text style={styles.pointsBig}>{formatPoints(totalPoints)}</Text>
             )}
           </View>
+          <TouchableOpacity
+            activeOpacity={0.86}
+            accessibilityRole="button"
+            accessibilityLabel="How to earn points"
+            onPress={() => setShowGamificationHelp(true)}
+            style={styles.pointsHelpButton}
+          >
+            <Ionicons name="information-circle-outline" size={16} color={COLORS.accent} />
+            <Text style={styles.pointsHelpButtonText}>How to earn points</Text>
+          </TouchableOpacity>
 
           {!countsLoading ? (
             <>
@@ -468,12 +493,6 @@ export default function ProfileScreen() {
                 </View>
               )}
 
-              <Text style={styles.pointsHint}>
-                {POINTS.perRating} pts per rating · {POINTS.perVisited} per visit · {POINTS.perSaved} per
-                save · {POINTS.perTag} per tag · {POINTS.perCafeSuggestion} per cafe suggestion ·{' '}
-                {POINTS.perCafeApproved} per cafe approved · {POINTS.perPhotoSubmitted} per photo submission
-                · {POINTS.perPhotoApproved} per photo approved
-              </Text>
             </>
           ) : null}
         </View>
@@ -690,6 +709,11 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <GamificationHelpModal
+        visible={showGamificationHelp}
+        onClose={() => setShowGamificationHelp(false)}
+        lines={gamificationHelpLines}
+      />
     </SafeAreaView>
   );
 }
@@ -835,12 +859,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
-  pointsHint: {
-    fontSize: 11,
-    color: COLORS.muted,
+  pointsHelpButton: {
+    marginTop: -1,
+    marginBottom: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingVertical: 2,
+  },
+  pointsHelpButtonText: {
+    fontSize: 12,
     lineHeight: 16,
-    marginTop: 6,
-    textAlign: 'center',
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
   },
   sectionHeading: {
     fontSize: 13,
