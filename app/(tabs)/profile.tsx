@@ -591,67 +591,25 @@ export default function ProfileScreen() {
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
+          <View style={styles.contributionCompactRow}>
+            <View style={styles.contributionCompactItem}>
               {countsLoading ? (
-                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
+                <ActivityIndicator color={COLORS.muted} size="small" />
               ) : (
-                <Text style={styles.statNumber}>{displayCounts.cafesSuggested}</Text>
+                <Text style={styles.contributionCompactValue}>{displayCounts.cafesSuggested}</Text>
               )}
-              <Text style={styles.statLabel} numberOfLines={2}>
-                Cafes Suggested
-              </Text>
+              <Text style={styles.contributionCompactLabel}>Cafes suggested</Text>
             </View>
-            <View style={styles.statCard}>
+            <View style={styles.contributionCompactDivider} />
+            <View style={styles.contributionCompactItem}>
               {countsLoading ? (
-                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
+                <ActivityIndicator color={COLORS.muted} size="small" />
               ) : (
-                <Text style={styles.statNumber}>{displayCounts.cafesApproved}</Text>
+                <Text style={styles.contributionCompactValue}>{displayCounts.photosSubmitted}</Text>
               )}
-              <Text style={styles.statLabel} numberOfLines={2}>
-                Cafes Approved
-              </Text>
-            </View>
-            <View style={styles.statCard}>
-              {countsLoading ? (
-                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
-              ) : (
-                <Text style={styles.statNumber}>{displayCounts.cafesApproved}</Text>
-              )}
-              <Text style={styles.statLabel} numberOfLines={2}>
-                Cafes Approved
-              </Text>
+              <Text style={styles.contributionCompactLabel}>Photos submitted</Text>
             </View>
           </View>
-          <View style={styles.statsRow}>
-            <View style={styles.statCard}>
-              {countsLoading ? (
-                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
-              ) : (
-                <Text style={styles.statNumber}>{displayCounts.photosSubmitted}</Text>
-              )}
-              <Text style={styles.statLabel} numberOfLines={2}>
-                Photos Submitted
-              </Text>
-            </View>
-            <View style={styles.statCard}>
-              {countsLoading ? (
-                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
-              ) : (
-                <Text style={styles.statNumber}>{displayCounts.photosApproved}</Text>
-              )}
-              <Text style={styles.statLabel} numberOfLines={2}>
-                Photos Approved
-              </Text>
-            </View>
-          </View>
-          <Text style={styles.activitySectionIntro}>
-            Credibility: {displayCounts.cafesApproved + displayCounts.photosApproved >= 8
-              ? 'Trusted contributor'
-              : displayCounts.cafesApproved + displayCounts.photosApproved >= 3
-                ? 'Growing contributor'
-                : 'New contributor'}
-          </Text>
           {canAccessModeration ? (
             <TouchableOpacity
               activeOpacity={0.88}
@@ -887,6 +845,44 @@ const styles = StyleSheet.create({
   },
   contributionSection: {
     marginBottom: 28,
+  },
+  contributionCompactRow: {
+    marginTop: 10,
+    marginBottom: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  contributionCompactItem: {
+    flex: 1,
+    gap: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contributionCompactDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: COLORS.cardBorder,
+    marginHorizontal: 10,
+  },
+  contributionCompactValue: {
+    fontSize: 17,
+    lineHeight: 22,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
+    letterSpacing: -0.2,
+  },
+  contributionCompactLabel: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
   },
   activitySectionIntro: {
     fontSize: 12,
