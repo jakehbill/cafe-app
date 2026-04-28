@@ -113,6 +113,10 @@ export default function SuggestCafeScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [visitLogSuccessState, setVisitLogSuccessState] = useState<{
+    hadPhoto: boolean;
+    pendingReview: boolean;
+  } | null>(null);
   const [mySubmissions, setMySubmissions] = useState<MyCafeSubmissionRow[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
   const [selectedPhotos, setSelectedPhotos] = useState<({
@@ -313,6 +317,7 @@ export default function SuggestCafeScreen() {
           setSuccessMessage(
             `Cafe details saved, but your visit draft was not linked yet: ${linkedVisit.error}. You can retry from Visit log.`
           );
+          return;
         }
       }
 
@@ -338,16 +343,22 @@ export default function SuggestCafeScreen() {
           setSuccessMessage('Thanks — we’ll review this before adding it to Beaned.');
         }
       } else {
-        setSuccessMessage('Visit logged. We’ll review this cafe and link it once approved.');
+        setSuccessMessage('Visit saved');
+        setVisitLogSuccessState({
+          hadPhoto: Boolean(visitPhoto?.uri),
+          pendingReview: true,
+        });
       }
       resetForm();
       const rows = await getMyCafeSubmissions(6);
       setMySubmissions(rows);
-      setRedirecting(true);
-      // Briefly show success feedback before returning to the homepage.
-      redirectTimeoutRef.current = setTimeout(() => {
-        router.replace(fromVisitLog ? '/my-cafes' : '/');
-      }, 600);
+      if (!fromVisitLog) {
+        setRedirecting(true);
+        // Briefly show success feedback before returning to the homepage.
+        redirectTimeoutRef.current = setTimeout(() => {
+          router.replace('/');
+        }, 600);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -690,7 +701,37 @@ export default function SuggestCafeScreen() {
             </View>
           ) : null}
 
-          {fromVisitLog && visitFlowStep === 1 ? (
+          {fromVisitLog && visitLogSuccessState ? (
+            <View style={styles.sectionCard}>
+              <Text style={styles.fieldLabel}>Visit saved</Text>
+              <Text style={styles.tagHelperText}>Added to your personal cafe log.</Text>
+              {visitLogSuccessState.hadPhoto ? (
+                <Text style={styles.tagHelperText}>Your photo has been submitted for review.</Text>
+              ) : null}
+              {visitLogSuccessState.pendingReview ? (
+                <>
+                  <Text style={styles.tagHelperText}>Your cafe is pending review.</Text>
+                  <Text style={styles.tagHelperText}>We’ll add it to Beaned if it fits.</Text>
+                </>
+              ) : null}
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={styles.submitButton}
+                onPress={() => router.replace('/my-cafes')}
+              >
+                <Text style={styles.submitButtonText}>View my visits</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.88}
+                style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
+                onPress={() => router.replace('/')}
+              >
+                <Text style={styles.photoSlotButtonSecondaryText}>Find another cafe</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {fromVisitLog && !visitLogSuccessState && visitFlowStep === 1 ? (
             <TouchableOpacity
               activeOpacity={0.88}
               style={[styles.submitButton, (submitting || redirecting) && styles.submitButtonDisabled]}
@@ -699,12 +740,12 @@ export default function SuggestCafeScreen() {
             >
               <Text style={styles.submitButtonText}>Continue</Text>
             </TouchableOpacity>
-          ) : (
+          ) : !visitLogSuccessState ? (
             <TouchableOpacity
               activeOpacity={0.88}
               style={[styles.submitButton, submitDisabled && styles.submitButtonDisabled]}
               onPress={() => void handleSubmit()}
-              disabled={submitDisabled}
+              disabled={submitDisabled || Boolean(visitLogSuccessState)}
             >
               {submitting ? (
                 <ActivityIndicator color="#ffffff" />
@@ -714,7 +755,7 @@ export default function SuggestCafeScreen() {
                 </Text>
               )}
             </TouchableOpacity>
-          )}
+          ) : null}
 
           {!fromVisitLog ? <View style={styles.sectionCard}>
             <Text style={styles.fieldLabel}>Your recent suggestions</Text>

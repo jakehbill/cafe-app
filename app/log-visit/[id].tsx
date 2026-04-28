@@ -24,6 +24,7 @@ import { type Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
+import { POINTS } from '@/lib/profileGamification';
 import { getUserCafeVisitById, saveUserCafeVisit, updateUserCafeVisit } from '@/lib/userCafeVisits';
 
 export default function LogVisitScreen() {
@@ -49,6 +50,10 @@ export default function LogVisitScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [existingPendingName, setExistingPendingName] = useState<string | null>(null);
+  const [successState, setSuccessState] = useState<{
+    movedFromSaved: boolean;
+    hadPhoto: boolean;
+  } | null>(null);
 
   React.useEffect(() => {
     if (!targetCafeId) return;
@@ -148,11 +153,8 @@ export default function LogVisitScreen() {
         return;
       }
       const movedFromSaved = !editingVisitId && Boolean(targetCafeId) && isSaved(targetCafeId);
-      if (movedFromSaved) {
-        router.replace({
-          pathname: '/my-cafes',
-          params: { movedFromSaved: '1' },
-        });
+      if (!editingVisitId) {
+        setSuccessState({ movedFromSaved, hadPhoto: Boolean(photoAsset?.uri) });
       } else {
         router.replace('/my-cafes');
       }
@@ -195,14 +197,62 @@ export default function LogVisitScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {successState ? (
+            <View style={styles.sectionCard}>
+              <Text style={styles.pageTitle}>Visit saved</Text>
+              <Text style={styles.pageSubtitle}>
+                {successState.movedFromSaved
+                  ? 'Moved from Saved for later to Visited.'
+                  : 'Added to your personal cafe log.'}
+              </Text>
+              <Text style={styles.successPointsText}>+{POINTS.perVisited} points for logging a visit</Text>
+              {successState.hadPhoto ? (
+                <Text style={styles.successHintText}>Your photo has been submitted for review.</Text>
+              ) : null}
+              {successState.movedFromSaved ? (
+                <Text style={styles.successHintText}>Moved to Visited</Text>
+              ) : null}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.submitButton}
+                onPress={() =>
+                  router.replace({
+                    pathname: '/my-cafes',
+                    params: successState.movedFromSaved ? { movedFromSaved: '1' } : undefined,
+                  })
+                }
+              >
+                <Text style={styles.submitButtonText}>View my visits</Text>
+              </TouchableOpacity>
+              {targetCafeId ? (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={[styles.photoButton, styles.secondaryButton]}
+                  onPress={() => router.replace(`/cafe/${targetCafeId}`)}
+                >
+                  <Text style={styles.secondaryButtonText}>Back to cafe</Text>
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.photoButton, styles.secondaryButton]}
+                onPress={() => router.replace('/')}
+              >
+                <Text style={styles.secondaryButtonText}>Find another cafe</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {!successState ? (
           <View style={styles.titleBlock}>
             <Text style={styles.pageTitle}>{editingVisitId ? 'Edit visit log' : 'Log your visit'}</Text>
             <Text style={styles.pageSubtitle}>
               Save a few notes from this cafe so you can remember where you&apos;ve been.
             </Text>
           </View>
+          ) : null}
 
-          {!canRenderVisitForm ? (
+          {!successState && !canRenderVisitForm ? (
             <View style={styles.sectionCard}>
               <Text style={styles.pageTitle}>Cafe not found</Text>
               <Text style={styles.pageSubtitle}>
@@ -221,7 +271,7 @@ export default function LogVisitScreen() {
             </View>
           ) : null}
 
-          {canRenderVisitForm ? <View style={styles.previewCard}>
+          {!successState && canRenderVisitForm ? <View style={styles.previewCard}>
             {coverImage ? (
               <Image source={{ uri: coverImage }} style={styles.previewImage} resizeMode="cover" />
             ) : (
@@ -235,7 +285,7 @@ export default function LogVisitScreen() {
             </View>
           </View> : null}
 
-          {canRenderVisitForm ? <View style={styles.sectionCard}>
+          {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Add a memory</Text>
             <Text style={styles.sectionHelperText}>
               A coffee, the space, or anything you want to remember.
@@ -245,7 +295,7 @@ export default function LogVisitScreen() {
             </TouchableOpacity>
           </View> : null}
 
-          {canRenderVisitForm ? <View style={styles.sectionCard}>
+          {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>How was it?</Text>
             <Text style={styles.ratingValue}>{rating == null ? 'Not rated' : `${rating.toFixed(1)} / 5`}</Text>
             <Slider
@@ -263,7 +313,7 @@ export default function LogVisitScreen() {
             </TouchableOpacity>
           </View> : null}
 
-          {canRenderVisitForm ? <View style={styles.sectionCard}>
+          {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>What stood out?</Text>
             {TAG_SECTIONS.map((section) => (
               <View key={section.title} style={styles.tagSection}>
@@ -293,7 +343,7 @@ export default function LogVisitScreen() {
             ))}
           </View> : null}
 
-          {canRenderVisitForm ? <View style={styles.sectionCard}>
+          {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>Describe your experience</Text>
             <TextInput
               style={styles.notesInput}
@@ -307,9 +357,9 @@ export default function LogVisitScreen() {
             />
           </View> : null}
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {!successState && error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {canRenderVisitForm ? <TouchableOpacity
+          {!successState && canRenderVisitForm ? <TouchableOpacity
             activeOpacity={0.9}
             style={[styles.submitButton, saving && styles.submitButtonDisabled]}
             onPress={() => void handleSaveVisit()}
@@ -411,6 +461,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   errorText: { fontSize: 13, lineHeight: 18, color: '#8B4A4A', fontFamily: FONTS.sans.medium },
+  successPointsText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
+  },
+  successHintText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+  },
   submitButton: {
     borderRadius: 16,
     paddingVertical: 14,
