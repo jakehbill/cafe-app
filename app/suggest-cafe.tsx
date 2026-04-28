@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
@@ -28,6 +28,7 @@ import {
   type MyCafeSubmissionRow,
 } from '@/lib/cafeSubmissions';
 import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
+import { saveUserCafeVisit } from '@/lib/userCafeVisits';
 
 const STATUS_LABEL: Record<CafeSubmissionStatus, string> = {
   pending: 'Pending review',
@@ -48,6 +49,31 @@ function formatDate(dateIso: string): string {
 export default function SuggestCafeScreen() {
   const navigation = useNavigation();
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    prefillName?: string | string[];
+    fromVisitLog?: string | string[];
+    visitRating?: string | string[];
+    visitTags?: string | string[];
+    visitNote?: string | string[];
+    visitIsPublic?: string | string[];
+    visitPhotoUri?: string | string[];
+    visitPhotoMimeType?: string | string[];
+    visitPhotoFileName?: string | string[];
+  }>();
+  const fromVisitLog = (Array.isArray(params.fromVisitLog) ? params.fromVisitLog[0] : params.fromVisitLog) === '1';
+  const initialName = Array.isArray(params.prefillName) ? params.prefillName[0] : params.prefillName;
+  const initialVisitRatingRaw = Array.isArray(params.visitRating) ? params.visitRating[0] : params.visitRating;
+  const initialVisitTagsRaw = Array.isArray(params.visitTags) ? params.visitTags[0] : params.visitTags;
+  const initialVisitNote = Array.isArray(params.visitNote) ? params.visitNote[0] : params.visitNote;
+  const initialVisitIsPublic =
+    (Array.isArray(params.visitIsPublic) ? params.visitIsPublic[0] : params.visitIsPublic) === '1';
+  const initialVisitPhotoUri = Array.isArray(params.visitPhotoUri) ? params.visitPhotoUri[0] : params.visitPhotoUri;
+  const initialVisitPhotoMimeType = Array.isArray(params.visitPhotoMimeType)
+    ? params.visitPhotoMimeType[0]
+    : params.visitPhotoMimeType;
+  const initialVisitPhotoFileName = Array.isArray(params.visitPhotoFileName)
+    ? params.visitPhotoFileName[0]
+    : params.visitPhotoFileName;
   const [cafeName, setCafeName] = useState('');
   const [addressText, setAddressText] = useState('');
   const [area, setArea] = useState('');
@@ -66,6 +92,11 @@ export default function SuggestCafeScreen() {
     fileName?: string | null;
   } | null)[]>([null, null, null]);
   const redirectTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    if (!initialName) return;
+    setCafeName(String(initialName).trim());
+  }, [initialName]);
 
   const urlLooksValid = useMemo(
     () => isValidOptionalUrl(googleMapsUrl),
@@ -187,6 +218,34 @@ export default function SuggestCafeScreen() {
         return;
       }
 
+      if (fromVisitLog) {
+        const parsedRating = Number(initialVisitRatingRaw);
+        const visitTags = String(initialVisitTagsRaw ?? '')
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean);
+        const linkedVisit = await saveUserCafeVisit({
+          cafeId: null,
+          submissionId: result.submissionId,
+          rating: Number.isFinite(parsedRating) ? parsedRating : null,
+          tags: visitTags,
+          note: String(initialVisitNote ?? ''),
+          isPublic: initialVisitIsPublic,
+          photoAsset: initialVisitPhotoUri
+            ? {
+                uri: initialVisitPhotoUri,
+                mimeType: initialVisitPhotoMimeType ?? null,
+                fileName: initialVisitPhotoFileName ?? null,
+              }
+            : null,
+        });
+        if (!linkedVisit.ok) {
+          setSuccessMessage(
+            `Cafe suggestion saved, but your visit draft was not linked yet: ${linkedVisit.error}. You can retry from Visit log.`
+          );
+        }
+      }
+
       const imagesToUpload = selectedPhotos.filter(
         (photo): photo is { uri: string; mimeType?: string | null; fileName?: string | null } => photo != null
       );
@@ -213,7 +272,7 @@ export default function SuggestCafeScreen() {
       setRedirecting(true);
       // Briefly show success feedback before returning to the homepage.
       redirectTimeoutRef.current = setTimeout(() => {
-        router.replace('/');
+        router.replace(fromVisitLog ? '/my-cafes' : '/');
       }, 600);
     } finally {
       setSubmitting(false);
@@ -247,7 +306,9 @@ export default function SuggestCafeScreen() {
           <View style={styles.titleBlock}>
             <Text style={styles.pageTitle}>Suggest a cafe</Text>
             <Text style={styles.pageSubtitle}>
-              Know a spot we&apos;ve missed? Send it in for review.
+              {fromVisitLog
+                ? 'Log your visit somewhere new by adding this cafe for review.'
+                : 'Know a spot we&apos;ve missed? Send it in for review.'}
             </Text>
           </View>
 

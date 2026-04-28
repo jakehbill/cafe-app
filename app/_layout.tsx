@@ -191,6 +191,14 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen
+            name="log-visit/[id]"
+            options={{
+              ...stackHeaderOn,
+              title: 'Log visit',
+              headerTitle: 'Log visit',
+            }}
+          />
+          <Stack.Screen
             name="saved"
             options={{
               ...stackHeaderOn,
@@ -210,8 +218,8 @@ function RootNavigator() {
             name="my-cafes"
             options={{
               ...stackHeaderOn,
-              title: 'Visited',
-              headerTitle: 'Visited',
+              title: 'Visit log',
+              headerTitle: 'Visit log',
             }}
           />
           <Stack.Screen

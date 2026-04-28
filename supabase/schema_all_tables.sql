@@ -10,6 +10,7 @@
 drop table if exists public.user_cafe_ratings cascade;
 drop table if exists public.user_saved_cafes cascade;
 drop table if exists public.user_visited_cafes cascade;
+drop table if exists public.user_cafe_visits cascade;
 
 -- -----------------------------------------------------------------------------
 -- 1) SAVED CAFES — which cafes the user bookmarked
@@ -43,6 +44,30 @@ create table public.user_visited_cafes (
 create index user_visited_cafes_user_id_idx on public.user_visited_cafes (user_id);
 
 -- -----------------------------------------------------------------------------
+-- 2b) VISIT LOGS — structured per-visit diary entries
+-- -----------------------------------------------------------------------------
+-- Multiple rows per (user, cafe) are allowed so users can log repeat visits.
+
+create table public.user_cafe_visits (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  cafe_id text,
+  submission_id uuid references public.cafe_submissions (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  rating numeric(2,1),
+  tags text[] not null default '{}',
+  note text not null default '',
+  image_url text,
+  storage_path text,
+  is_public boolean not null default false
+);
+
+create index user_cafe_visits_user_id_idx on public.user_cafe_visits (user_id);
+create index user_cafe_visits_user_created_idx on public.user_cafe_visits (user_id, created_at desc);
+create index user_cafe_visits_submission_idx on public.user_cafe_visits (submission_id);
+
+-- -----------------------------------------------------------------------------
 -- 3) RATINGS — user’s scores + tags + notes for a cafe
 -- -----------------------------------------------------------------------------
 -- "Quick" and similar words live in tags (text array), not as numeric scores.
@@ -71,6 +96,7 @@ create index user_cafe_ratings_user_id_idx on public.user_cafe_ratings (user_id)
 
 alter table public.user_saved_cafes enable row level security;
 alter table public.user_visited_cafes enable row level security;
+alter table public.user_cafe_visits enable row level security;
 alter table public.user_cafe_ratings enable row level security;
 
 -- Saved cafes — own rows only
@@ -106,6 +132,24 @@ create policy "visited_update_own"
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
+-- Visit logs — own rows only
+create policy "visit_logs_select_own"
+  on public.user_cafe_visits for select
+  using (auth.uid() = user_id);
+
+create policy "visit_logs_insert_own"
+  on public.user_cafe_visits for insert
+  with check (auth.uid() = user_id);
+
+create policy "visit_logs_update_own"
+  on public.user_cafe_visits for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+create policy "visit_logs_delete_own"
+  on public.user_cafe_visits for delete
+  using (auth.uid() = user_id);
+
 -- Ratings — own rows only (app uses upsert = insert + update)
 create policy "ratings_select_own"
   on public.user_cafe_ratings for select
@@ -122,3 +166,9 @@ create policy "ratings_update_own"
 create policy "ratings_delete_own"
   on public.user_cafe_ratings for delete
   using (auth.uid() = user_id);
+
+-- Optional: link cafe_photos moderation rows back to source visit logs.
+alter table if exists public.cafe_photos
+  add column if not exists source_visit_id uuid references public.user_cafe_visits (id) on delete set null;
+
+create index if not exists cafe_photos_source_visit_idx on public.cafe_photos (source_visit_id);

@@ -1,0 +1,422 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
+import Slider from '@react-native-community/slider';
+import { useNavigation } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { COLORS, FONTS } from '@/components/theme';
+import { type Cafe } from '@/data/cafes';
+import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
+import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
+import { TAG_SECTIONS } from '@/lib/cafeTags';
+import { getUserCafeVisitById, saveUserCafeVisit, updateUserCafeVisit } from '@/lib/userCafeVisits';
+
+export default function LogVisitScreen() {
+  const router = useRouter();
+  const navigation = useNavigation();
+  const { id, visitId } = useLocalSearchParams<{ id?: string | string[]; visitId?: string | string[] }>();
+  const cafeId = Array.isArray(id) ? id[0] : id;
+  const editingVisitId = Array.isArray(visitId) ? visitId[0] : visitId;
+  const targetCafeId = cafeId ?? '';
+  const guessedCafeName = decodeURIComponent(targetCafeId).replace(/[-_]+/g, ' ').trim();
+
+  const [cafe, setCafe] = useState<Cafe | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [note, setNote] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
+  const [photoAsset, setPhotoAsset] = useState<{
+    uri: string;
+    mimeType?: string | null;
+    fileName?: string | null;
+  } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+  const [existingPendingName, setExistingPendingName] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!targetCafeId) return;
+    let cancelled = false;
+    void (async () => {
+      const row = await fetchCafeByIdFromSupabase(targetCafeId);
+      if (!cancelled) setCafe(row);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [targetCafeId]);
+
+  React.useEffect(() => {
+    if (!editingVisitId) return;
+    let cancelled = false;
+    setLoadingExisting(true);
+    void (async () => {
+      const existing = await getUserCafeVisitById(editingVisitId);
+      if (!existing || cancelled) {
+        if (!cancelled) setLoadingExisting(false);
+        return;
+      }
+      setRating(existing.rating);
+      setSelectedTags(existing.tags);
+      setNote(existing.note);
+      setIsPublic(existing.isPublic);
+      setExistingPendingName(existing.submissionCafeName);
+      if (!targetCafeId && existing.cafeId) {
+        const resolvedCafe = await fetchCafeByIdFromSupabase(existing.cafeId);
+        if (!cancelled) setCafe(resolvedCafe);
+      }
+      if (!cancelled) setLoadingExisting(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [editingVisitId, targetCafeId]);
+
+  const handleBack = useCallback(() => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      router.replace('/');
+    }
+  }, [navigation, router]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  }
+
+  async function handlePickPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setError('Allow photo access to add a visit photo.');
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.86,
+    });
+    if (picked.canceled) return;
+    const asset = picked.assets?.[0];
+    if (!asset?.uri) return;
+    setPhotoAsset({
+      uri: asset.uri,
+      mimeType: asset.mimeType,
+      fileName: asset.fileName,
+    });
+  }
+
+  async function handleSaveVisit() {
+    if ((!targetCafeId && !editingVisitId) || saving) return;
+    setError(null);
+    setSaving(true);
+    try {
+      const res = editingVisitId
+        ? await updateUserCafeVisit(editingVisitId, {
+            rating,
+            tags: selectedTags,
+            note,
+            isPublic,
+            photoAsset,
+          })
+        : await saveUserCafeVisit({
+            cafeId: targetCafeId,
+            rating,
+            tags: selectedTags,
+            note,
+            isPublic,
+            photoAsset,
+          });
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      router.replace('/my-cafes');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const coverImage = useMemo(() => {
+    if (photoAsset?.uri) return photoAsset.uri;
+    if (!cafe) return undefined;
+    return resolveLiveCafePrimaryImageUrl({ cafe });
+  }, [cafe, photoAsset?.uri]);
+  const canRenderVisitForm = Boolean(cafe) || Boolean(editingVisitId);
+
+  function openSuggestPrefilled() {
+    router.push({
+      pathname: '/suggest-cafe',
+      params: {
+        prefillName: guessedCafeName,
+        fromVisitLog: '1',
+        visitRating: rating != null ? String(rating) : '',
+        visitTags: selectedTags.join(','),
+        visitNote: note,
+        visitIsPublic: isPublic ? '1' : '0',
+        visitPhotoUri: photoAsset?.uri ?? '',
+        visitPhotoMimeType: photoAsset?.mimeType ?? '',
+        visitPhotoFileName: photoAsset?.fileName ?? '',
+      },
+    });
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoid}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <View style={styles.heroBackRow}>
+          <TouchableOpacity onPress={handleBack} style={styles.heroBackHit}>
+            <Ionicons name="chevron-back" size={24} color={COLORS.text} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.titleBlock}>
+            <Text style={styles.pageTitle}>{editingVisitId ? 'Edit visit log' : 'Log your visit'}</Text>
+            <Text style={styles.pageSubtitle}>Capture your cafe moment for your personal timeline.</Text>
+          </View>
+
+          {!canRenderVisitForm ? (
+            <View style={styles.sectionCard}>
+              <Text style={styles.pageTitle}>Cafe not found</Text>
+              <Text style={styles.pageSubtitle}>
+                This cafe isn&apos;t on Beaned yet — add it?
+              </Text>
+              <TouchableOpacity style={styles.photoButton} activeOpacity={0.9} onPress={openSuggestPrefilled}>
+                <Text style={styles.photoButtonText}>Add this cafe</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.photoButton, styles.secondaryButton]}
+                onPress={() => router.replace('/')}
+              >
+                <Text style={styles.secondaryButtonText}>Back to cafes</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          {canRenderVisitForm ? <View style={styles.previewCard}>
+            {coverImage ? (
+              <Image source={{ uri: coverImage }} style={styles.previewImage} resizeMode="cover" />
+            ) : (
+              <View style={[styles.previewImage, styles.previewImagePlaceholder]} />
+            )}
+            <View style={styles.previewTextWrap}>
+              <Text style={styles.previewName}>{cafe?.name ?? existingPendingName ?? 'Cafe'}</Text>
+              <Text style={styles.previewNeighborhood} numberOfLines={1}>
+                {cafe?.neighborhood ?? existingPendingName ?? 'Neighborhood'}
+              </Text>
+            </View>
+          </View> : null}
+
+          {canRenderVisitForm ? <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Add photo</Text>
+            <TouchableOpacity style={styles.photoButton} activeOpacity={0.9} onPress={() => void handlePickPhoto()}>
+              <Text style={styles.photoButtonText}>{photoAsset ? 'Change photo' : 'Add photo'}</Text>
+            </TouchableOpacity>
+          </View> : null}
+
+          {canRenderVisitForm ? <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Rating (optional)</Text>
+            <Text style={styles.ratingValue}>{rating == null ? 'Not rated' : `${rating.toFixed(1)} / 5`}</Text>
+            <Slider
+              value={rating ?? 3}
+              onValueChange={(v) => setRating(v)}
+              minimumValue={1}
+              maximumValue={5}
+              step={0.5}
+              minimumTrackTintColor={COLORS.accent}
+              maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
+              thumbTintColor={COLORS.accent}
+            />
+            <TouchableOpacity onPress={() => setRating(null)}>
+              <Text style={styles.clearRatingText}>Clear rating</Text>
+            </TouchableOpacity>
+          </View> : null}
+
+          {canRenderVisitForm ? <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Tags</Text>
+            {TAG_SECTIONS.map((section) => (
+              <View key={section.title} style={styles.tagSection}>
+                <Text style={styles.tagSectionTitle}>{section.title}</Text>
+                <View style={styles.tagsWrap}>
+                  {section.tags.map((tag) => (
+                    <TouchableOpacity
+                      key={tag}
+                      style={[styles.tagChip, selectedTags.includes(tag) && styles.tagChipSelected]}
+                      onPress={() => toggleTag(tag)}
+                      activeOpacity={0.85}
+                    >
+                      <TagWithOptionalIcon
+                        tag={tag}
+                        iconSize={14}
+                        color={selectedTags.includes(tag) ? COLORS.accent : COLORS.text}
+                        textStyle={[
+                          styles.tagChipText,
+                          selectedTags.includes(tag) && styles.tagChipTextSelected,
+                        ]}
+                        gap={5}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            ))}
+          </View> : null}
+
+          {canRenderVisitForm ? <View style={styles.sectionCard}>
+            <Text style={styles.sectionTitle}>Note (optional)</Text>
+            <TextInput
+              style={styles.notesInput}
+              placeholder="Short note about this visit"
+              placeholderTextColor={COLORS.muted}
+              numberOfLines={2}
+              multiline
+              maxLength={180}
+              value={note}
+              onChangeText={setNote}
+            />
+          </View> : null}
+
+          {canRenderVisitForm ? <View style={styles.sectionCard}>
+            <View style={styles.shareRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>Share to help others discover this place</Text>
+                <Text style={styles.shareHint}>Off by default. Keep it private unless you opt in.</Text>
+              </View>
+              <Switch value={isPublic} onValueChange={setIsPublic} />
+            </View>
+          </View> : null}
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          {canRenderVisitForm ? <TouchableOpacity
+            activeOpacity={0.9}
+            style={[styles.submitButton, saving && styles.submitButtonDisabled]}
+            onPress={() => void handleSaveVisit()}
+            disabled={saving || loadingExisting}
+          >
+            <Text style={styles.submitButtonText}>
+              {saving ? 'Saving…' : editingVisitId ? 'Save changes' : 'Save visit'}
+            </Text>
+          </TouchableOpacity> : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: COLORS.background },
+  keyboardAvoid: { flex: 1 },
+  heroBackRow: { marginBottom: 8, paddingHorizontal: 20 },
+  heroBackHit: { alignSelf: 'flex-start', paddingVertical: 2 },
+  content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 36, gap: 16 },
+  titleBlock: { gap: 8 },
+  pageTitle: { fontSize: 28, lineHeight: 34, fontFamily: FONTS.display.bold, color: COLORS.text },
+  pageSubtitle: { fontSize: 14, lineHeight: 20, color: COLORS.muted, fontFamily: FONTS.sans.regular },
+  previewCard: {
+    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'center',
+  },
+  previewImage: { width: 80, height: 80, borderRadius: 14, backgroundColor: COLORS.imagePlaceholder },
+  previewImagePlaceholder: { backgroundColor: COLORS.imagePlaceholder },
+  previewTextWrap: { flex: 1, gap: 4 },
+  previewName: { fontSize: 18, color: COLORS.text, fontFamily: FONTS.sans.semibold, lineHeight: 24 },
+  previewNeighborhood: { fontSize: 14, color: COLORS.muted, lineHeight: 20 },
+  sectionCard: {
+    borderRadius: 16,
+    backgroundColor: COLORS.cardBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    padding: 16,
+    gap: 12,
+  },
+  sectionTitle: { fontSize: 13, fontFamily: FONTS.sans.semibold, color: COLORS.text },
+  photoButton: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    backgroundColor: COLORS.inputBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    alignItems: 'center',
+  },
+  photoButtonText: { fontSize: 14, fontFamily: FONTS.sans.semibold, color: COLORS.text },
+  secondaryButton: {
+    backgroundColor: COLORS.background,
+  },
+  secondaryButtonText: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+    textAlign: 'center',
+  },
+  ratingValue: { fontSize: 20, fontFamily: FONTS.sans.bold, color: COLORS.text },
+  clearRatingText: { fontSize: 13, color: COLORS.muted, fontFamily: FONTS.sans.medium },
+  tagSection: { gap: 8 },
+  tagSectionTitle: { fontSize: 12, color: COLORS.muted, fontFamily: FONTS.sans.semibold },
+  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  tagChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: COLORS.inputBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+  },
+  tagChipSelected: { backgroundColor: COLORS.accentSubtleFill, borderColor: COLORS.accentSubtleBorder },
+  tagChipText: { color: COLORS.text, fontSize: 12, fontWeight: '600' },
+  tagChipTextSelected: { color: COLORS.accent },
+  notesInput: {
+    minHeight: 60,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    color: COLORS.text,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  shareHint: { marginTop: 2, fontSize: 12, color: COLORS.muted, lineHeight: 16 },
+  errorText: { fontSize: 13, lineHeight: 18, color: '#8B4A4A', fontFamily: FONTS.sans.medium },
+  submitButton: {
+    borderRadius: 16,
+    paddingVertical: 14,
+    backgroundColor: COLORS.accent,
+    borderWidth: 1,
+    borderColor: COLORS.accentSubtleBorder,
+  },
+  submitButtonDisabled: { opacity: 0.8 },
+  submitButtonText: { color: '#ffffff', fontSize: 14, fontFamily: FONTS.sans.semibold, textAlign: 'center' },
+});

@@ -452,6 +452,32 @@ export async function createCafeAndApproveSubmission(
     };
   }
 
+  await supabase
+    .from('user_cafe_visits')
+    .update({ cafe_id: createdCafeId, submission_id: null })
+    .eq('submission_id', input.submissionId);
+
+  const linkedPublicVisits = await supabase
+    .from('user_cafe_visits')
+    .select('id, user_id, storage_path, note, is_public')
+    .eq('cafe_id', createdCafeId)
+    .eq('is_public', true);
+  const linkedRows = linkedPublicVisits.data ?? [];
+  const visitPhotoRows = linkedRows
+    .map((visit) => ({
+      user_id: String(visit.user_id ?? '').trim(),
+      cafe_id: Number(createdCafeId),
+      storage_path: String(visit.storage_path ?? '').trim(),
+      image_url: null as string | null,
+      caption: String(visit.note ?? '').trim().slice(0, 280) || null,
+      status: 'pending' as const,
+      source_visit_id: String(visit.id),
+    }))
+    .filter((row) => row.user_id && row.storage_path && Number.isFinite(row.cafe_id));
+  if (visitPhotoRows.length > 0) {
+    await supabase.from('cafe_photos').insert(visitPhotoRows);
+  }
+
   return { ok: true, cafeId: createdCafeId };
 }
 

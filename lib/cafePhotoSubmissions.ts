@@ -44,39 +44,29 @@ export function buildCafePhotoStoragePath(params: {
   return `${params.userId}/${params.cafeId}/${ts}.${extension}`;
 }
 
-export async function submitCafePhoto(input: {
+export async function uploadCafePhotoAssetToStorage(params: {
+  userId: string;
   cafeId: string;
   asset: UploadableImageAsset;
-  caption?: string;
-}): Promise<SupabaseActionResult> {
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError) {
-    return { ok: false, error: authError.message };
-  }
-
-  const userId = authData.user?.id;
-  if (!userId) {
-    return { ok: false, error: 'You must be signed in to add a photo.' };
-  }
-
-  const cafeId = String(input.cafeId).trim();
-  if (!cafeId) {
-    return { ok: false, error: 'Cafe id is required.' };
-  }
-
-  const extension = safeFileExtension(input.asset);
-  const contentType = safeContentType(input.asset, extension);
-  const storagePath = buildCafePhotoStoragePath({ userId, cafeId, extension });
+}): Promise<
+  | { ok: true; storagePath: string; contentType: string }
+  | {
+      ok: false;
+      error: string;
+    }
+> {
+  const extension = safeFileExtension(params.asset);
+  const contentType = safeContentType(params.asset, extension);
+  const storagePath = buildCafePhotoStoragePath({
+    userId: params.userId,
+    cafeId: params.cafeId,
+    extension,
+  });
 
   try {
-    if (__DEV__) {
-      console.log('[submitCafePhoto] asset uri', input.asset.uri);
-      console.log('[submitCafePhoto] storage path', storagePath);
-    }
-
     let base64 = '';
     try {
-      base64 = await FileSystem.readAsStringAsync(input.asset.uri, {
+      base64 = await FileSystem.readAsStringAsync(params.asset.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
     } catch (error) {
@@ -87,10 +77,6 @@ export async function submitCafePhoto(input: {
 
     if (!base64 || base64.length === 0) {
       throw new Error('Selected image could not be read.');
-    }
-
-    if (__DEV__) {
-      console.log('[submitCafePhoto] base64 length', base64.length);
     }
 
     let arrayBuffer: ArrayBuffer;
@@ -112,6 +98,46 @@ export async function submitCafePhoto(input: {
     if (uploadResult.error) {
       throw new Error(`Upload failed: ${uploadResult.error.message}`);
     }
+
+    return { ok: true, storagePath, contentType };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Photo upload failed.',
+    };
+  }
+}
+
+export async function submitCafePhoto(input: {
+  cafeId: string;
+  asset: UploadableImageAsset;
+  caption?: string;
+}): Promise<SupabaseActionResult> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) {
+    return { ok: false, error: authError.message };
+  }
+
+  const userId = authData.user?.id;
+  if (!userId) {
+    return { ok: false, error: 'You must be signed in to add a photo.' };
+  }
+
+  const cafeId = String(input.cafeId).trim();
+  if (!cafeId) {
+    return { ok: false, error: 'Cafe id is required.' };
+  }
+
+  try {
+    const upload = await uploadCafePhotoAssetToStorage({
+      userId,
+      cafeId,
+      asset: input.asset,
+    });
+    if (!upload.ok) {
+      return upload;
+    }
+    const { storagePath } = upload;
 
     const insertRes = await supabase.from('cafe_photos').insert({
       user_id: userId,

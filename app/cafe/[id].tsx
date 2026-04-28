@@ -118,7 +118,7 @@ export default function CafeDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const router = useRouter();
   const navigation = useNavigation();
-  const { toggleSaved, toggleVisited, isSaved, isVisited } = useCafeState();
+  const { toggleSaved, isSaved } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [cafeLoading, setCafeLoading] = useState(true);
@@ -532,9 +532,9 @@ export default function CafeDetailScreen() {
 
           <View style={styles.actionsWrap}>
             <ActionButton
-              label={isVisited(cafe.id) ? 'Visited' : 'Mark as visited'}
-              accentActive={isVisited(cafe.id)}
-              onPress={() => toggleVisited(cafe.id)}
+              label="Log your visit"
+              accentActive
+              onPress={() => router.push(`/log-visit/${cafe.id}` as never)}
             />
             <ActionButton label="Rate this cafe" onPress={() => router.push(`/rate/${cafe.id}`)} />
             <ActionButton label="Open in Google Maps" onPress={handleOpenGoogleMaps} />

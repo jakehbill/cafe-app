@@ -55,8 +55,8 @@ async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCo
       .select('cafe_id', { count: 'exact', head: true })
       .eq('user_id', userId),
     supabase
-      .from('user_visited_cafes')
-      .select('cafe_id', { count: 'exact', head: true })
+      .from('user_cafe_visits')
+      .select('id', { count: 'exact', head: true })
       .eq('user_id', userId),
     supabase
       .from('user_cafe_ratings')
@@ -543,8 +543,8 @@ export default function ProfileScreen() {
               onPress={() => router.push('/my-cafes')}
             >
               <View style={styles.activityTextWrap}>
-                <Text style={styles.activityTitle}>Visited Cafes</Text>
-                <Text style={styles.activityHint}>Rank favorites and places you&apos;ve been</Text>
+                <Text style={styles.activityTitle}>Visit log</Text>
+                <Text style={styles.activityHint}>Your personal cafe timeline</Text>
               </View>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
