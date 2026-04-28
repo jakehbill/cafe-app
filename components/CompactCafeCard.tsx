@@ -68,6 +68,9 @@ export type CompactCafeCardProps = {
   reserveTagSpaceWhenEmpty?: boolean;
   /** Search-only: enable save/unsave quick action on thumbnail. */
   showBookmarkAction?: boolean;
+  /** Optional top-right thumbnail action (e.g. quick "Log visit"). */
+  topRightActionLabel?: string;
+  onTopRightActionPress?: () => void;
 };
 
 export function CompactCafeCard({
@@ -83,6 +86,8 @@ export function CompactCafeCard({
   compactNameMetaGap = false,
   reserveTagSpaceWhenEmpty = false,
   showBookmarkAction = false,
+  topRightActionLabel,
+  onTopRightActionPress,
 }: CompactCafeCardProps) {
   const { isSaved, toggleSaved } = useCafeState();
   /** Visited list (with trailing): when tags are shown, cap count and lighter styling. */
@@ -103,6 +108,10 @@ export function CompactCafeCard({
   const metadataLine = buildScoreLocationMeta(cafe);
   const showTagSpacer = reserveTagSpaceWhenEmpty && !showTagRow;
   const saved = optimisticSaved;
+  const canShowTopRightAction =
+    typeof topRightActionLabel === 'string' &&
+    topRightActionLabel.trim().length > 0 &&
+    typeof onTopRightActionPress === 'function';
 
   useEffect(() => {
     setOptimisticSaved(isSaved(cafe.id));
@@ -134,6 +143,23 @@ export function CompactCafeCard({
 
   return (
     <View style={styles.card}>
+      {canShowTopRightAction ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={topRightActionLabel}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          onPressIn={(event) => {
+            event.stopPropagation();
+          }}
+          onPress={(event) => {
+            event.stopPropagation();
+            onTopRightActionPress();
+          }}
+          style={({ pressed }) => [styles.cardTopRightActionButton, pressed && styles.topRightActionButtonPressed]}
+        >
+          <Text style={styles.cardTopRightActionText}>{topRightActionLabel}</Text>
+        </Pressable>
+      ) : null}
       {rank != null ? (
         <View style={styles.rankBadge} accessibilityElementsHidden>
           <Text style={styles.rankBadgeText}>#{rank}</Text>
@@ -340,6 +366,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.cardBorder,
     ...SHADOWS.none,
     gap: 8,
+    position: 'relative',
   },
   cardMainPressable: {
     flex: 1,
@@ -392,6 +419,30 @@ const styles = StyleSheet.create({
   bookmarkButtonPressed: {
     transform: [{ scale: 0.95 }],
     backgroundColor: 'rgba(26,26,26,0.62)',
+  },
+  cardTopRightActionButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    minHeight: 26,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.accentSubtleFill,
+    borderWidth: 1,
+    borderColor: COLORS.accentSubtleBorder,
+    zIndex: 3,
+  },
+  topRightActionButtonPressed: {
+    transform: [{ scale: 0.97 }],
+    backgroundColor: COLORS.accentSubtleFill,
+  },
+  cardTopRightActionText: {
+    color: COLORS.accent,
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
+    letterSpacing: -0.1,
   },
   thumbnailBottomFade: {
     position: 'absolute',
