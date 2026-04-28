@@ -543,8 +543,8 @@ export default function ProfileScreen() {
               onPress={() => router.push('/my-cafes')}
             >
               <View style={styles.activityTextWrap}>
-                <Text style={styles.activityTitle}>Visit log</Text>
-                <Text style={styles.activityHint}>Your personal cafe timeline</Text>
+                <Text style={styles.activityTitle}>Visited</Text>
+                <Text style={styles.activityHint}>Your personal cafe log</Text>
               </View>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>

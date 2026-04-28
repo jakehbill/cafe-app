@@ -127,7 +127,7 @@ export default function MyCafesScreen() {
       {visitLogs.length === 0 ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Your cafe diary</Text>
+          <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
           <Text style={styles.hint}>A record of the cafes you’ve visited, rated and remembered.</Text>
           {showMovedToast ? (
             <View style={styles.toastBanner}>
@@ -154,7 +154,7 @@ export default function MyCafesScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Your cafe diary</Text>
+          <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
           {showMovedToast ? (
             <View style={styles.toastBanner}>
               <Text style={styles.toastBannerText}>Moved to your visits</Text>
@@ -185,12 +185,9 @@ export default function MyCafesScreen() {
                       </Text>
                       <Text style={styles.visitDate}>Visited {formatVisitDate(visit.createdAt)}</Text>
                     </View>
-                    {visit.rating != null ? (
-                      <Text style={styles.visitMeta}>Rating {visit.rating.toFixed(1)} / 5</Text>
-                    ) : null}
+                    {visit.rating != null ? <Text style={styles.visitMeta}>{visit.rating.toFixed(1)}</Text> : null}
                     {visit.tags.length > 0 ? (
                       <View style={styles.diarySectionBlock}>
-                        <Text style={styles.diarySectionLabel}>What stood out</Text>
                         <View style={styles.visitTagsRow}>
                           {visit.tags.slice(0, 3).map((tag) => (
                             <View key={`${visit.id}-${tag}`} style={styles.inlineTag}>
@@ -202,7 +199,7 @@ export default function MyCafesScreen() {
                     ) : null}
                     {visit.note.trim().length > 0 ? (
                       <View style={styles.diarySectionBlock}>
-                        <Text style={styles.diarySectionLabel}>Your note</Text>
+                        <Text style={styles.diarySectionLabel}>Your thoughts</Text>
                         <Text style={styles.visitNote} numberOfLines={2}>
                           {visit.note}
                         </Text>

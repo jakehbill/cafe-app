@@ -535,11 +535,10 @@ export default function CafeDetailScreen() {
               <Text style={styles.savedVisitPromptText}>Been here? Log your visit</Text>
             ) : null}
             <ActionButton
-              label="Log your visit"
+              label="Log this cafe"
               accentActive
               onPress={() => router.push(`/log-visit/${cafe.id}` as never)}
             />
-            <ActionButton label="Rate this cafe" onPress={() => router.push(`/rate/${cafe.id}`)} />
             <ActionButton label="Open in Google Maps" onPress={handleOpenGoogleMaps} />
           </View>
         </View>
