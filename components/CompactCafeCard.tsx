@@ -47,6 +47,8 @@ export type CompactCafeCardProps = {
   maxTags?: number;
   /** One short line from taste / tags (Home + Search). */
   recommendationReason?: string;
+  /** Optional visit-note preview shown under tags. */
+  notePreview?: string;
   /**
    * Rendered inside the white card row (e.g. visited reorder arrows).
    * Not part of the main press target — use `TouchableOpacity` children.
@@ -85,6 +87,7 @@ export function CompactCafeCard({
   tags,
   maxTags = 3,
   recommendationReason,
+  notePreview,
   trailing,
   showTagsUI = true,
   scorePosition = 'bottomRight',
@@ -250,6 +253,11 @@ export function CompactCafeCard({
                   ))}
                 </View>
               ) : null}
+              {notePreview ? (
+                <Text style={styles.notePreviewText} numberOfLines={3}>
+                  {notePreview}
+                </Text>
+              ) : null}
             </>
           ) : (
             <>
@@ -292,6 +300,11 @@ export function CompactCafeCard({
                 </View>
               ) : showTagSpacer ? (
                 <View style={[styles.tagsSpacer, compactNameMetaGap && styles.tagsSpacerAfterCompactMeta]} />
+              ) : null}
+              {notePreview ? (
+                <Text style={styles.notePreviewText} numberOfLines={3}>
+                  {notePreview}
+                </Text>
               ) : null}
             </>
           )}
@@ -517,6 +530,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     opacity: 0.9,
     fontStyle: 'italic',
+  },
+  notePreviewText: {
+    marginTop: 5,
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
   },
   location: {
     fontSize: 12,

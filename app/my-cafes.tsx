@@ -77,16 +77,6 @@ export default function MyCafesScreen() {
     </View>
   );
 
-  const formatVisitDate = (iso: string) => {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    });
-  };
-
   const latestVisitByCafe = React.useMemo(() => {
     const grouped = new Map<string, UserCafeVisit>();
     for (const visit of visitLogs) {
@@ -114,13 +104,7 @@ export default function MyCafesScreen() {
         return bTime - aTime;
       });
   }, [visitLogs, cafesById]);
-
-  const pendingVisits = React.useMemo(
-    () => visitLogs.filter((visit) => !visit.cafeId),
-    [visitLogs]
-  );
-
-  const hasVisits = latestVisitByCafe.length > 0 || pendingVisits.length > 0;
+  const hasVisits = latestVisitByCafe.length > 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
@@ -163,58 +147,26 @@ export default function MyCafesScreen() {
           <Text style={styles.hint}>A record of the cafes you’ve visited, rated and remembered.</Text>
           <View style={styles.timelineList}>
             {latestVisitByCafe.map(({ cafe, visit }) => (
-              <CompactCafeCard
-                key={cafe.id}
-                cafe={cafe}
-                thumbnailUri={visit.imageUrl ?? undefined}
-                metadataLineOverride={
-                  visit.rating != null ? `${visit.rating.toFixed(1)} · ${formatVisitDate(visit.createdAt)}` : formatVisitDate(visit.createdAt)
-                }
-                recommendationReason={visit.note.trim().length > 0 ? `Your thoughts: ${visit.note.trim()}` : undefined}
-                scorePosition="cardTopRight"
-                reserveTagSpaceWhenEmpty
-                tags={visit.tags ?? []}
-                maxTags={3}
-                onPress={() => router.push(`/cafe/${cafe.id}`)}
-              />
+              (() => {
+                const areaFromCafe = String((cafe as unknown as { area?: unknown }).area ?? '').trim();
+                const area = areaFromCafe || String(cafe.neighborhood ?? '').trim();
+                const ratingText = visit.rating != null ? visit.rating.toFixed(1) : '';
+                const metadataLine = [ratingText, area].filter(Boolean).join(' · ');
+                return (
+                  <CompactCafeCard
+                    key={cafe.id}
+                    cafe={cafe}
+                    thumbnailUri={visit.imageUrl ?? undefined}
+                    metadataLineOverride={metadataLine.length > 0 ? metadataLine : undefined}
+                    notePreview={visit.note.trim().length > 0 ? visit.note.trim() : undefined}
+                    scorePosition="cardTopRight"
+                    tags={visit.tags.length > 0 ? visit.tags : undefined}
+                    maxTags={3}
+                    onPress={() => router.push(`/cafe/${cafe.id}`)}
+                  />
+                );
+              })()
             ))}
-            {pendingVisits.length > 0 ? (
-              <View style={styles.pendingSection}>
-                <Text style={styles.pendingSectionTitle}>Pending cafe reviews</Text>
-                {pendingVisits.map((visit) => (
-                  <View key={visit.id} style={styles.pendingRow}>
-                    <View style={styles.pendingTextWrap}>
-                      <Text style={styles.pendingName}>{visit.submissionCafeName ?? 'Cafe suggestion'}</Text>
-                      <Text style={styles.statusHint} numberOfLines={2}>
-                        {visit.submissionStatus === 'rejected'
-                          ? 'Not added yet. You can resubmit with clearer details.'
-                          : 'Saved to your visits and pending review.'}
-                      </Text>
-                    </View>
-                    {visit.submissionStatus === 'rejected' ? (
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        style={styles.actionChip}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/suggest-cafe',
-                            params: {
-                              prefillName: visit.submissionCafeName ?? '',
-                              fromVisitLog: '1',
-                              visitRating: visit.rating != null ? String(visit.rating) : '',
-                              visitTags: visit.tags.join(','),
-                              visitNote: visit.note,
-                            },
-                          })
-                        }
-                      >
-                        <Text style={styles.actionChipText}>Resubmit</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ))}
-              </View>
-            ) : null}
           </View>
         </ScrollView>
       )}
@@ -275,56 +227,6 @@ const styles = StyleSheet.create({
   timelineList: {
     gap: 14,
     marginTop: 4,
-  },
-  pendingSection: {
-    marginTop: 4,
-    gap: 8,
-  },
-  pendingSectionTitle: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  pendingRow: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.cardBackground,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  pendingTextWrap: {
-    flex: 1,
-    gap: 3,
-  },
-  pendingName: {
-    fontSize: 14,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
-  },
-  statusHint: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.regular,
-  },
-  actionChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.inputBackground,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  actionChipText: {
-    fontSize: 12,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
   },
   emptyWrap: {
     marginTop: 20,
