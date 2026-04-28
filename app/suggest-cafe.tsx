@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -6,6 +6,7 @@ import Slider from '@react-native-community/slider';
 import {
   ActivityIndicator,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
@@ -120,6 +121,9 @@ export default function SuggestCafeScreen() {
     fileName?: string | null;
   } | null)[]>([null, null, null]);
   const redirectTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
+  const [experienceInputY, setExperienceInputY] = useState(0);
 
   const visitTagSections = useMemo(() => TAG_SECTIONS.slice(0, 3), []);
 
@@ -133,6 +137,21 @@ export default function SuggestCafeScreen() {
       if (redirectTimeoutRef.current) {
         clearTimeout(redirectTimeoutRef.current);
       }
+    };
+  }, []);
+
+  React.useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
     };
   }, []);
 
@@ -340,11 +359,15 @@ export default function SuggestCafeScreen() {
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         <ScrollView
-          contentContainerStyle={styles.content}
+          ref={scrollRef}
+          contentContainerStyle={[styles.content, { paddingBottom: Math.max(36, keyboardHeight + 32) }]}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          contentInset={{ bottom: Math.max(0, keyboardHeight) }}
+          contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerRow}>
@@ -449,16 +472,28 @@ export default function SuggestCafeScreen() {
                   ))}
 
                   <Text style={styles.fieldLabel}>Describe your experience</Text>
-                  <TextInput
-                    style={styles.notesInput}
-                    value={visitNote}
-                    onChangeText={setVisitNote}
-                    placeholder="What stood out?"
-                    placeholderTextColor={COLORS.muted}
-                    multiline
-                    textAlignVertical="top"
-                    maxLength={180}
-                  />
+                  <View
+                    onLayout={(event) => {
+                      setExperienceInputY(event.nativeEvent.layout.y);
+                    }}
+                  >
+                    <TextInput
+                      style={styles.notesInput}
+                      value={visitNote}
+                      onChangeText={setVisitNote}
+                      placeholder="What stood out?"
+                      placeholderTextColor={COLORS.muted}
+                      multiline
+                      textAlignVertical="top"
+                      maxLength={180}
+                      onFocus={() => {
+                        const targetY = Math.max(0, experienceInputY - 24);
+                        setTimeout(() => {
+                          scrollRef.current?.scrollTo({ y: targetY, animated: true });
+                        }, Platform.OS === 'ios' ? 90 : 60);
+                      }}
+                    />
+                  </View>
                 </>
               ) : (
                 <>
