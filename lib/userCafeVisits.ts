@@ -160,6 +160,10 @@ async function ensureLegacyVisitedRow(params: { userId: string; cafeId: string }
   });
 }
 
+async function removeSavedCafeIfExists(params: { userId: string; cafeId: string }) {
+  await supabase.from('user_saved_cafes').delete().eq('user_id', params.userId).eq('cafe_id', params.cafeId);
+}
+
 async function queueVisitPhotoForModeration(params: {
   visitId: string;
   userId: string;
@@ -248,7 +252,6 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
   const rating = normalizeRating(input.rating);
   const tags = normalizeTags(input.tags);
   const note = String(input.note ?? '').trim();
-  const isPublic = false;
 
   const isRapidDuplicate = await detectRapidDuplicate({
     userId,
@@ -291,6 +294,7 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
 
   if (cafeId) {
     await ensureLegacyVisitedRow({ userId, cafeId });
+    await removeSavedCafeIfExists({ userId, cafeId });
   }
 
   if (storagePath) {

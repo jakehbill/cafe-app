@@ -531,6 +531,9 @@ export default function CafeDetailScreen() {
           ) : null}
 
           <View style={styles.actionsWrap}>
+            {isSaved(cafe.id) ? (
+              <Text style={styles.savedVisitPromptText}>Been here? Log your visit</Text>
+            ) : null}
             <ActionButton
               label="Log your visit"
               accentActive
@@ -818,6 +821,12 @@ const styles = StyleSheet.create({
   actionsWrap: {
     marginTop: 8,
     gap: 10,
+  },
+  savedVisitPromptText: {
+    fontSize: 13,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.medium,
+    marginBottom: -2,
   },
   actionButton: {
     borderRadius: 14,

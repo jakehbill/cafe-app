@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   Alert,
@@ -25,9 +25,22 @@ import { COLORS, FONTS } from '@/components/theme';
 
 export default function MyCafesScreen() {
   const router = useRouter();
+  const { movedFromSaved } = useLocalSearchParams<{ movedFromSaved?: string | string[] }>();
   const navigation = useNavigation();
   const [visitLogs, setVisitLogs] = useState<UserCafeVisit[]>([]);
   const [cafesById, setCafesById] = useState<Record<string, Cafe>>({});
+  const [showMovedToast, setShowMovedToast] = useState(false);
+
+  useEffect(() => {
+    const movedValue = Array.isArray(movedFromSaved) ? movedFromSaved[0] : movedFromSaved;
+    if (movedValue === '1') {
+      setShowMovedToast(true);
+      const timeout = setTimeout(() => setShowMovedToast(false), 2300);
+      return () => clearTimeout(timeout);
+    }
+    setShowMovedToast(false);
+    return undefined;
+  }, [movedFromSaved]);
 
   const load = useCallback(async () => {
     const logs = await getUserCafeVisitTimeline();
@@ -122,6 +135,11 @@ export default function MyCafesScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
           <Text style={styles.screenTitle}>Visit log</Text>
+          {showMovedToast ? (
+            <View style={styles.toastBanner}>
+              <Text style={styles.toastBannerText}>Moved to your visits</Text>
+            </View>
+          ) : null}
           <View style={styles.emptyWrap}>
             <View style={styles.emptyIconWrap}>
               <Text style={styles.emptyIcon}>+</Text>
@@ -141,6 +159,11 @@ export default function MyCafesScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
           <Text style={styles.screenTitle}>Visit log</Text>
+          {showMovedToast ? (
+            <View style={styles.toastBanner}>
+              <Text style={styles.toastBannerText}>Moved to your visits</Text>
+            </View>
+          ) : null}
           <Text style={styles.hint}>Your timeline, newest first</Text>
           <View style={styles.timelineList}>
             {visitLogs.map((visit) => {
@@ -298,6 +321,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 10,
     marginTop: 4,
+  },
+  toastBanner: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(163, 177, 138, 0.55)',
+    backgroundColor: 'rgba(163, 177, 138, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 4,
+  },
+  toastBannerText: {
+    color: '#5B6E58',
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
   },
   subtitle: {
     fontSize: 14,

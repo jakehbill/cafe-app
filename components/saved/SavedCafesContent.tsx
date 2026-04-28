@@ -202,12 +202,23 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
             <View style={styles.listWrap}>
               {filteredSaved.map((cafe) => {
                 return (
-                  <CompactCafeCard
-                    key={cafe.id}
-                    cafe={cafe}
-                    scorePosition="cardTopRight"
-                    onPress={() => router.push(`/cafe/${cafe.id}`)}
-                  />
+                  <View key={cafe.id} style={styles.savedCardWrap}>
+                    <CompactCafeCard
+                      cafe={cafe}
+                      scorePosition="cardTopRight"
+                      onPress={() => router.push(`/cafe/${cafe.id}`)}
+                    />
+                    <View style={styles.logPromptRow}>
+                      <Text style={styles.logPromptText}>Been here?</Text>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        style={styles.logVisitButton}
+                        onPress={() => router.push(`/log-visit/${cafe.id}` as never)}
+                      >
+                        <Text style={styles.logVisitButtonText}>Log your visit</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
                 );
               })}
             </View>
@@ -335,5 +346,33 @@ const styles = StyleSheet.create({
   listWrap: {
     gap: 14,
     paddingBottom: 8,
+  },
+  savedCardWrap: {
+    gap: 8,
+  },
+  logPromptRow: {
+    marginTop: -2,
+    marginLeft: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  logPromptText: {
+    fontSize: 13,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.medium,
+  },
+  logVisitButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  logVisitButtonText: {
+    fontSize: 12,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
   },
 });

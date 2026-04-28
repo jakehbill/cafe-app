@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { COLORS, FONTS } from '@/components/theme';
+import { useCafeState } from '@/contexts/CafeStateContext';
 import { type Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
@@ -32,6 +33,7 @@ export default function LogVisitScreen() {
   const cafeId = Array.isArray(id) ? id[0] : id;
   const editingVisitId = Array.isArray(visitId) ? visitId[0] : visitId;
   const targetCafeId = cafeId ?? '';
+  const { isSaved } = useCafeState();
   const guessedCafeName = decodeURIComponent(targetCafeId).replace(/[-_]+/g, ' ').trim();
 
   const [cafe, setCafe] = useState<Cafe | null>(null);
@@ -145,7 +147,15 @@ export default function LogVisitScreen() {
         setError(res.error);
         return;
       }
-      router.replace('/my-cafes');
+      const movedFromSaved = !editingVisitId && Boolean(targetCafeId) && isSaved(targetCafeId);
+      if (movedFromSaved) {
+        router.replace({
+          pathname: '/my-cafes',
+          params: { movedFromSaved: '1' },
+        });
+      } else {
+        router.replace('/my-cafes');
+      }
     } finally {
       setSaving(false);
     }
