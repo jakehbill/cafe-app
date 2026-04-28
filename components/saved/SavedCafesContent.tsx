@@ -39,20 +39,11 @@ function uniqueSortedNeighborhoods(cafes: Cafe[]): string[] {
   return Array.from(set).sort((a, b) => a.localeCompare(b));
 }
 
-type VisitFilter = 'all' | 'visited' | 'not_visited';
-
-function filterSavedCafes(
-  cafes: Cafe[],
-  locationKey: string | null,
-  visitFilter: VisitFilter,
-  visitedIds: Set<string>
-): Cafe[] {
+function filterSavedCafes(cafes: Cafe[], locationKey: string | null): Cafe[] {
   return cafes.filter((cafe) => {
     if (locationKey != null) {
       if ((cafe.neighborhood ?? '').trim() !== locationKey) return false;
     }
-    if (visitFilter === 'visited' && !visitedIds.has(String(cafe.id))) return false;
-    if (visitFilter === 'not_visited' && visitedIds.has(String(cafe.id))) return false;
     return true;
   });
 }
@@ -68,12 +59,9 @@ type Props = {
  */
 export function SavedCafesContent({ showPageTitle = true }: Props) {
   const router = useRouter();
-  const { savedCafeIds, visitedCafeIds } = useCafeState();
+  const { savedCafeIds } = useCafeState();
   const [savedCafes, setSavedCafes] = useState<Cafe[]>([]);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
-  const [visitFilter, setVisitFilter] = useState<VisitFilter>('all');
-
-  const visitedIds = useMemo(() => new Set(visitedCafeIds.map(String)), [visitedCafeIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,18 +82,14 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
 
   const locationOptions = useMemo(() => uniqueSortedNeighborhoods(savedCafes), [savedCafes]);
 
-  const filteredSaved = useMemo(
-    () => filterSavedCafes(savedCafes, locationFilter, visitFilter, visitedIds),
-    [savedCafes, locationFilter, visitFilter, visitedIds]
-  );
+  const filteredSaved = useMemo(() => filterSavedCafes(savedCafes, locationFilter), [savedCafes, locationFilter]);
 
   const showFilterRows = savedCafes.length > 0;
-  const hasActiveFilters = locationFilter != null || visitFilter !== 'all';
+  const hasActiveFilters = locationFilter != null;
   const showFilteredEmpty = savedCafes.length > 0 && filteredSaved.length === 0 && hasActiveFilters;
 
   const clearFilters = () => {
     setLocationFilter(null);
-    setVisitFilter('all');
   };
 
   return (
@@ -158,31 +142,6 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
                   </ScrollView>
                 </View>
               ) : null}
-              <View style={styles.filterSection}>
-                <Text style={styles.filterLabel}>Visited</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.chipsRow}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  <FilterChip
-                    label="All"
-                    selected={visitFilter === 'all'}
-                    onPress={() => setVisitFilter('all')}
-                  />
-                  <FilterChip
-                    label="Visited"
-                    selected={visitFilter === 'visited'}
-                    onPress={() => setVisitFilter('visited')}
-                  />
-                  <FilterChip
-                    label="Not visited"
-                    selected={visitFilter === 'not_visited'}
-                    onPress={() => setVisitFilter('not_visited')}
-                  />
-                </ScrollView>
-              </View>
             </View>
           ) : null}
 
