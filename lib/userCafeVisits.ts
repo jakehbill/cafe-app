@@ -19,7 +19,6 @@ export type UserCafeVisit = {
   note: string;
   isPublic: boolean;
   imageUrl: string | null;
-  storagePath: string | null;
 };
 
 type SaveVisitInput = {
@@ -40,6 +39,77 @@ async function buildSignedUrl(storagePath: string | null): Promise<string | null
     .createSignedUrl(path, 60 * 20);
   if (signed.error) return null;
   return signed.data?.signedUrl ?? null;
+}
+
+type VisitPhotoRow = {
+  visit_id: string;
+  storage_path: string | null;
+  sort_order: number | null;
+  is_public: boolean | null;
+  public_status: string | null;
+};
+
+async function fetchPrimaryPhotoUrlByVisitId(visitIds: string[]): Promise<Map<string, string>> {
+  if (visitIds.length === 0) return new Map();
+  const res = await supabase
+    .from('visit_photos')
+    .select('visit_id, storage_path, sort_order, is_public, public_status')
+    .in('visit_id', visitIds);
+  if (res.error) return new Map();
+  const rows = (res.data ?? []) as VisitPhotoRow[];
+  rows.sort((a, b) => {
+    const ao = typeof a.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
+    const bo = typeof b.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
+    return ao - bo;
+  });
+
+  const out = new Map<string, string>();
+  for (const row of rows) {
+    const visitId = String(row.visit_id ?? '').trim();
+    if (!visitId || out.has(visitId)) continue;
+    const url = await buildSignedUrl(row.storage_path ?? null);
+    if (url) out.set(visitId, url);
+  }
+  return out;
+}
+
+async function insertVisitPhoto(params: {
+  visitId: string;
+  userId: string;
+  storagePath: string;
+  isPublic: boolean;
+}) {
+  const current = await supabase
+    .from('visit_photos')
+    .select('sort_order')
+    .eq('visit_id', params.visitId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const nextSort =
+    !current.error && typeof current.data?.sort_order === 'number' ? current.data.sort_order + 1 : 0;
+
+  await supabase.from('visit_photos').insert({
+    visit_id: params.visitId,
+    user_id: params.userId,
+    storage_path: params.storagePath,
+    sort_order: nextSort,
+    is_public: params.isPublic,
+    public_status: params.isPublic ? 'pending' : 'private',
+  });
+}
+
+async function getLatestVisitPhotoStoragePath(visitId: string): Promise<string | null> {
+  const res = await supabase
+    .from('visit_photos')
+    .select('storage_path, sort_order')
+    .eq('visit_id', visitId)
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (res.error) return null;
+  const path = String(res.data?.storage_path ?? '').trim();
+  return path || null;
 }
 
 async function ensureLegacyVisitedRow(params: { userId: string; cafeId: string }) {
@@ -167,7 +237,6 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
   }
 
   let storagePath: string | null = null;
-  let imageUrl: string | null = null;
   if (input.photoAsset?.uri) {
     const upload = await uploadCafePhotoAssetToStorage({
       userId,
@@ -187,8 +256,6 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
       rating,
       tags,
       note,
-      storage_path: storagePath,
-      image_url: imageUrl,
       is_public: isPublic,
     })
     .select('id')
@@ -198,6 +265,15 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
 
   if (cafeId) {
     await ensureLegacyVisitedRow({ userId, cafeId });
+  }
+
+  if (storagePath) {
+    await insertVisitPhoto({
+      visitId,
+      userId,
+      storagePath,
+      isPublic,
+    });
   }
 
   if (isPublic && storagePath && cafeId) {
@@ -229,15 +305,14 @@ export async function getUserCafeVisitById(visitId: string): Promise<UserCafeVis
   const res = await supabase
     .from('user_cafe_visits')
     .select(
-      'id, cafe_id, submission_id, created_at, rating, tags, note, image_url, storage_path, is_public, cafe_submissions(cafe_name,status)'
+      'id, cafe_id, submission_id, created_at, rating, tags, note, is_public, cafe_submissions(cafe_name,status)'
     )
     .eq('id', key)
     .eq('user_id', data.user.id)
     .maybeSingle();
   if (res.error || !res.data) return null;
   const row = res.data;
-  const directUrl = typeof row.image_url === 'string' ? row.image_url.trim() : '';
-  const signed = directUrl.length > 0 ? directUrl : await buildSignedUrl(row.storage_path ?? null);
+  const imageMap = await fetchPrimaryPhotoUrlByVisitId([String(row.id)]);
   return {
     id: String(row.id),
     cafeId: row.cafe_id == null ? null : String(row.cafe_id),
@@ -256,8 +331,7 @@ export async function getUserCafeVisitById(visitId: string): Promise<UserCafeVis
     tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
     note: typeof row.note === 'string' ? row.note : '',
     isPublic: row.is_public === true,
-    imageUrl: signed,
-    storagePath: typeof row.storage_path === 'string' ? row.storage_path : null,
+    imageUrl: imageMap.get(String(row.id)) ?? null,
   };
 }
 
@@ -277,7 +351,7 @@ export async function updateUserCafeVisit(
   if (error || !data.user?.id) return { ok: false, error: 'You must be signed in to edit a visit.' };
   const userId = data.user.id;
 
-  let nextStoragePath = existing.storagePath;
+  let nextStoragePath: string | null = null;
   if (input.photoAsset?.uri) {
     const upload = await uploadCafePhotoAssetToStorage({
       userId,
@@ -286,6 +360,9 @@ export async function updateUserCafeVisit(
     });
     if (!upload.ok) return upload;
     nextStoragePath = upload.storagePath;
+  }
+  if (!nextStoragePath) {
+    nextStoragePath = await getLatestVisitPhotoStoragePath(visitId);
   }
 
   const nextRating = normalizeRating(input.rating ?? existing.rating);
@@ -300,12 +377,27 @@ export async function updateUserCafeVisit(
       tags: nextTags,
       note: nextNote,
       is_public: nextIsPublic,
-      storage_path: nextStoragePath,
-      image_url: null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', visitId);
   if (updateRes.error) return { ok: false, error: updateRes.error.message };
+
+  if (input.photoAsset?.uri && nextStoragePath) {
+    await insertVisitPhoto({
+      visitId,
+      userId,
+      storagePath: nextStoragePath,
+      isPublic: nextIsPublic,
+    });
+  }
+
+  await supabase
+    .from('visit_photos')
+    .update({
+      is_public: nextIsPublic,
+      public_status: nextIsPublic ? 'pending' : 'private',
+    })
+    .eq('visit_id', visitId);
 
   if (nextIsPublic && existing.cafeId && nextStoragePath) {
     await queueVisitPhotoForModeration({
@@ -327,6 +419,7 @@ export async function deleteUserCafeVisit(visitId: string): Promise<SupabaseActi
   const key = String(visitId).trim();
   if (!key) return { ok: false, error: 'Visit id is required.' };
   await removeVisitFromPendingPublicPool(key);
+  await supabase.from('visit_photos').delete().eq('visit_id', key);
   const del = await supabase.from('user_cafe_visits').delete().eq('id', key);
   if (del.error) return { ok: false, error: del.error.message };
   return { ok: true };
@@ -346,7 +439,7 @@ export async function getUserCafeVisitTimeline(): Promise<UserCafeVisit[]> {
   const res = await supabase
     .from('user_cafe_visits')
     .select(
-      'id, cafe_id, submission_id, created_at, rating, tags, note, image_url, storage_path, is_public, cafe_submissions(cafe_name,status)'
+      'id, cafe_id, submission_id, created_at, rating, tags, note, is_public, cafe_submissions(cafe_name,status)'
     )
     .eq('user_id', data.user.id)
     .order('created_at', { ascending: false });
@@ -354,10 +447,9 @@ export async function getUserCafeVisitTimeline(): Promise<UserCafeVisit[]> {
   if (res.error) return [];
 
   const rows = res.data ?? [];
+  const photoMap = await fetchPrimaryPhotoUrlByVisitId(rows.map((row) => String(row.id)));
   const withSigned = await Promise.all(
     rows.map(async (row) => {
-      const directUrl = typeof row.image_url === 'string' ? row.image_url.trim() : '';
-      const signed = directUrl.length > 0 ? directUrl : await buildSignedUrl(row.storage_path ?? null);
       return {
         id: String(row.id),
         cafeId: row.cafe_id == null ? null : String(row.cafe_id),
@@ -379,8 +471,7 @@ export async function getUserCafeVisitTimeline(): Promise<UserCafeVisit[]> {
         tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
         note: typeof row.note === 'string' ? row.note : '',
         isPublic: row.is_public === true,
-        imageUrl: signed,
-        storagePath: typeof row.storage_path === 'string' ? row.storage_path : null,
+        imageUrl: photoMap.get(String(row.id)) ?? null,
       } satisfies UserCafeVisit;
     })
   );

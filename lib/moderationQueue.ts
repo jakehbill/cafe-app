@@ -459,23 +459,51 @@ export async function createCafeAndApproveSubmission(
 
   const linkedPublicVisits = await supabase
     .from('user_cafe_visits')
-    .select('id, user_id, storage_path, note, is_public')
+    .select('id, user_id, note, is_public')
     .eq('cafe_id', createdCafeId)
     .eq('is_public', true);
   const linkedRows = linkedPublicVisits.data ?? [];
-  const visitPhotoRows = linkedRows
+  const visitIds = linkedRows.map((visit) => String(visit.id)).filter(Boolean);
+  const visitPhotosRes = visitIds.length
+    ? await supabase
+        .from('visit_photos')
+        .select('visit_id, storage_path, sort_order, is_public, public_status')
+        .in('visit_id', visitIds)
+    : { data: [], error: null };
+  const visitPhotoByVisitId = new Map<string, string>();
+  const rows = (visitPhotosRes.data ?? []) as {
+    visit_id: string;
+    storage_path: string | null;
+    sort_order: number | null;
+    is_public: boolean | null;
+    public_status: string | null;
+  }[];
+  rows
+    .sort((a, b) => {
+      const ao = typeof a.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
+      const bo = typeof b.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
+      return ao - bo;
+    })
+    .forEach((row) => {
+      const visitId = String(row.visit_id ?? '').trim();
+      const path = String(row.storage_path ?? '').trim();
+      if (!visitId || !path || visitPhotoByVisitId.has(visitId)) return;
+      visitPhotoByVisitId.set(visitId, path);
+    });
+
+  const cafePhotoRows = linkedRows
     .map((visit) => ({
       user_id: String(visit.user_id ?? '').trim(),
       cafe_id: Number(createdCafeId),
-      storage_path: String(visit.storage_path ?? '').trim(),
+      storage_path: visitPhotoByVisitId.get(String(visit.id)) ?? '',
       image_url: null as string | null,
       caption: String(visit.note ?? '').trim().slice(0, 280) || null,
       status: 'pending' as const,
       source_visit_id: String(visit.id),
     }))
     .filter((row) => row.user_id && row.storage_path && Number.isFinite(row.cafe_id));
-  if (visitPhotoRows.length > 0) {
-    await supabase.from('cafe_photos').insert(visitPhotoRows);
+  if (cafePhotoRows.length > 0) {
+    await supabase.from('cafe_photos').insert(cafePhotoRows);
   }
 
   return { ok: true, cafeId: createdCafeId };
