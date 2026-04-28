@@ -27,7 +27,6 @@ type SaveVisitInput = {
   rating?: number | null;
   tags?: string[];
   note?: string;
-  isPublic?: boolean;
   photoAsset?: VisitPhotoAsset | null;
 };
 
@@ -77,7 +76,6 @@ async function insertVisitPhoto(params: {
   visitId: string;
   userId: string;
   storagePath: string;
-  isPublic: boolean;
 }) {
   const current = await supabase
     .from('visit_photos')
@@ -94,8 +92,35 @@ async function insertVisitPhoto(params: {
     user_id: params.userId,
     storage_path: params.storagePath,
     sort_order: nextSort,
-    is_public: params.isPublic,
-    public_status: params.isPublic ? 'pending' : 'private',
+    is_public: false,
+    public_status: 'private',
+  });
+}
+
+async function ensureSubmissionPhotoFromVisit(params: {
+  submissionId: string;
+  userId: string;
+  storagePath: string;
+}) {
+  const existing = await supabase
+    .from('cafe_submission_photos')
+    .select('id')
+    .eq('submission_id', params.submissionId)
+    .eq('storage_path', params.storagePath)
+    .limit(1);
+  if (!existing.error && (existing.data?.length ?? 0) > 0) return;
+  const countRes = await supabase
+    .from('cafe_submission_photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('submission_id', params.submissionId);
+  const nextSort = countRes.count ?? 0;
+  await supabase.from('cafe_submission_photos').insert({
+    submission_id: params.submissionId,
+    user_id: params.userId,
+    storage_path: params.storagePath,
+    image_url: null,
+    photo_kind: 'other',
+    sort_order: nextSort,
   });
 }
 
@@ -146,8 +171,9 @@ async function queueVisitPhotoForModeration(params: {
   if (!Number.isFinite(numericCafeId)) return;
   const existing = await supabase
     .from('cafe_photos')
-    .select('id, status')
-    .eq('source_visit_id', params.visitId)
+    .select('id')
+    .eq('cafe_id', numericCafeId)
+    .eq('storage_path', params.storagePath)
     .limit(1);
   if (!existing.error && (existing.data?.length ?? 0) > 0) return;
   await supabase.from('cafe_photos').insert({
@@ -222,7 +248,7 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
   const rating = normalizeRating(input.rating);
   const tags = normalizeTags(input.tags);
   const note = String(input.note ?? '').trim();
-  const isPublic = input.isPublic === true;
+  const isPublic = false;
 
   const isRapidDuplicate = await detectRapidDuplicate({
     userId,
@@ -256,7 +282,7 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
       rating,
       tags,
       note,
-      is_public: isPublic,
+      is_public: false,
     })
     .select('id')
     .single();
@@ -272,11 +298,10 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
       visitId,
       userId,
       storagePath,
-      isPublic,
     });
   }
 
-  if (isPublic && storagePath && cafeId) {
+  if (storagePath && cafeId) {
     await queueVisitPhotoForModeration({
       visitId,
       userId,
@@ -286,7 +311,15 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
     });
   }
 
-  if (isPublic && rating != null && cafeId) {
+  if (storagePath && submissionId) {
+    await ensureSubmissionPhotoFromVisit({
+      submissionId,
+      userId,
+      storagePath,
+    });
+  }
+
+  if (rating != null && cafeId) {
     await rateCafe(cafeId, {
       coffee: rating,
       tags,
@@ -341,7 +374,6 @@ export async function updateUserCafeVisit(
     rating?: number | null;
     tags?: string[];
     note?: string;
-    isPublic?: boolean;
     photoAsset?: VisitPhotoAsset | null;
   }
 ): Promise<SupabaseActionResult> {
@@ -368,7 +400,6 @@ export async function updateUserCafeVisit(
   const nextRating = normalizeRating(input.rating ?? existing.rating);
   const nextTags = normalizeTags(input.tags ?? existing.tags);
   const nextNote = String(input.note ?? existing.note).trim();
-  const nextIsPublic = input.isPublic ?? existing.isPublic;
 
   const updateRes = await supabase
     .from('user_cafe_visits')
@@ -376,7 +407,7 @@ export async function updateUserCafeVisit(
       rating: nextRating,
       tags: nextTags,
       note: nextNote,
-      is_public: nextIsPublic,
+      is_public: false,
       updated_at: new Date().toISOString(),
     })
     .eq('id', visitId);
@@ -387,19 +418,10 @@ export async function updateUserCafeVisit(
       visitId,
       userId,
       storagePath: nextStoragePath,
-      isPublic: nextIsPublic,
     });
   }
 
-  await supabase
-    .from('visit_photos')
-    .update({
-      is_public: nextIsPublic,
-      public_status: nextIsPublic ? 'pending' : 'private',
-    })
-    .eq('visit_id', visitId);
-
-  if (nextIsPublic && existing.cafeId && nextStoragePath) {
+  if (existing.cafeId && nextStoragePath) {
     await queueVisitPhotoForModeration({
       visitId,
       userId,
@@ -408,10 +430,6 @@ export async function updateUserCafeVisit(
       note: nextNote,
     });
   }
-  if (!nextIsPublic) {
-    await removeVisitFromPendingPublicPool(visitId);
-  }
-
   return { ok: true };
 }
 
@@ -423,13 +441,6 @@ export async function deleteUserCafeVisit(visitId: string): Promise<SupabaseActi
   const del = await supabase.from('user_cafe_visits').delete().eq('id', key);
   if (del.error) return { ok: false, error: del.error.message };
   return { ok: true };
-}
-
-export async function setUserCafeVisitVisibility(
-  visitId: string,
-  isPublic: boolean
-): Promise<SupabaseActionResult> {
-  return updateUserCafeVisit(visitId, { isPublic });
 }
 
 export async function getUserCafeVisitTimeline(): Promise<UserCafeVisit[]> {

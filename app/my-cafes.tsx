@@ -17,7 +17,6 @@ import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 import {
   deleteUserCafeVisit,
   getUserCafeVisitTimeline,
-  setUserCafeVisitVisibility,
   type UserCafeVisit,
 } from '@/lib/userCafeVisits';
 
@@ -117,30 +116,6 @@ export default function MyCafesScreen() {
     ]);
   }
 
-  function handleToggleVisibility(visit: UserCafeVisit) {
-    const nextIsPublic = !visit.isPublic;
-    const label = nextIsPublic ? 'Make public?' : 'Make private?';
-    const message = nextIsPublic
-      ? 'This will submit your visit photo for moderation if needed.'
-      : 'This removes any unapproved photo from the public moderation pool.';
-    Alert.alert(label, message, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Confirm',
-        onPress: () => {
-          void (async () => {
-            const res = await setUserCafeVisitVisibility(visit.id, nextIsPublic);
-            if (!res.ok) {
-              Alert.alert('Could not update', res.error);
-              return;
-            }
-            await load();
-          })();
-        },
-      },
-    ]);
-  }
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       {visitLogs.length === 0 ? (
@@ -229,7 +204,6 @@ export default function MyCafesScreen() {
                         </Text>
                       </View>
                     ) : null}
-                    {visit.isPublic ? <Text style={styles.publicPill}>Shared publicly</Text> : null}
                     <View style={styles.actionsRow}>
                       <TouchableOpacity
                         activeOpacity={0.85}
@@ -245,13 +219,6 @@ export default function MyCafesScreen() {
                         }
                       >
                         <Text style={styles.actionChipText}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        style={styles.actionChip}
-                        onPress={() => handleToggleVisibility(visit)}
-                      >
-                        <Text style={styles.actionChipText}>{visit.isPublic ? 'Make private' : 'Make public'}</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         activeOpacity={0.85}
@@ -273,7 +240,6 @@ export default function MyCafesScreen() {
                                 visitRating: visit.rating != null ? String(visit.rating) : '',
                                 visitTags: visit.tags.join(','),
                                 visitNote: visit.note,
-                                visitIsPublic: visit.isPublic ? '1' : '0',
                               },
                             })
                           }
@@ -407,16 +373,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     color: COLORS.text,
     fontFamily: FONTS.sans.regular,
-  },
-  publicPill: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 11,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.accent,
-    backgroundColor: COLORS.accentSubtleFill,
   },
   pendingPill: {
     alignSelf: 'flex-start',

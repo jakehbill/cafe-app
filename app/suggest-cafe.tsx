@@ -307,7 +307,6 @@ export default function SuggestCafeScreen() {
           rating: visitRating,
           tags: visitTags,
           note: visitNote,
-          isPublic: true,
           photoAsset: visitPhoto,
         });
         if (!linkedVisit.ok) {

@@ -10,7 +10,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -39,7 +38,6 @@ export default function LogVisitScreen() {
   const [rating, setRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [note, setNote] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
   const [photoAsset, setPhotoAsset] = useState<{
     uri: string;
     mimeType?: string | null;
@@ -75,7 +73,6 @@ export default function LogVisitScreen() {
       setRating(existing.rating);
       setSelectedTags(existing.tags);
       setNote(existing.note);
-      setIsPublic(existing.isPublic);
       setExistingPendingName(existing.submissionCafeName);
       if (!targetCafeId && existing.cafeId) {
         const resolvedCafe = await fetchCafeByIdFromSupabase(existing.cafeId);
@@ -135,7 +132,6 @@ export default function LogVisitScreen() {
             rating,
             tags: selectedTags,
             note,
-            isPublic,
             photoAsset,
           })
         : await saveUserCafeVisit({
@@ -143,7 +139,6 @@ export default function LogVisitScreen() {
             rating,
             tags: selectedTags,
             note,
-            isPublic,
             photoAsset,
           });
       if (!res.ok) {
@@ -172,7 +167,6 @@ export default function LogVisitScreen() {
         visitRating: rating != null ? String(rating) : '',
         visitTags: selectedTags.join(','),
         visitNote: note,
-        visitIsPublic: isPublic ? '1' : '0',
         visitPhotoUri: photoAsset?.uri ?? '',
         visitPhotoMimeType: photoAsset?.mimeType ?? '',
         visitPhotoFileName: photoAsset?.fileName ?? '',
@@ -300,16 +294,6 @@ export default function LogVisitScreen() {
             />
           </View> : null}
 
-          {canRenderVisitForm ? <View style={styles.sectionCard}>
-            <View style={styles.shareRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sectionTitle}>Share to help others discover this place</Text>
-                <Text style={styles.shareHint}>Off by default. Keep it private unless you opt in.</Text>
-              </View>
-              <Switch value={isPublic} onValueChange={setIsPublic} />
-            </View>
-          </View> : null}
-
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           {canRenderVisitForm ? <TouchableOpacity
@@ -407,8 +391,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  shareHint: { marginTop: 2, fontSize: 12, color: COLORS.muted, lineHeight: 16 },
   errorText: { fontSize: 13, lineHeight: 18, color: '#8B4A4A', fontFamily: FONTS.sans.medium },
   submitButton: {
     borderRadius: 16,
