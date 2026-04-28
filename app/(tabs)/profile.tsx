@@ -500,7 +500,7 @@ export default function ProfileScreen() {
         <View style={styles.activitySection}>
           <Text style={styles.sectionHeading}>Your activity</Text>
           <Text style={styles.activitySectionIntro}>
-            Visited, ratings, and saved — tap a row to open the full list.
+            Cafés you&apos;ve visited and saved for later.
           </Text>
 
           <View style={styles.statsRow}>
@@ -512,16 +512,6 @@ export default function ProfileScreen() {
               )}
               <Text style={styles.statLabel} numberOfLines={2}>
                 Visited Cafes
-              </Text>
-            </View>
-            <View style={styles.statCard}>
-              {countsLoading ? (
-                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
-              ) : (
-                <Text style={styles.statNumber}>{displayCounts.ratings}</Text>
-              )}
-              <Text style={styles.statLabel} numberOfLines={2}>
-                Ratings
               </Text>
             </View>
             <View style={styles.statCard}>
@@ -545,18 +535,6 @@ export default function ProfileScreen() {
               <View style={styles.activityTextWrap}>
                 <Text style={styles.activityTitle}>Visited</Text>
                 <Text style={styles.activityHint}>Your personal cafe log</Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.88}
-              style={styles.activityRow}
-              onPress={() => router.push('/ratings')}
-            >
-              <View style={styles.activityTextWrap}>
-                <Text style={styles.activityTitle}>Ratings</Text>
-                <Text style={styles.activityHint}>Cafes you have rated</Text>
               </View>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
