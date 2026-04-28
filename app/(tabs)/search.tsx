@@ -495,6 +495,7 @@ export default function SearchScreen() {
                     cafe={cafe}
                     scorePosition="cardTopRight"
                     reserveTagSpaceWhenEmpty
+                    showBookmarkAction
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
                 );

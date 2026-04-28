@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { type Cafe } from '@/data/cafes';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { useCafeState } from '@/contexts/CafeStateContext';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { getTopCafeTags } from '@/lib/supabase';
@@ -64,6 +66,8 @@ export type CompactCafeCardProps = {
   compactNameMetaGap?: boolean;
   /** Search-only: reserve tag row space even when no tags. */
   reserveTagSpaceWhenEmpty?: boolean;
+  /** Search-only: enable save/unsave quick action on thumbnail. */
+  showBookmarkAction?: boolean;
 };
 
 export function CompactCafeCard({
@@ -78,10 +82,13 @@ export function CompactCafeCard({
   scorePosition = 'bottomRight',
   compactNameMetaGap = false,
   reserveTagSpaceWhenEmpty = false,
+  showBookmarkAction = false,
 }: CompactCafeCardProps) {
+  const { isSaved, toggleSaved } = useCafeState();
   /** Visited list (with trailing): when tags are shown, cap count and lighter styling. */
   const effectiveMaxTags = trailing != null ? Math.min(maxTags, 2) : maxTags;
   const [topTags, setTopTags] = useState<string[]>([]);
+  const [optimisticSaved, setOptimisticSaved] = useState<boolean>(isSaved(cafe.id));
   const tagSlice = useMemo(() => {
     if (!showTagsUI) return [];
     if (tags && tags.length > 0) return tags.slice(0, effectiveMaxTags);
@@ -95,6 +102,11 @@ export function CompactCafeCard({
   const scoreOnThumbnail = !scoreOnCardTopRight && !scoreInContentColumn;
   const metadataLine = buildScoreLocationMeta(cafe);
   const showTagSpacer = reserveTagSpaceWhenEmpty && !showTagRow;
+  const saved = optimisticSaved;
+
+  useEffect(() => {
+    setOptimisticSaved(isSaved(cafe.id));
+  }, [isSaved, cafe.id]);
 
   useEffect(() => {
     if (!showTagsUI) return;
@@ -113,6 +125,12 @@ export function CompactCafeCard({
       cancelled = true;
     };
   }, [cafe.id, effectiveMaxTags, tags, showTagsUI]);
+
+  function handleToggleSave() {
+    const next = !saved;
+    setOptimisticSaved(next);
+    void toggleSaved(cafe.id);
+  }
 
   return (
     <View style={styles.card}>
@@ -137,6 +155,27 @@ export function CompactCafeCard({
           ) : (
             <View style={styles.thumbnailImage} />
           )}
+          {showBookmarkAction ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={saved ? `Remove ${cafe.name} from saved` : `Save ${cafe.name}`}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPressIn={(event) => {
+                event.stopPropagation();
+              }}
+              onPress={(event) => {
+                event.stopPropagation();
+                handleToggleSave();
+              }}
+              style={({ pressed }) => [styles.bookmarkButton, pressed && styles.bookmarkButtonPressed]}
+            >
+              <Ionicons
+                name={saved ? 'bookmark' : 'bookmark-outline'}
+                size={16}
+                color={saved ? COLORS.accent : '#ffffff'}
+              />
+            </Pressable>
+          ) : null}
           {scoreOnThumbnail ? (
             <>
               <CompactThumbnailBottomFade cafeId={cafe.id} />
@@ -335,6 +374,24 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+  },
+  bookmarkButton: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(26,26,26,0.52)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    zIndex: 3,
+  },
+  bookmarkButtonPressed: {
+    transform: [{ scale: 0.95 }],
+    backgroundColor: 'rgba(26,26,26,0.62)',
   },
   thumbnailBottomFade: {
     position: 'absolute',
