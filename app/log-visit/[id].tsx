@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import * as ImagePicker from 'expo-image-picker';
 import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
@@ -18,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { type Cafe } from '@/data/cafes';
@@ -191,15 +191,15 @@ export default function LogVisitScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.heroBackRow}>
-          <TouchableOpacity onPress={handleBack} style={styles.heroBackHit}>
-            <Ionicons name="chevron-back" size={24} color={COLORS.text} />
-          </TouchableOpacity>
+          <StackHeaderBackButton canGoBack tintColor={COLORS.text} onPress={handleBack} />
         </View>
 
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <View style={styles.titleBlock}>
             <Text style={styles.pageTitle}>{editingVisitId ? 'Edit visit log' : 'Log your visit'}</Text>
-            <Text style={styles.pageSubtitle}>Capture your cafe moment for your personal timeline.</Text>
+            <Text style={styles.pageSubtitle}>
+              Save a few notes from this cafe so you can remember where you&apos;ve been.
+            </Text>
           </View>
 
           {!canRenderVisitForm ? (
@@ -236,14 +236,17 @@ export default function LogVisitScreen() {
           </View> : null}
 
           {canRenderVisitForm ? <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Add photo</Text>
+            <Text style={styles.sectionTitle}>Add a memory</Text>
+            <Text style={styles.sectionHelperText}>
+              A coffee, the space, or anything you want to remember.
+            </Text>
             <TouchableOpacity style={styles.photoButton} activeOpacity={0.9} onPress={() => void handlePickPhoto()}>
               <Text style={styles.photoButtonText}>{photoAsset ? 'Change photo' : 'Add photo'}</Text>
             </TouchableOpacity>
           </View> : null}
 
           {canRenderVisitForm ? <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Rating (optional)</Text>
+            <Text style={styles.sectionTitle}>How was it?</Text>
             <Text style={styles.ratingValue}>{rating == null ? 'Not rated' : `${rating.toFixed(1)} / 5`}</Text>
             <Slider
               value={rating ?? 3}
@@ -261,7 +264,7 @@ export default function LogVisitScreen() {
           </View> : null}
 
           {canRenderVisitForm ? <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Tags</Text>
+            <Text style={styles.sectionTitle}>What stood out?</Text>
             {TAG_SECTIONS.map((section) => (
               <View key={section.title} style={styles.tagSection}>
                 <Text style={styles.tagSectionTitle}>{section.title}</Text>
@@ -291,10 +294,10 @@ export default function LogVisitScreen() {
           </View> : null}
 
           {canRenderVisitForm ? <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Note (optional)</Text>
+            <Text style={styles.sectionTitle}>Describe your experience</Text>
             <TextInput
               style={styles.notesInput}
-              placeholder="Short note about this visit"
+              placeholder="What made this place worth remembering?"
               placeholderTextColor={COLORS.muted}
               numberOfLines={2}
               multiline
@@ -313,7 +316,7 @@ export default function LogVisitScreen() {
             disabled={saving || loadingExisting}
           >
             <Text style={styles.submitButtonText}>
-              {saving ? 'Saving…' : editingVisitId ? 'Save changes' : 'Save visit'}
+              {saving ? 'Saving…' : editingVisitId ? 'Save changes' : 'Save to my diary'}
             </Text>
           </TouchableOpacity> : null}
         </ScrollView>
@@ -326,7 +329,6 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   keyboardAvoid: { flex: 1 },
   heroBackRow: { marginBottom: 8, paddingHorizontal: 20 },
-  heroBackHit: { alignSelf: 'flex-start', paddingVertical: 2 },
   content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 36, gap: 16 },
   titleBlock: { gap: 8 },
   pageTitle: { fontSize: 28, lineHeight: 34, fontFamily: FONTS.display.bold, color: COLORS.text },
@@ -355,6 +357,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionTitle: { fontSize: 13, fontFamily: FONTS.sans.semibold, color: COLORS.text },
+  sectionHelperText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+    marginTop: -4,
+  },
   photoButton: {
     borderRadius: 12,
     paddingVertical: 12,

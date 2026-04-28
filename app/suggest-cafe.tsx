@@ -397,9 +397,12 @@ export default function SuggestCafeScreen() {
               {visitFlowStep === 1 ? (
                 <>
                   <Text style={styles.fieldLabel}>Visit details</Text>
-                  <Text style={styles.visitSectionHint}>These are saved to your personal visit log.</Text>
+                  <Text style={styles.visitSectionHint}>Save this to your personal cafe diary.</Text>
 
-                  <Text style={styles.fieldLabel}>Visit photo</Text>
+                  <Text style={styles.fieldLabel}>Add a memory</Text>
+                  <Text style={styles.tagHelperText}>
+                    A coffee, the space, or anything you want to remember.
+                  </Text>
                   <View style={styles.photoSlotActionsRow}>
                     <TouchableOpacity
                       activeOpacity={0.88}
@@ -424,7 +427,7 @@ export default function SuggestCafeScreen() {
                     <Image source={{ uri: visitPhoto.uri }} style={styles.photoPreview} resizeMode="cover" />
                   ) : null}
 
-                  <Text style={styles.fieldLabel}>Rating</Text>
+                  <Text style={styles.fieldLabel}>How was it?</Text>
                   <Text style={styles.visitRatingValue}>
                     {visitRating == null ? 'Not rated' : `${visitRating.toFixed(1)} / 5`}
                   </Text>
@@ -442,7 +445,7 @@ export default function SuggestCafeScreen() {
                     <Text style={styles.clearVisitRatingText}>Clear rating</Text>
                   </TouchableOpacity>
 
-                  <Text style={styles.fieldLabel}>Tags</Text>
+                  <Text style={styles.fieldLabel}>What stood out?</Text>
                   {visitTagSections.map((section) => (
                     <View key={`visit-${section.title}`} style={styles.tagSection}>
                       <Text style={styles.tagSectionTitle}>{section.title}</Text>
@@ -480,7 +483,7 @@ export default function SuggestCafeScreen() {
                       style={styles.notesInput}
                       value={visitNote}
                       onChangeText={setVisitNote}
-                      placeholder="What stood out?"
+                      placeholder="What made this place worth remembering?"
                       placeholderTextColor={COLORS.muted}
                       multiline
                       textAlignVertical="top"
@@ -707,7 +710,7 @@ export default function SuggestCafeScreen() {
                 <ActivityIndicator color="#ffffff" />
               ) : (
                 <Text style={styles.submitButtonText}>
-                  {fromVisitLog ? 'Save visit' : 'Submit for review'}
+                  {fromVisitLog ? 'Save to my diary' : 'Submit for review'}
                 </Text>
               )}
             </TouchableOpacity>

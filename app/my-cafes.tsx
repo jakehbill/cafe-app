@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { Cafe } from '@/data/cafes';
+import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 import {
   deleteUserCafeVisit,
@@ -87,15 +88,7 @@ export default function MyCafesScreen() {
 
   const backRow = (
     <View style={styles.backRow}>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel="Go back"
-        onPress={handleBack}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        style={styles.backHit}
-      >
-        <Text style={styles.backIcon}>{"<"}</Text>
-      </TouchableOpacity>
+      <StackHeaderBackButton canGoBack tintColor={COLORS.text} onPress={handleBack} />
     </View>
   );
 
@@ -134,7 +127,8 @@ export default function MyCafesScreen() {
       {visitLogs.length === 0 ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Visit log</Text>
+          <Text style={styles.screenTitle}>Your cafe diary</Text>
+          <Text style={styles.hint}>A record of the cafes you’ve visited, rated and remembered.</Text>
           {showMovedToast ? (
             <View style={styles.toastBanner}>
               <Text style={styles.toastBannerText}>Moved to your visits</Text>
@@ -145,26 +139,28 @@ export default function MyCafesScreen() {
               <Text style={styles.emptyIcon}>+</Text>
             </View>
             <Text style={styles.emptyTitle}>No visits logged yet</Text>
-            <Text style={styles.subtitle}>Open a cafe and tap "Log your visit"</Text>
+            <Text style={styles.subtitle}>
+              When you visit a cafe, save a few notes here so you can remember where you&apos;ve been.
+            </Text>
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.ctaButton}
               onPress={() => router.push('/')}
             >
-              <Text style={styles.ctaButtonText}>Explore cafes</Text>
+              <Text style={styles.ctaButtonText}>Find a cafe</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Visit log</Text>
+          <Text style={styles.screenTitle}>Your cafe diary</Text>
           {showMovedToast ? (
             <View style={styles.toastBanner}>
               <Text style={styles.toastBannerText}>Moved to your visits</Text>
             </View>
           ) : null}
-          <Text style={styles.hint}>Your timeline, newest first</Text>
+          <Text style={styles.hint}>A record of the cafes you’ve visited, rated and remembered.</Text>
           <View style={styles.timelineList}>
             {visitLogs.map((visit) => {
               const cafe = visit.cafeId ? cafesById[visit.cafeId] : undefined;
@@ -187,24 +183,30 @@ export default function MyCafesScreen() {
                       <Text style={styles.visitCafeName} numberOfLines={1}>
                         {cafe?.name ?? visit.submissionCafeName ?? 'Cafe'}
                       </Text>
-                      <Text style={styles.visitDate}>{formatVisitDate(visit.createdAt)}</Text>
+                      <Text style={styles.visitDate}>Visited {formatVisitDate(visit.createdAt)}</Text>
                     </View>
-                    <Text style={styles.visitMeta}>
-                      {visit.rating != null ? `${visit.rating.toFixed(1)} / 5` : 'No rating'}
-                    </Text>
+                    {visit.rating != null ? (
+                      <Text style={styles.visitMeta}>Rating {visit.rating.toFixed(1)} / 5</Text>
+                    ) : null}
                     {visit.tags.length > 0 ? (
-                      <View style={styles.visitTagsRow}>
-                        {visit.tags.slice(0, 3).map((tag) => (
-                          <View key={`${visit.id}-${tag}`} style={styles.inlineTag}>
-                            <TagWithOptionalIcon tag={tag} iconSize={12} textStyle={styles.inlineTagText} gap={4} />
-                          </View>
-                        ))}
+                      <View style={styles.diarySectionBlock}>
+                        <Text style={styles.diarySectionLabel}>What stood out</Text>
+                        <View style={styles.visitTagsRow}>
+                          {visit.tags.slice(0, 3).map((tag) => (
+                            <View key={`${visit.id}-${tag}`} style={styles.inlineTag}>
+                              <TagWithOptionalIcon tag={tag} iconSize={12} textStyle={styles.inlineTagText} gap={4} />
+                            </View>
+                          ))}
+                        </View>
                       </View>
                     ) : null}
                     {visit.note.trim().length > 0 ? (
-                      <Text style={styles.visitNote} numberOfLines={2}>
-                        {visit.note}
-                      </Text>
+                      <View style={styles.diarySectionBlock}>
+                        <Text style={styles.diarySectionLabel}>Your note</Text>
+                        <Text style={styles.visitNote} numberOfLines={2}>
+                          {visit.note}
+                        </Text>
+                      </View>
                     ) : null}
                     {visit.cafeId == null ? (
                       <View style={styles.statusRow}>
@@ -297,16 +299,6 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     marginBottom: 4,
   },
-  backHit: {
-    alignSelf: 'flex-start',
-    paddingVertical: 2,
-  },
-  backIcon: {
-    fontSize: 24,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
-    lineHeight: 28,
-  },
   screenTitle: {
     fontSize: 28,
     fontFamily: FONTS.display.bold,
@@ -387,6 +379,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.muted,
     fontFamily: FONTS.sans.medium,
+  },
+  diarySectionBlock: {
+    gap: 5,
+  },
+  diarySectionLabel: {
+    fontSize: 11,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.semibold,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
   },
   visitTagsRow: {
     flexDirection: 'row',
