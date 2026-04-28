@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import Slider from '@react-native-community/slider';
 import {
   ActivityIndicator,
   Image,
@@ -55,18 +56,21 @@ export default function SuggestCafeScreen() {
     visitRating?: string | string[];
     visitTags?: string | string[];
     visitNote?: string | string[];
-    visitIsPublic?: string | string[];
     visitPhotoUri?: string | string[];
     visitPhotoMimeType?: string | string[];
     visitPhotoFileName?: string | string[];
   }>();
   const fromVisitLog = (Array.isArray(params.fromVisitLog) ? params.fromVisitLog[0] : params.fromVisitLog) === '1';
-  const initialName = Array.isArray(params.prefillName) ? params.prefillName[0] : params.prefillName;
+  const initialNameParam = Array.isArray(params.prefillName) ? params.prefillName[0] : params.prefillName;
+  const initialName = (() => {
+    const candidate = String(initialNameParam ?? '').trim();
+    if (!candidate) return '';
+    if (candidate.toLowerCase() === 'undefined' || candidate.toLowerCase() === 'null') return '';
+    return candidate;
+  })();
   const initialVisitRatingRaw = Array.isArray(params.visitRating) ? params.visitRating[0] : params.visitRating;
   const initialVisitTagsRaw = Array.isArray(params.visitTags) ? params.visitTags[0] : params.visitTags;
   const initialVisitNote = Array.isArray(params.visitNote) ? params.visitNote[0] : params.visitNote;
-  const initialVisitIsPublic =
-    (Array.isArray(params.visitIsPublic) ? params.visitIsPublic[0] : params.visitIsPublic) === '1';
   const initialVisitPhotoUri = Array.isArray(params.visitPhotoUri) ? params.visitPhotoUri[0] : params.visitPhotoUri;
   const initialVisitPhotoMimeType = Array.isArray(params.visitPhotoMimeType)
     ? params.visitPhotoMimeType[0]
@@ -74,12 +78,36 @@ export default function SuggestCafeScreen() {
   const initialVisitPhotoFileName = Array.isArray(params.visitPhotoFileName)
     ? params.visitPhotoFileName[0]
     : params.visitPhotoFileName;
-  const [cafeName, setCafeName] = useState('');
+  const [cafeName, setCafeName] = useState(initialName);
   const [addressText, setAddressText] = useState('');
   const [area, setArea] = useState('');
   const [googleMapsUrl, setGoogleMapsUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [visitRating, setVisitRating] = useState<number | null>(
+    Number.isFinite(Number(initialVisitRatingRaw)) ? Number(initialVisitRatingRaw) : null
+  );
+  const [visitTags, setVisitTags] = useState<string[]>(
+    String(initialVisitTagsRaw ?? '')
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+  );
+  const [visitNote, setVisitNote] = useState(String(initialVisitNote ?? ''));
+  const [visitPhoto, setVisitPhoto] = useState<{
+    uri: string;
+    mimeType?: string | null;
+    fileName?: string | null;
+  } | null>(
+    initialVisitPhotoUri
+      ? {
+          uri: initialVisitPhotoUri,
+          mimeType: initialVisitPhotoMimeType ?? null,
+          fileName: initialVisitPhotoFileName ?? null,
+        }
+      : null
+  );
+  const [visitFlowStep, setVisitFlowStep] = useState<1 | 2>(1);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -93,10 +121,7 @@ export default function SuggestCafeScreen() {
   } | null)[]>([null, null, null]);
   const redirectTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  React.useEffect(() => {
-    if (!initialName) return;
-    setCafeName(String(initialName).trim());
-  }, [initialName]);
+  const visitTagSections = useMemo(() => TAG_SECTIONS.slice(0, 3), []);
 
   const urlLooksValid = useMemo(
     () => isValidOptionalUrl(googleMapsUrl),
@@ -124,14 +149,19 @@ export default function SuggestCafeScreen() {
     };
   }, []);
 
-  const submitDisabled =
-    submitting || redirecting || cafeName.trim().length === 0 || !isValidOptionalUrl(googleMapsUrl);
+  const submitDisabled = fromVisitLog
+    ? submitting || redirecting || cafeName.trim().length === 0 || !isValidOptionalUrl(googleMapsUrl)
+    : submitting || redirecting || cafeName.trim().length === 0 || !isValidOptionalUrl(googleMapsUrl);
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => {
       if (prev.includes(tag)) return prev.filter((item) => item !== tag);
       return [...prev, tag];
     });
+  }
+
+  function toggleVisitTag(tag: string) {
+    setVisitTags((prev) => (prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]));
   }
 
   function resetForm() {
@@ -145,6 +175,10 @@ export default function SuggestCafeScreen() {
   }
 
   function handleBack() {
+    if (fromVisitLog && visitFlowStep === 2) {
+      setVisitFlowStep(1);
+      return;
+    }
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
@@ -180,6 +214,27 @@ export default function SuggestCafeScreen() {
     });
   }
 
+  async function pickVisitPhoto() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setSubmitError('Please allow photo library access to add photos.');
+      return;
+    }
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.86,
+    });
+    if (pickerResult.canceled) return;
+    const asset = pickerResult.assets?.[0];
+    if (!asset?.uri) return;
+    setVisitPhoto({
+      uri: asset.uri,
+      mimeType: asset.mimeType,
+      fileName: asset.fileName,
+    });
+  }
+
   function removePhotoForSlot(index: number) {
     setSelectedPhotos((prev) => {
       const next = [...prev];
@@ -204,14 +259,22 @@ export default function SuggestCafeScreen() {
     setSuccessMessage(null);
 
     try {
-      const result = await createCafeSuggestionWithId({
-        cafeName: nameTrimmed,
-        addressText,
-        area,
-        googleMapsUrl,
-        notes,
-        selectedTags,
-      });
+      const result = await createCafeSuggestionWithId(
+        fromVisitLog
+          ? {
+              cafeName: nameTrimmed,
+              area,
+              googleMapsUrl,
+            }
+          : {
+              cafeName: nameTrimmed,
+              addressText,
+              area,
+              googleMapsUrl,
+              notes,
+              selectedTags,
+            }
+      );
 
       if (!result.ok) {
         setSubmitError(result.error);
@@ -219,52 +282,45 @@ export default function SuggestCafeScreen() {
       }
 
       if (fromVisitLog) {
-        const parsedRating = Number(initialVisitRatingRaw);
-        const visitTags = String(initialVisitTagsRaw ?? '')
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean);
         const linkedVisit = await saveUserCafeVisit({
           cafeId: null,
           submissionId: result.submissionId,
-          rating: Number.isFinite(parsedRating) ? parsedRating : null,
+          rating: visitRating,
           tags: visitTags,
-          note: String(initialVisitNote ?? ''),
-          isPublic: initialVisitIsPublic,
-          photoAsset: initialVisitPhotoUri
-            ? {
-                uri: initialVisitPhotoUri,
-                mimeType: initialVisitPhotoMimeType ?? null,
-                fileName: initialVisitPhotoFileName ?? null,
-              }
-            : null,
+          note: visitNote,
+          isPublic: true,
+          photoAsset: visitPhoto,
         });
         if (!linkedVisit.ok) {
           setSuccessMessage(
-            `Cafe suggestion saved, but your visit draft was not linked yet: ${linkedVisit.error}. You can retry from Visit log.`
+            `Cafe details saved, but your visit draft was not linked yet: ${linkedVisit.error}. You can retry from Visit log.`
           );
         }
       }
 
-      const imagesToUpload = selectedPhotos.filter(
-        (photo): photo is { uri: string; mimeType?: string | null; fileName?: string | null } => photo != null
-      );
-
-      let uploadSummary: { uploadedCount: number; failedCount: number } | null = null;
-      if (imagesToUpload.length > 0) {
-        uploadSummary = await uploadSubmissionPhotos({
-          userId: result.userId,
-          submissionId: result.submissionId,
-          images: imagesToUpload,
-        });
-      }
-
-      if (uploadSummary && uploadSummary.failedCount > 0) {
-        setSuccessMessage(
-          `Thanks — we’ll review this before adding it to Beaned. (${uploadSummary.uploadedCount}/${imagesToUpload.length} photos uploaded)`
+      if (!fromVisitLog) {
+        const imagesToUpload = selectedPhotos.filter(
+          (photo): photo is { uri: string; mimeType?: string | null; fileName?: string | null } => photo != null
         );
+
+        let uploadSummary: { uploadedCount: number; failedCount: number } | null = null;
+        if (imagesToUpload.length > 0) {
+          uploadSummary = await uploadSubmissionPhotos({
+            userId: result.userId,
+            submissionId: result.submissionId,
+            images: imagesToUpload,
+          });
+        }
+
+        if (uploadSummary && uploadSummary.failedCount > 0) {
+          setSuccessMessage(
+            `Thanks — we’ll review this before adding it to Beaned. (${uploadSummary.uploadedCount}/${imagesToUpload.length} photos uploaded)`
+          );
+        } else {
+          setSuccessMessage('Thanks — we’ll review this before adding it to Beaned.');
+        }
       } else {
-        setSuccessMessage('Thanks — we’ll review this before adding it to Beaned.');
+        setSuccessMessage('Visit logged. We’ll review this cafe and link it once approved.');
       }
       resetForm();
       const rows = await getMyCafeSubmissions(6);
@@ -299,20 +355,152 @@ export default function SuggestCafeScreen() {
                 onPress={handleBack}
               />
             </View>
-            <Text style={styles.headerTitle}>Suggest a cafe</Text>
+            <Text style={styles.headerTitle}>{fromVisitLog ? 'Log a cafe' : 'Suggest a cafe'}</Text>
             <View style={styles.headerRight} />
           </View>
 
           <View style={styles.titleBlock}>
-            <Text style={styles.pageTitle}>Suggest a cafe</Text>
+            <Text style={styles.pageTitle}>{fromVisitLog ? 'Log a cafe' : 'Suggest a cafe'}</Text>
             <Text style={styles.pageSubtitle}>
               {fromVisitLog
-                ? 'Log your visit somewhere new by adding this cafe for review.'
+                ? visitFlowStep === 1
+                  ? 'Log a cafe you’ve been to. We’ll ask for a couple details next.'
+                  : 'Add a few details so we can find this place again.'
                 : 'Know a spot we&apos;ve missed? Send it in for review.'}
             </Text>
           </View>
 
-          <View style={styles.sectionCard}>
+          {fromVisitLog ? (
+            <View style={styles.sectionCard}>
+              {visitFlowStep === 1 ? (
+                <>
+                  <Text style={styles.fieldLabel}>Visit details</Text>
+                  <Text style={styles.visitSectionHint}>These are saved to your personal visit log.</Text>
+
+                  <Text style={styles.fieldLabel}>Visit photo</Text>
+                  <View style={styles.photoSlotActionsRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      style={styles.photoSlotButton}
+                      onPress={() => void pickVisitPhoto()}
+                      disabled={submitting || redirecting}
+                    >
+                      <Text style={styles.photoSlotButtonText}>{visitPhoto ? 'Replace photo' : 'Add photo'}</Text>
+                    </TouchableOpacity>
+                    {visitPhoto ? (
+                      <TouchableOpacity
+                        activeOpacity={0.88}
+                        style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
+                        onPress={() => setVisitPhoto(null)}
+                        disabled={submitting || redirecting}
+                      >
+                        <Text style={styles.photoSlotButtonSecondaryText}>Remove</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  {visitPhoto ? (
+                    <Image source={{ uri: visitPhoto.uri }} style={styles.photoPreview} resizeMode="cover" />
+                  ) : null}
+
+                  <Text style={styles.fieldLabel}>Rating</Text>
+                  <Text style={styles.visitRatingValue}>
+                    {visitRating == null ? 'Not rated' : `${visitRating.toFixed(1)} / 5`}
+                  </Text>
+                  <Slider
+                    value={visitRating ?? 3}
+                    onValueChange={(v) => setVisitRating(v)}
+                    minimumValue={1}
+                    maximumValue={5}
+                    step={0.5}
+                    minimumTrackTintColor={COLORS.accent}
+                    maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
+                    thumbTintColor={COLORS.accent}
+                  />
+                  <TouchableOpacity onPress={() => setVisitRating(null)}>
+                    <Text style={styles.clearVisitRatingText}>Clear rating</Text>
+                  </TouchableOpacity>
+
+                  <Text style={styles.fieldLabel}>Tags</Text>
+                  {visitTagSections.map((section) => (
+                    <View key={`visit-${section.title}`} style={styles.tagSection}>
+                      <Text style={styles.tagSectionTitle}>{section.title}</Text>
+                      <View style={styles.tagsWrap}>
+                        {section.tags.map((tag) => {
+                          const selected = visitTags.includes(tag);
+                          return (
+                            <TouchableOpacity
+                              key={`visit-tag-${tag}`}
+                              activeOpacity={0.85}
+                              style={[styles.tagChip, selected && styles.tagChipSelected]}
+                              onPress={() => toggleVisitTag(tag)}
+                            >
+                              <TagWithOptionalIcon
+                                tag={tag}
+                                iconSize={14}
+                                color={selected ? COLORS.accent : COLORS.text}
+                                textStyle={[styles.tagChipText, selected && styles.tagChipTextSelected]}
+                                gap={5}
+                              />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ))}
+
+                  <Text style={styles.fieldLabel}>Describe your experience</Text>
+                  <TextInput
+                    style={styles.notesInput}
+                    value={visitNote}
+                    onChangeText={setVisitNote}
+                    placeholder="What stood out?"
+                    placeholderTextColor={COLORS.muted}
+                    multiline
+                    textAlignVertical="top"
+                    maxLength={180}
+                  />
+                </>
+              ) : (
+                <>
+                  <Text style={styles.fieldLabel}>Add a few details so we can find this place again</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cafeName}
+                    onChangeText={setCafeName}
+                    placeholder="Cafe name"
+                    placeholderTextColor={COLORS.muted}
+                    maxLength={120}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                  />
+                  <TextInput
+                    style={styles.input}
+                    value={area}
+                    onChangeText={setArea}
+                    placeholder="Area (optional)"
+                    placeholderTextColor={COLORS.muted}
+                    maxLength={120}
+                    autoCapitalize="words"
+                  />
+                  <TextInput
+                    style={[styles.input, !urlLooksValid && styles.inputInvalid]}
+                    value={googleMapsUrl}
+                    onChangeText={setGoogleMapsUrl}
+                    placeholder="Google Maps URL (optional)"
+                    placeholderTextColor={COLORS.muted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="url"
+                  />
+                  {!urlLooksValid ? (
+                    <Text style={styles.validationText}>Enter a valid URL with http:// or https://.</Text>
+                  ) : null}
+                </>
+              )}
+            </View>
+          ) : null}
+
+          {!fromVisitLog ? <View style={styles.sectionCard}>
             <Text style={styles.fieldLabel}>Cafe name</Text>
             <TextInput
               style={styles.input}
@@ -373,9 +561,9 @@ export default function SuggestCafeScreen() {
               textAlignVertical="top"
               maxLength={400}
             />
-          </View>
+          </View> : null}
 
-          <View style={styles.sectionCard}>
+          {!fromVisitLog ? <View style={styles.sectionCard}>
             <Text style={styles.fieldLabel}>Add photos (recommended)</Text>
             <View style={styles.photoSlotsWrap}>
               {[
@@ -418,9 +606,9 @@ export default function SuggestCafeScreen() {
                 );
               })}
             </View>
-          </View>
+          </View> : null}
 
-          <View style={styles.sectionCard}>
+          {!fromVisitLog ? <View style={styles.sectionCard}>
             <Text style={styles.fieldLabel}>Tags</Text>
             <Text style={styles.tagHelperText}>Help us understand the space before we review it.</Text>
             {TAG_SECTIONS.map((section) => (
@@ -451,7 +639,7 @@ export default function SuggestCafeScreen() {
                 </View>
               </View>
             ))}
-          </View>
+          </View> : null}
 
           {submitError ? (
             <View style={styles.feedbackBannerError}>
@@ -465,20 +653,33 @@ export default function SuggestCafeScreen() {
             </View>
           ) : null}
 
-          <TouchableOpacity
-            activeOpacity={0.88}
-            style={[styles.submitButton, submitDisabled && styles.submitButtonDisabled]}
-            onPress={() => void handleSubmit()}
-            disabled={submitDisabled}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#ffffff" />
-            ) : (
-              <Text style={styles.submitButtonText}>Submit for review</Text>
-            )}
-          </TouchableOpacity>
+          {fromVisitLog && visitFlowStep === 1 ? (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={[styles.submitButton, (submitting || redirecting) && styles.submitButtonDisabled]}
+              onPress={() => setVisitFlowStep(2)}
+              disabled={submitting || redirecting}
+            >
+              <Text style={styles.submitButtonText}>Continue</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={[styles.submitButton, submitDisabled && styles.submitButtonDisabled]}
+              onPress={() => void handleSubmit()}
+              disabled={submitDisabled}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.submitButtonText}>
+                  {fromVisitLog ? 'Save visit' : 'Submit for review'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
 
-          <View style={styles.sectionCard}>
+          {!fromVisitLog ? <View style={styles.sectionCard}>
             <Text style={styles.fieldLabel}>Your recent suggestions</Text>
             {submissionsLoading ? (
               <ActivityIndicator color={COLORS.muted} style={{ paddingVertical: 6 }} />
@@ -499,7 +700,7 @@ export default function SuggestCafeScreen() {
                 ))}
               </View>
             )}
-          </View>
+          </View> : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -710,6 +911,26 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.semibold,
   },
   photoSlotButtonSecondaryText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.semibold,
+  },
+  visitSectionHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+    marginTop: -2,
+    marginBottom: 2,
+  },
+  visitRatingValue: {
+    fontSize: 19,
+    lineHeight: 24,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
+  },
+  clearVisitRatingText: {
     fontSize: 12,
     lineHeight: 16,
     color: COLORS.muted,

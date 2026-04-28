@@ -200,6 +200,27 @@ export default function SearchScreen() {
 
   const mapRegion = useMemo(() => regionForCafes(mapResults), [mapResults]);
   const isWeb = Platform.OS === 'web';
+  const normalizedQuery = query.trim().toLowerCase();
+  const hasCloseMatch = useMemo(() => {
+    if (!normalizedQuery) return false;
+    return ranked.slice(0, 5).some((cafe) => {
+      const haystack = `${cafe.name} ${cafe.neighborhood}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [normalizedQuery, ranked]);
+  const showLogMissingCafeCta = hasQuery && (showNoResults || !hasCloseMatch);
+
+  function openLogMissingCafeFlow() {
+    const prefillName = query.trim();
+    if (!prefillName) return;
+    router.push({
+      pathname: '/suggest-cafe',
+      params: {
+        prefillName,
+        fromVisitLog: '1',
+      },
+    });
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -434,14 +455,39 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
         >
           {showNoResults ? (
-            <Text style={styles.emptyText}>
-              {hasQuery
-                ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
-                : 'No cafes found'}
-            </Text>
+            <>
+              <Text style={styles.emptyText}>
+                {hasQuery
+                  ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
+                  : 'No cafes found'}
+              </Text>
+              {showLogMissingCafeCta ? (
+                <View style={styles.logMissingWrap}>
+                  <Text style={styles.logMissingTitle}>Can&apos;t find a cafe you&apos;ve been to?</Text>
+                  <Text style={styles.logMissingSubtext}>Log your visit and we&apos;ll add it to Beaned.</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    style={styles.logMissingButton}
+                    onPress={openLogMissingCafeFlow}
+                  >
+                    <Text style={styles.logMissingButtonText}>Log this cafe</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </>
           ) : (
             <>
               <Text style={styles.resultsLabel}>{resultsLabel}</Text>
+              {showLogMissingCafeCta ? (
+                <View style={styles.logMissingInline}>
+                  <Text style={styles.logMissingInlineText}>
+                    Looking for something else? Log it.
+                  </Text>
+                  <TouchableOpacity activeOpacity={0.88} onPress={openLogMissingCafeFlow}>
+                    <Text style={styles.logMissingInlineCta}>Log this cafe</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
               {listResults.map((cafe) => {
                 return (
                   <CompactCafeCard
@@ -459,11 +505,26 @@ export default function SearchScreen() {
       ) : (
         <View style={styles.mapArea}>
           {showNoResults ? (
-            <Text style={styles.emptyText}>
-              {hasQuery
-                ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
-                : 'No cafes found'}
-            </Text>
+            <>
+              <Text style={styles.emptyText}>
+                {hasQuery
+                  ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
+                  : 'No cafes found'}
+              </Text>
+              {showLogMissingCafeCta ? (
+                <View style={styles.logMissingWrap}>
+                  <Text style={styles.logMissingTitle}>Can&apos;t find a cafe you&apos;ve been to?</Text>
+                  <Text style={styles.logMissingSubtext}>Log your visit and we&apos;ll add it to Beaned.</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    style={styles.logMissingButton}
+                    onPress={openLogMissingCafeFlow}
+                  >
+                    <Text style={styles.logMissingButtonText}>Log this cafe</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </>
           ) : isWeb ? (
             <ScrollView
               contentContainerStyle={styles.webList}
@@ -717,6 +778,63 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.muted,
     textAlign: 'center',
+  },
+  logMissingWrap: {
+    marginTop: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+    padding: 14,
+    gap: 8,
+  },
+  logMissingTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
+  },
+  logMissingSubtext: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+  },
+  logMissingButton: {
+    marginTop: 2,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  logMissingButtonText: {
+    fontSize: 13,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
+  },
+  logMissingInline: {
+    marginBottom: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  logMissingInlineText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+  },
+  logMissingInlineCta: {
+    fontSize: 13,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
   },
   mapArea: {
     flex: 1,

@@ -277,7 +277,6 @@ export default function MyCafesScreen() {
                               },
                             })
                           }
-                        }
                         >
                           <Text style={styles.actionChipText}>Resubmit suggestion</Text>
                         </TouchableOpacity>
