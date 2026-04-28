@@ -38,6 +38,8 @@ function CompactThumbnailBottomFade({ cafeId }: { cafeId: string }) {
 export type CompactCafeCardProps = {
   cafe: Cafe;
   onPress: () => void;
+  /** Optional thumbnail override (e.g. visit photo). */
+  thumbnailUri?: string;
   /** 1-based rank label (e.g. favorite = 1). */
   rank?: number;
   /** Optional tags (e.g. from a saved rating); up to `maxTags` shown. */
@@ -66,6 +68,8 @@ export type CompactCafeCardProps = {
   compactNameMetaGap?: boolean;
   /** Search-only: reserve tag row space even when no tags. */
   reserveTagSpaceWhenEmpty?: boolean;
+  /** Optional metadata line override under title. */
+  metadataLineOverride?: string;
   /** Search-only: enable save/unsave quick action on thumbnail. */
   showBookmarkAction?: boolean;
   /** Optional top-right thumbnail action (e.g. quick "Log visit"). */
@@ -76,6 +80,7 @@ export type CompactCafeCardProps = {
 export function CompactCafeCard({
   cafe,
   onPress,
+  thumbnailUri,
   rank,
   tags,
   maxTags = 3,
@@ -85,6 +90,7 @@ export function CompactCafeCard({
   scorePosition = 'bottomRight',
   compactNameMetaGap = false,
   reserveTagSpaceWhenEmpty = false,
+  metadataLineOverride,
   showBookmarkAction = false,
   topRightActionLabel,
   onTopRightActionPress,
@@ -101,7 +107,7 @@ export function CompactCafeCard({
   }, [showTagsUI, tags, topTags, effectiveMaxTags]);
   const showTagRow = showTagsUI && tagSlice.length > 0;
   const tagsSubtle = trailing != null && showTagsUI;
-  const primaryPhoto = resolveLiveCafePrimaryImageUrl({ cafe });
+  const primaryPhoto = thumbnailUri ?? resolveLiveCafePrimaryImageUrl({ cafe });
   const scoreOnCardTopRight = scorePosition === 'cardTopRight';
   const scoreInContentColumn = scorePosition === 'contentColumn';
   const scoreOnThumbnail = !scoreOnCardTopRight && !scoreInContentColumn;
@@ -219,7 +225,7 @@ export function CompactCafeCard({
                   {cafe.name}
                 </Text>
                 <Text style={styles.location} numberOfLines={1}>
-                  {renderScoreLocationMeta(metadataLine)}
+                  {metadataLineOverride ?? renderScoreLocationMeta(metadataLine)}
                 </Text>
               </View>
               {recommendationReason ? (
@@ -259,7 +265,9 @@ export function CompactCafeCard({
                 </View>
               ) : null}
                 <Text style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]} numberOfLines={1}>
-                  {scoreOnCardTopRight ? renderScoreLocationMeta(metadataLine) : cafe.neighborhood}
+                  {scoreOnCardTopRight
+                    ? (metadataLineOverride ?? renderScoreLocationMeta(metadataLine))
+                    : metadataLineOverride ?? cafe.neighborhood}
                 </Text>
               </View>
               {showTagRow ? (

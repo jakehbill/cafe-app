@@ -2,8 +2,6 @@ import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
-  Alert,
-  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,16 +10,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CompactCafeCard } from '@/components/CompactCafeCard';
 import type { Cafe } from '@/data/cafes';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 import {
-  deleteUserCafeVisit,
   getUserCafeVisitTimeline,
   type UserCafeVisit,
 } from '@/lib/userCafeVisits';
 
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { COLORS, FONTS } from '@/components/theme';
 
 export default function MyCafesScreen() {
@@ -42,18 +39,6 @@ export default function MyCafesScreen() {
     setShowMovedToast(false);
     return undefined;
   }, [movedFromSaved]);
-
-  const load = useCallback(async () => {
-    const logs = await getUserCafeVisitTimeline();
-    const orderedCafeIds = Array.from(
-      new Set(logs.map((row) => row.cafeId).filter((id): id is string => Boolean(id)))
-    );
-    const cafes = await fetchCafesByIdsOrdered(orderedCafeIds);
-    const nextMap: Record<string, Cafe> = {};
-    for (const cafe of cafes) nextMap[cafe.id] = cafe;
-    setVisitLogs(logs);
-    setCafesById(nextMap);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,29 +87,44 @@ export default function MyCafesScreen() {
     });
   };
 
-  function handleDelete(visit: UserCafeVisit) {
-    Alert.alert('Delete visit?', 'This entry will be removed from your log.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          void (async () => {
-            const res = await deleteUserCafeVisit(visit.id);
-            if (!res.ok) {
-              Alert.alert('Could not delete', res.error);
-              return;
-            }
-            await load();
-          })();
-        },
-      },
-    ]);
-  }
+  const latestVisitByCafe = React.useMemo(() => {
+    const grouped = new Map<string, UserCafeVisit>();
+    for (const visit of visitLogs) {
+      if (!visit.cafeId) continue;
+      const existing = grouped.get(visit.cafeId);
+      if (!existing) {
+        grouped.set(visit.cafeId, visit);
+        continue;
+      }
+      const existingTime = Date.parse(existing.createdAt);
+      const nextTime = Date.parse(visit.createdAt);
+      if (!Number.isNaN(nextTime) && (Number.isNaN(existingTime) || nextTime > existingTime)) {
+        grouped.set(visit.cafeId, visit);
+      }
+    }
+    return Array.from(grouped.entries())
+      .map(([cafeId, visit]) => ({ cafeId, visit, cafe: cafesById[cafeId] }))
+      .filter((row): row is { cafeId: string; visit: UserCafeVisit; cafe: Cafe } => Boolean(row.cafe))
+      .sort((a, b) => {
+        const aTime = Date.parse(a.visit.createdAt);
+        const bTime = Date.parse(b.visit.createdAt);
+        if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
+        if (Number.isNaN(aTime)) return 1;
+        if (Number.isNaN(bTime)) return -1;
+        return bTime - aTime;
+      });
+  }, [visitLogs, cafesById]);
+
+  const pendingVisits = React.useMemo(
+    () => visitLogs.filter((visit) => !visit.cafeId),
+    [visitLogs]
+  );
+
+  const hasVisits = latestVisitByCafe.length > 0 || pendingVisits.length > 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
-      {visitLogs.length === 0 ? (
+      {!hasVisits ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
           <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
@@ -162,118 +162,59 @@ export default function MyCafesScreen() {
           ) : null}
           <Text style={styles.hint}>A record of the cafes you’ve visited, rated and remembered.</Text>
           <View style={styles.timelineList}>
-            {visitLogs.map((visit) => {
-              const cafe = visit.cafeId ? cafesById[visit.cafeId] : undefined;
-              return (
-                <TouchableOpacity
-                  key={visit.id}
-                  activeOpacity={0.9}
-                  style={styles.visitCard}
-                  onPress={() => {
-                    if (visit.cafeId) router.push(`/cafe/${visit.cafeId}`);
-                  }}
-                >
-                  {visit.imageUrl ? (
-                    <Image source={{ uri: visit.imageUrl }} style={styles.visitImage} resizeMode="cover" />
-                  ) : (
-                    <View style={[styles.visitImage, styles.visitImageFallback]} />
-                  )}
-                  <View style={styles.visitBody}>
-                    <View style={styles.visitHeaderRow}>
-                      <Text style={styles.visitCafeName} numberOfLines={1}>
-                        {cafe?.name ?? visit.submissionCafeName ?? 'Cafe'}
+            {latestVisitByCafe.map(({ cafe, visit }) => (
+              <CompactCafeCard
+                key={cafe.id}
+                cafe={cafe}
+                thumbnailUri={visit.imageUrl ?? undefined}
+                metadataLineOverride={
+                  visit.rating != null ? `${visit.rating.toFixed(1)} · ${formatVisitDate(visit.createdAt)}` : formatVisitDate(visit.createdAt)
+                }
+                recommendationReason={visit.note.trim().length > 0 ? `Your thoughts: ${visit.note.trim()}` : undefined}
+                scorePosition="cardTopRight"
+                reserveTagSpaceWhenEmpty
+                tags={visit.tags ?? []}
+                maxTags={3}
+                onPress={() => router.push(`/cafe/${cafe.id}`)}
+              />
+            ))}
+            {pendingVisits.length > 0 ? (
+              <View style={styles.pendingSection}>
+                <Text style={styles.pendingSectionTitle}>Pending cafe reviews</Text>
+                {pendingVisits.map((visit) => (
+                  <View key={visit.id} style={styles.pendingRow}>
+                    <View style={styles.pendingTextWrap}>
+                      <Text style={styles.pendingName}>{visit.submissionCafeName ?? 'Cafe suggestion'}</Text>
+                      <Text style={styles.statusHint} numberOfLines={2}>
+                        {visit.submissionStatus === 'rejected'
+                          ? 'Not added yet. You can resubmit with clearer details.'
+                          : 'Saved to your visits and pending review.'}
                       </Text>
-                      <Text style={styles.visitDate}>Visited {formatVisitDate(visit.createdAt)}</Text>
                     </View>
-                    {visit.rating != null ? <Text style={styles.visitMeta}>{visit.rating.toFixed(1)}</Text> : null}
-                    {visit.tags.length > 0 ? (
-                      <View style={styles.diarySectionBlock}>
-                        <View style={styles.visitTagsRow}>
-                          {visit.tags.slice(0, 3).map((tag) => (
-                            <View key={`${visit.id}-${tag}`} style={styles.inlineTag}>
-                              <TagWithOptionalIcon tag={tag} iconSize={12} textStyle={styles.inlineTagText} gap={4} />
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    ) : null}
-                    {visit.note.trim().length > 0 ? (
-                      <View style={styles.diarySectionBlock}>
-                        <Text style={styles.diarySectionLabel}>Your thoughts</Text>
-                        <Text style={styles.visitNote} numberOfLines={2}>
-                          {visit.note}
-                        </Text>
-                      </View>
-                    ) : null}
-                    {visit.cafeId == null ? (
-                      <View style={styles.statusRow}>
-                        <Text
-                          style={[
-                            styles.pendingPill,
-                            visit.submissionStatus === 'rejected' && styles.rejectedPill,
-                          ]}
-                        >
-                          {visit.submissionStatus === 'rejected'
-                            ? 'Suggestion rejected'
-                            : visit.submissionStatus === 'approved'
-                              ? 'Approved and syncing'
-                              : 'Pending cafe approval'}
-                        </Text>
-                        <Text style={styles.statusHint} numberOfLines={2}>
-                          {visit.submissionStatus === 'rejected'
-                            ? 'Your visit stays in your log. You can quickly resubmit with clearer details.'
-                            : 'Your visit is saved now and will auto-link once this cafe is approved.'}
-                        </Text>
-                      </View>
-                    ) : null}
-                    <View style={styles.actionsRow}>
+                    {visit.submissionStatus === 'rejected' ? (
                       <TouchableOpacity
                         activeOpacity={0.85}
                         style={styles.actionChip}
                         onPress={() =>
                           router.push({
-                            pathname: '/log-visit/[id]',
+                            pathname: '/suggest-cafe',
                             params: {
-                              id: visit.cafeId ?? '',
-                              visitId: visit.id,
+                              prefillName: visit.submissionCafeName ?? '',
+                              fromVisitLog: '1',
+                              visitRating: visit.rating != null ? String(visit.rating) : '',
+                              visitTags: visit.tags.join(','),
+                              visitNote: visit.note,
                             },
                           })
                         }
                       >
-                        <Text style={styles.actionChipText}>Edit</Text>
+                        <Text style={styles.actionChipText}>Resubmit</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        style={[styles.actionChip, styles.actionChipDanger]}
-                        onPress={() => handleDelete(visit)}
-                      >
-                        <Text style={styles.actionChipDangerText}>Delete</Text>
-                      </TouchableOpacity>
-                      {visit.submissionStatus === 'rejected' ? (
-                        <TouchableOpacity
-                          activeOpacity={0.85}
-                          style={styles.actionChip}
-                          onPress={() =>
-                            router.push({
-                              pathname: '/suggest-cafe',
-                              params: {
-                                prefillName: cafe?.name ?? visit.submissionCafeName ?? '',
-                                fromVisitLog: '1',
-                                visitRating: visit.rating != null ? String(visit.rating) : '',
-                                visitTags: visit.tags.join(','),
-                                visitNote: visit.note,
-                              },
-                            })
-                          }
-                        >
-                          <Text style={styles.actionChipText}>Resubmit suggestion</Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
+                    ) : null}
                   </View>
-                </TouchableOpacity>
-              );
-            })}
+                ))}
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       )}
@@ -332,113 +273,45 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   timelineList: {
-    gap: 12,
+    gap: 14,
     marginTop: 4,
   },
-  visitCard: {
-    borderRadius: 16,
+  pendingSection: {
+    marginTop: 4,
+    gap: 8,
+  },
+  pendingSectionTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  pendingRow: {
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
     backgroundColor: COLORS.cardBackground,
-    overflow: 'hidden',
-  },
-  visitImage: {
-    width: '100%',
-    height: 170,
-    backgroundColor: COLORS.imagePlaceholder,
-  },
-  visitImageFallback: {
-    backgroundColor: COLORS.imagePlaceholder,
-  },
-  visitBody: {
-    padding: 12,
-    gap: 7,
-  },
-  visitHeaderRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: 10,
   },
-  visitCafeName: {
+  pendingTextWrap: {
     flex: 1,
-    fontSize: 17,
-    lineHeight: 22,
+    gap: 3,
+  },
+  pendingName: {
+    fontSize: 14,
     color: COLORS.text,
     fontFamily: FONTS.sans.semibold,
-  },
-  visitDate: {
-    fontSize: 12,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.medium,
-  },
-  visitMeta: {
-    fontSize: 13,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.medium,
-  },
-  diarySectionBlock: {
-    gap: 5,
-  },
-  diarySectionLabel: {
-    fontSize: 11,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.semibold,
-    letterSpacing: 0.2,
-    textTransform: 'uppercase',
-  },
-  visitTagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  inlineTag: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.inputBackground,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  inlineTagText: {
-    fontSize: 11,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.medium,
-  },
-  visitNote: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.regular,
-  },
-  pendingPill: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    fontSize: 11,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-    backgroundColor: COLORS.inputBackground,
-  },
-  rejectedPill: {
-    color: '#8B4A4A',
-    backgroundColor: 'rgba(180, 80, 80, 0.08)',
-  },
-  statusRow: {
-    gap: 6,
   },
   statusHint: {
     fontSize: 12,
     lineHeight: 17,
     color: COLORS.muted,
     fontFamily: FONTS.sans.regular,
-  },
-  actionsRow: {
-    marginTop: 3,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
   },
   actionChip: {
     borderRadius: 999,
@@ -451,15 +324,6 @@ const styles = StyleSheet.create({
   actionChipText: {
     fontSize: 12,
     color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
-  },
-  actionChipDanger: {
-    borderColor: 'rgba(180, 80, 80, 0.35)',
-    backgroundColor: 'rgba(180, 80, 80, 0.08)',
-  },
-  actionChipDangerText: {
-    fontSize: 12,
-    color: '#8B4A4A',
     fontFamily: FONTS.sans.semibold,
   },
   emptyWrap: {
