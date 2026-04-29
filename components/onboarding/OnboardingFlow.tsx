@@ -1,11 +1,8 @@
 import { Image } from 'expo-image';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
-  FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Platform,
   Pressable,
   StyleSheet,
@@ -176,29 +173,18 @@ export default function OnboardingFlow() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const listRef = useRef<FlatList<number>>(null);
   const [page, setPage] = useState(0);
 
   const skipToAuth = useCallback(() => {
     router.replace('/auth');
   }, [router]);
 
-  const onScrollEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const x = e.nativeEvent.contentOffset.x;
-      const next = Math.round(x / width);
-      setPage(Math.max(0, Math.min(SLIDE_COUNT - 1, next)));
-    },
-    [width]
-  );
-
   const goNext = useCallback(() => {
     if (page >= SLIDE_COUNT - 1) return;
     if (Platform.OS !== 'web') {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    const next = page + 1;
-    listRef.current?.scrollToOffset({ offset: next * width, animated: true });
+    setPage((prev) => Math.min(SLIDE_COUNT - 1, prev + 1));
   }, [page, width]);
 
   const isLast = page === SLIDE_COUNT - 1;
@@ -211,24 +197,11 @@ export default function OnboardingFlow() {
         </Pressable>
       </View>
 
-      <FlatList
-        ref={listRef}
-        data={Array.from({ length: SLIDE_COUNT }, (_, i) => i)}
-        keyExtractor={(i) => String(i)}
-        renderItem={({ index }) => (
-          <View style={[styles.slidePage, { width }]}>
-            <SlideBody index={index} slideWidth={width} />
-          </View>
-        )}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        decelerationRate="fast"
-        onMomentumScrollEnd={onScrollEnd}
-        keyboardShouldPersistTaps="handled"
-        style={styles.pager}
-      />
+      <View style={styles.pager}>
+        <View style={[styles.slidePage, { width }]}>
+          <SlideBody index={page} slideWidth={width} />
+        </View>
+      </View>
 
       <View style={[styles.footer, { paddingBottom: Math.max(20, 12 + insets.bottom) }]}>
         <Pagination activeIndex={page} />
