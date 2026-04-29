@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Platform,
   Pressable,
@@ -65,6 +65,71 @@ export default function SearchScreen() {
   const { cafes: cafeCatalog } = useCafeCatalog();
   const { coords: userLocation, refreshLocation } = useUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
+  const {
+    focusCafeId: focusCafeIdRaw,
+    focusLat: focusLatRaw,
+    focusLng: focusLngRaw,
+  } = useLocalSearchParams<{
+    focusCafeId?: string | string[];
+    focusLat?: string | string[];
+    focusLng?: string | string[];
+  }>();
+
+  const focusCafeId = Array.isArray(focusCafeIdRaw) ? focusCafeIdRaw[0] : focusCafeIdRaw;
+  const focusLatStr = Array.isArray(focusLatRaw) ? focusLatRaw[0] : focusLatRaw;
+  const focusLngStr = Array.isArray(focusLngRaw) ? focusLngRaw[0] : focusLngRaw;
+
+  function parseFiniteCoord(v: unknown): number | null {
+    if (v == null) return null;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    const s = String(v).trim();
+    if (!s) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function hasValidCoordinatePair(latitude: unknown, longitude: unknown): boolean {
+    return (
+      typeof latitude === 'number' &&
+      Number.isFinite(latitude) &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      typeof longitude === 'number' &&
+      Number.isFinite(longitude) &&
+      longitude >= -180 &&
+      longitude <= 180
+    );
+  }
+
+  const focusLat = parseFiniteCoord(focusLatStr);
+  const focusLng = parseFiniteCoord(focusLngStr);
+  const focusCoordsFromParams =
+    focusLat != null && focusLng != null && hasValidCoordinatePair(focusLat, focusLng)
+      ? { latitude: focusLat, longitude: focusLng }
+      : null;
+
+  const focusCafe = useMemo(() => {
+    if (!focusCafeId) return null;
+    const found = cafeCatalog.find((cafe) => cafe.id === focusCafeId);
+    if (!found) return null;
+    return hasValidCafeCoordinates(found) ? found : null;
+  }, [focusCafeId, cafeCatalog]);
+
+  const focusRegion = useMemo(() => {
+    const selected =
+      focusCafe != null
+        ? { latitude: focusCafe.latitude, longitude: focusCafe.longitude }
+        : focusCoordsFromParams;
+    if (!selected) return null;
+    return {
+      latitude: selected.latitude,
+      longitude: selected.longitude,
+      // Slightly tighter zoom than general map averaging.
+      latitudeDelta: 0.02,
+      longitudeDelta: 0.02,
+    };
+  }, [focusCafe, focusCoordsFromParams]);
+
   const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sortMode, setSortMode] = useState<SearchSortMode>('default');
@@ -80,6 +145,10 @@ export default function SearchScreen() {
     // Refresh on mount so distances are recalculated when screen opens.
     void refreshLocation();
   }, [refreshLocation]);
+
+  useEffect(() => {
+    if (focusRegion) setViewMode('map');
+  }, [focusRegion]);
 
   useEffect(() => {
     if (sortMode === 'nearest' || radiusFilter !== 'any') {
@@ -174,8 +243,14 @@ export default function SearchScreen() {
   );
   const mapResults = useMemo(() => {
     // Map mode intentionally uses a much larger pin set than curated list mode.
-    return filteredRankedResults.filter(hasValidCafeCoordinates).slice(0, MAP_RESULT_LIMIT);
-  }, [filteredRankedResults]);
+    let next = filteredRankedResults.filter(hasValidCafeCoordinates).slice(0, MAP_RESULT_LIMIT);
+
+    // If navigated from cafe detail, force the selected cafe to be present so it can be centered + highlighted.
+    if (focusCafe != null && !next.some((c) => c.id === focusCafe.id)) {
+      next = [focusCafe, ...next];
+    }
+    return next.slice(0, MAP_RESULT_LIMIT);
+  }, [filteredRankedResults, focusCafe]);
 
   const toggleTagSlug = (slug: string) => {
     setSelectedTagSlugs((prev) =>
@@ -198,7 +273,7 @@ export default function SearchScreen() {
         ? `Filtering · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}…`
         : `Filtered · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}`;
 
-  const mapRegion = useMemo(() => regionForCafes(mapResults), [mapResults]);
+  const mapRegion = useMemo(() => focusRegion ?? regionForCafes(mapResults), [focusRegion, mapResults]);
   const isWeb = Platform.OS === 'web';
   const normalizedQuery = query.trim().toLowerCase();
   const hasCloseMatch = useMemo(() => {
@@ -537,7 +612,7 @@ export default function SearchScreen() {
                 <TouchableOpacity
                   key={cafe.id}
                   activeOpacity={0.85}
-                  style={styles.webCard}
+                  style={[styles.webCard, focusCafeId === cafe.id && styles.webCardSelected]}
                   onPress={() => router.push(`/cafe/${cafe.id}`)}
                 >
                   <Text style={styles.webCardTitle}>{cafe.name}</Text>
@@ -549,6 +624,7 @@ export default function SearchScreen() {
             <SearchResultsMap
               results={mapResults}
               initialRegion={mapRegion}
+              selectedCafeId={focusCafeId ?? undefined}
               onPressCafe={(cafeId: string) => router.push(`/cafe/${cafeId}`)}
             />
           )}
@@ -854,6 +930,10 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 4,
     ...SHADOWS.none,
+  },
+  webCardSelected: {
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
   },
   webCardTitle: {
     color: COLORS.text,

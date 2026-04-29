@@ -14,6 +14,7 @@ export default function SearchResultsMap(_props: {
   results: Cafe[];
   initialRegion: { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
   onPressCafe: (cafeId: string) => void;
+  selectedCafeId?: string;
 }) {
   return (
     <View style={styles.wrap}>

@@ -4,7 +4,7 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { useUserLocation } from '@/contexts/UserLocationContext';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { withCafeDistances } from '@/lib/cafeDistance';
-import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
+import { hasValidCafeCoordinates, resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
@@ -288,6 +288,21 @@ export default function CafeDetailScreen() {
     }
   }
 
+  function handleShowOnBeanedMap() {
+    if (!cafe) return;
+    if (!hasValidCafeCoordinates(cafe)) return;
+
+    // Route to the Search screen, which hosts the in-app map.
+    void router.push({
+      pathname: '/search',
+      params: {
+        focusCafeId: cafe.id,
+        focusLat: String(cafe.latitude),
+        focusLng: String(cafe.longitude),
+      },
+    });
+  }
+
   async function handleSavePress() {
     if (!cafe) return;
     if (__DEV__) {
@@ -462,6 +477,17 @@ export default function CafeDetailScreen() {
               ) : null}
             </Text>
             <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
+
+              <View style={styles.identityActionsRow}>
+                {hasValidCafeCoordinates(cafe) ? (
+                  <CompactActionButton
+                    label="Show on Beaned map"
+                    accentActive
+                    onPress={handleShowOnBeanedMap}
+                  />
+                ) : null}
+                <CompactActionButton label="Open in Google Maps" onPress={handleOpenGoogleMaps} />
+              </View>
           </View>
 
           {cafe.short_description ? <View style={styles.identitySummaryDivider} /> : null}
@@ -539,11 +565,32 @@ export default function CafeDetailScreen() {
               accentActive
               onPress={() => router.push(`/log-visit/${cafe.id}` as never)}
             />
-            <ActionButton label="Open in Google Maps" onPress={handleOpenGoogleMaps} />
           </View>
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function CompactActionButton({
+  label,
+  accentActive = false,
+  onPress,
+}: {
+  label: string;
+  accentActive?: boolean;
+  onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      style={[styles.compactActionButton, accentActive && styles.compactActionButtonAccent]}
+      onPress={onPress}
+    >
+      <Text style={[styles.compactActionButtonText, accentActive && styles.compactActionButtonTextAccent]}>
+        {label}
+      </Text>
+    </TouchableOpacity>
   );
 }
 
@@ -687,6 +734,38 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     color: 'rgba(103,94,83,0.82)',
     letterSpacing: -0.1,
+  },
+  identityActionsRow: {
+    marginTop: 10,
+    gap: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  compactActionButton: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.inputBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compactActionButtonAccent: {
+    backgroundColor: COLORS.accentSubtleFill,
+    borderColor: COLORS.accentSubtleBorder,
+  },
+  compactActionButtonText: {
+    color: COLORS.text,
+    fontSize: 13,
+    fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
+    letterSpacing: -0.1,
+  },
+  compactActionButtonTextAccent: {
+    color: COLORS.accent,
   },
   identitySummaryDivider: {
     height: 1,

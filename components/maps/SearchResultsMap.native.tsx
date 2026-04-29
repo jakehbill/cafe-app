@@ -7,6 +7,7 @@ import { MapCafeCallout } from '@/components/maps/MapCafeCallout';
 import { BeanMapMarkerContent } from '@/components/maps/BeanMapMarkerContent';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { hasValidCafeCoordinates } from '@/lib/cafeMapsUrl';
+import { COLORS } from '@/components/theme';
 
 /**
  * Native-only map implementation for Search (iOS/Android).
@@ -16,19 +17,22 @@ export default function SearchResultsMap({
   results,
   initialRegion,
   onPressCafe,
+  selectedCafeId,
 }: {
   results: Cafe[];
   initialRegion: Region;
   onPressCafe: (cafeId: string) => void;
+  selectedCafeId?: string;
 }) {
   return (
     <MapView
-      key={results.map((c) => c.id).join('-')}
+      key={`${results.map((c) => c.id).join('-')}-${selectedCafeId ?? 'none'}-${initialRegion.latitude},${initialRegion.longitude}-${initialRegion.latitudeDelta},${initialRegion.longitudeDelta}`}
       style={styles.map}
       initialRegion={initialRegion}
     >
       {results.filter(hasValidCafeCoordinates).map((cafe) => {
         const coffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
+        const isSelected = selectedCafeId != null && cafe.id === selectedCafeId;
         return (
           <Marker
             key={cafe.id}
@@ -37,7 +41,7 @@ export default function SearchResultsMap({
             title={cafe.name}
             description={cafe.neighborhood}
           >
-            <View style={{ alignItems: 'center' }}>
+            <View style={isSelected ? styles.selectedMarkerWrap : styles.markerWrap}>
               <BeanMapMarkerContent />
             </View>
             <Callout onPress={() => onPressCafe(cafe.id)}>
@@ -56,6 +60,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 12,
     borderRadius: 16,
+  },
+  markerWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedMarkerWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: 'rgba(163,177,138,0.18)',
   },
 });
 
