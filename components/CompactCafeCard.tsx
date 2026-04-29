@@ -110,7 +110,7 @@ export function CompactCafeCard({
   }, [showTagsUI, tags, topTags, effectiveMaxTags]);
   const showTagRow = showTagsUI && tagSlice.length > 0;
   const tagsSubtle = trailing != null && showTagsUI;
-  const primaryPhoto = thumbnailUri ?? resolveLiveCafePrimaryImageUrl({ cafe });
+  const primaryPhoto = resolveLiveCafePrimaryImageUrl({ cafe, overrideImageUrl: thumbnailUri });
   const scoreOnCardTopRight = scorePosition === 'cardTopRight';
   const scoreInContentColumn = scorePosition === 'contentColumn';
   const scoreOnThumbnail = !scoreOnCardTopRight && !scoreInContentColumn;
@@ -185,11 +185,7 @@ export function CompactCafeCard({
         ]}
       >
         <View style={styles.thumbnailWrap}>
-          {primaryPhoto ? (
-            <Image source={{ uri: primaryPhoto }} style={styles.thumbnailImage} resizeMode="cover" />
-          ) : (
-            <View style={styles.thumbnailImage} />
-          )}
+          <Image source={{ uri: primaryPhoto }} style={styles.thumbnailImage} resizeMode="cover" />
           {showBookmarkAction ? (
             <Pressable
               accessibilityRole="button"

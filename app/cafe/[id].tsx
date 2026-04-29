@@ -8,7 +8,7 @@ import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
-import { resolveLiveCafeImageUrls } from '@/lib/cafeLiveImages';
+import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafeImageUrls } from '@/lib/cafeLiveImages';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import {
   getCafeCommunityTagInsight,
@@ -341,7 +341,7 @@ export default function CafeDetailScreen() {
           }}
         >
           {photoUrls.length === 0 ? (
-            <View style={[styles.heroImage, styles.heroImageFallback]} />
+            <Image source={{ uri: CAFE_PLACEHOLDER_IMAGE_URL }} style={styles.heroImage} resizeMode="cover" />
           ) : photoUrls.length === 1 ? (
             <Image source={{ uri: photoUrls[0] }} style={styles.heroImage} resizeMode="cover" />
           ) : (
