@@ -109,10 +109,15 @@ function ActionButton({
   );
 }
 
-function reviewerAttribution(review: CafeRecentReview): string | null {
-  const displayName = (review.displayName ?? '').trim();
-  if (displayName.length > 0) return displayName;
-  return null;
+function formatReviewDate(dateIso: string | null): string | null {
+  if (!dateIso) return null;
+  const parsed = new Date(dateIso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
 export default function CafeDetailScreen() {
@@ -201,7 +206,7 @@ export default function CafeDetailScreen() {
       const [popular, insight, reviews] = await Promise.all([
         getTopCafeTags(c.id, FEATURE_TAG_COUNT),
         getCafeCommunityTagInsight(c.id),
-        getRecentCafeReviews(c.id, 5),
+        getRecentCafeReviews(c.id, 3),
       ]);
       if (cancelled) return;
       setFeatureTags(popular);
@@ -542,14 +547,20 @@ export default function CafeDetailScreen() {
 
           {recentReviews.length > 0 ? (
             <View style={styles.reviewsSection}>
-              <Text style={styles.sectionHeading}>Notes</Text>
+              <Text style={styles.sectionHeading}>Community notes</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.reviewsRow}
               >
                 {recentReviews.map((review, index) => {
-                  const author = reviewerAttribution(review);
+                  const reviewDate = formatReviewDate(review.createdAt);
+                  const ratingText =
+                    typeof review.rating === 'number' && Number.isFinite(review.rating)
+                      ? `${review.rating.toFixed(1)} ★`
+                      : null;
+                  const tagsText = review.tags.length > 0 ? review.tags.map((tag) => formatTagLabel(tag)).join(' · ') : null;
+                  const metaLine = [ratingText, tagsText].filter((part): part is string => Boolean(part)).join(' · ');
                   return (
                     <View
                       key={`${review.createdAt ?? 'no-date'}-${index}`}
@@ -560,11 +571,12 @@ export default function CafeDetailScreen() {
                         {review.note}
                         {'\u201D'}
                       </Text>
-                      {author ? (
-                        <Text style={styles.reviewAttribution} numberOfLines={1}>
-                          --{author}
+                      {metaLine.length > 0 ? (
+                        <Text style={styles.reviewMeta} numberOfLines={1}>
+                          {metaLine}
                         </Text>
                       ) : null}
+                      {reviewDate ? <Text style={styles.reviewDate}>{reviewDate}</Text> : null}
                     </View>
                   );
                 })}
@@ -884,13 +896,21 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.05,
   },
-  reviewAttribution: {
-    marginTop: 1,
+  reviewMeta: {
+    marginTop: 2,
     fontSize: 12,
-    lineHeight: 15,
-    fontFamily: FONTS.sans.regular,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.medium,
     color: COLORS.muted,
-    opacity: 0.84,
+    opacity: 0.92,
+  },
+  reviewDate: {
+    marginTop: -1,
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.accent,
+    opacity: 0.92,
   },
   heroBackRow: {
     alignSelf: 'stretch',

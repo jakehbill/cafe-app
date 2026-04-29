@@ -331,8 +331,9 @@ export type CafeCommunityTagInsight = {
 
 export type CafeRecentReview = {
   note: string;
+  rating: number | null;
+  tags: string[];
   createdAt: string | null;
-  displayName: string | null;
 };
 
 export type PublicVisitNote = {
@@ -402,129 +403,48 @@ export async function getCafeCommunityTagInsight(cafeId: string): Promise<CafeCo
 
 /**
  * Most recent user-written notes for one cafe (UGC review snippets).
- * Pulls from `user_cafe_ratings` and returns up to `limit` non-empty notes.
+ * Pulls from `user_cafe_visits` and returns up to `limit` non-empty notes.
  */
 export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<CafeRecentReview[]> {
-  const id = String(cafeId).trim();
-  if (!id) return [];
+  const numericCafeId = Number.parseInt(String(cafeId).trim(), 10);
+  if (!Number.isFinite(numericCafeId)) return [];
+  const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
 
-  let rows: Array<{ user_id?: string | null; notes?: string | null; created_at?: string | null }> = [];
-
-  // Preferred path: newest-first by created_at (when column exists in this project schema).
-  const byCreatedAtRes = await supabase
-    .from('user_cafe_ratings')
-    .select('user_id, notes, created_at')
-    .eq('cafe_id', id)
-    .not('notes', 'is', null)
-    .neq('notes', '')
+  const res = await supabase
+    .from('user_cafe_visits')
+    .select('note, rating, tags, created_at')
+    .eq('cafe_id', numericCafeId)
+    .not('note', 'is', null)
     .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (!byCreatedAtRes.error) {
-    rows = (byCreatedAtRes.data ?? []) as Array<{
-      user_id?: string | null;
-      notes?: string | null;
-      created_at?: string | null;
-    }>;
-  } else if (byCreatedAtRes.error.code === '42703') {
-    // Backward-compatible fallback for older setups without created_at on user_cafe_ratings.
-    const fallbackRes = await supabase
-      .from('user_cafe_ratings')
-      .select('user_id, notes')
-      .eq('cafe_id', id)
-      .not('notes', 'is', null)
-      .neq('notes', '')
-      .limit(limit);
-    if (fallbackRes.error) {
-      console.error('getRecentCafeReviews fallback failed:', fallbackRes.error);
-      return [];
-    }
-    rows = (fallbackRes.data ?? []) as Array<{ user_id?: string | null; notes?: string | null }>;
-  } else {
-    console.error('getRecentCafeReviews failed:', byCreatedAtRes.error);
+    .limit(safeLimit);
+  if (res.error) {
+    console.error('getRecentCafeReviews failed:', res.error);
     return [];
   }
 
-  const userIds = Array.from(
-    new Set(
-      rows
-        .map((row) => (row.user_id ? String(row.user_id).trim() : ''))
-        .filter((v) => v.length > 0)
-    )
-  );
-  let profileMap = new Map<string, { displayName: string | null }>();
-  if (userIds.length > 0) {
-    // Prefer schema with `profiles.user_id`; fall back to `profiles.id` when older schemas differ.
-    let profileRows:
-      | Array<{ user_id?: string | null; id?: string | null; display_name?: string | null }>
-      | null = null;
-
-    const profByUserIdRes = await supabase
-      .from('profiles')
-      .select('user_id, display_name')
-      .in('user_id', userIds);
-
-    if (!profByUserIdRes.error) {
-      profileRows = (profByUserIdRes.data ?? []) as Array<{
-        user_id?: string | null;
-        display_name?: string | null;
-      }>;
-    } else if (profByUserIdRes.error.code === '42703') {
-      const profByIdRes = await supabase
-        .from('profiles')
-        .select('id, display_name')
-        .in('id', userIds);
-      if (profByIdRes.error) {
-        console.error('getRecentCafeReviews profiles fetch failed:', profByIdRes.error);
-      } else {
-        profileRows = (profByIdRes.data ?? []) as Array<{
-          id?: string | null;
-          display_name?: string | null;
-        }>;
-      }
-    } else {
-      console.error('getRecentCafeReviews profiles fetch failed:', profByUserIdRes.error);
-    }
-
-    if (profileRows) {
-      profileMap = new Map(
-        profileRows
-          .map((row) => {
-            const key = String(row.user_id ?? row.id ?? '').trim();
-            if (!key) return null;
-            const displayName = typeof row.display_name === 'string' ? row.display_name.trim() : '';
-            return [
-              key,
-              {
-                displayName: displayName.length > 0 ? displayName : null,
-              },
-            ] as const;
-          })
-          .filter((entry): entry is readonly [string, { displayName: string | null }] => entry != null)
-      );
-    }
-  }
-
-  const cleaned = rows
+  return (res.data ?? [])
     .map((row) => {
-      const note = (row.notes ?? '').trim();
+      const note = String((row as { note?: unknown }).note ?? '').trim();
       if (!note) return null;
-      const uid = row.user_id ? String(row.user_id).trim() : '';
-      const profile = uid ? profileMap.get(uid) : undefined;
+      const ratingRaw = (row as { rating?: unknown }).rating;
+      const rating =
+        typeof ratingRaw === 'number' && Number.isFinite(ratingRaw)
+          ? Math.max(1, Math.min(5, ratingRaw))
+          : null;
+      const tagsRaw = (row as { tags?: unknown }).tags;
+      const tags = Array.isArray(tagsRaw)
+        ? tagsRaw.map((tag) => String(tag).trim()).filter((tag) => tag.length > 0).slice(0, 3)
+        : [];
+      const createdAt = String((row as { created_at?: unknown }).created_at ?? '').trim() || null;
       return {
         note,
-        createdAt: row.created_at ?? null,
-        displayName: profile?.displayName ?? null,
+        rating,
+        tags,
+        createdAt,
       } satisfies CafeRecentReview;
     })
     .filter((row): row is CafeRecentReview => row != null)
-    .sort((a, b) => {
-      const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return bt - at;
-    });
-
-  return cleaned.slice(0, limit);
+    .slice(0, safeLimit);
 }
 
 /**
