@@ -34,7 +34,7 @@ import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
 import { computeTrendingScore, rankCafesForTrending } from '@/lib/cafeTrending';
 import { withCafeDistances } from '@/lib/cafeDistance';
 import { useUserLocation } from '@/contexts/UserLocationContext';
-import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
+import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 
 const MAX_VISIBLE_TAGS = 3;
 const HOME_ONBOARDING_BANNER_DISMISSED_KEY = 'home_onboarding_banner_dismissed_v1';
@@ -458,7 +458,19 @@ export default function HomeScreen() {
     return `Popular around you · Within ${trendingNearby.activeRadiusMiles} mi`;
   }, [trendingNearby.activeRadiusMiles, userLocation]);
 
-  const noticeBoardRows = useMemo(() => noticeBoardNotes, [noticeBoardNotes]);
+  const noticeBoardRows = useMemo(() => {
+    const cafeById = new Map(cafeCatalog.map((cafe) => [String(cafe.id).trim(), cafe]));
+    return noticeBoardNotes.map((row) => {
+      const cafe = row.cafeId ? cafeById.get(String(row.cafeId).trim()) : null;
+      const thumbnailUrl = cafe
+        ? resolveLiveCafePrimaryImageUrl({ cafe })
+        : CAFE_PLACEHOLDER_IMAGE_URL;
+      return {
+        ...row,
+        thumbnailUrl: thumbnailUrl || CAFE_PLACEHOLDER_IMAGE_URL,
+      };
+    });
+  }, [noticeBoardNotes, cafeCatalog]);
 
   const { width: windowWidth } = useWindowDimensions();
   const picksCarousel = useMemo(() => {
@@ -593,8 +605,8 @@ export default function HomeScreen() {
           {noticeBoardRows.length > 0 ? (
             <View style={styles.homeSection}>
               <View style={styles.homeSectionHeader}>
-                <Text style={styles.secondarySectionTitle}>Notice Board</Text>
-                <Text style={styles.secondarySectionSubtitle}>Recent notes from the Beaned community</Text>
+                <Text style={styles.secondarySectionTitle}>Beaned Bulletin</Text>
+                <Text style={styles.secondarySectionSubtitle}>Recent notes from the community</Text>
               </View>
               <View style={styles.noticeBoardList}>
                 {noticeBoardRows.map((row) => {
@@ -608,15 +620,22 @@ export default function HomeScreen() {
                       disabled={!cafeTarget}
                       style={({ pressed }) => [styles.noticeCard, pressed && styles.noticeCardPressed]}
                     >
-                      <Text style={styles.noticeQuote} numberOfLines={4}>
-                        {'\u201C'}
-                        {row.note}
-                        {'\u201D'}
-                      </Text>
-                      <Text style={styles.noticeCafeMeta} numberOfLines={1}>
-                        {row.cafeName}
-                        {row.cafeArea ? ` \u00B7 ${row.cafeArea}` : ''}
-                      </Text>
+                      <Image
+                        source={{ uri: row.thumbnailUrl }}
+                        style={styles.noticeThumb}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.noticeContent}>
+                        <Text style={styles.noticeQuote} numberOfLines={4}>
+                          {'\u201C'}
+                          {row.note}
+                          {'\u201D'}
+                        </Text>
+                        <Text style={styles.noticeCafeMeta} numberOfLines={1}>
+                          {row.cafeName}
+                          {row.cafeArea ? ` \u00B7 ${row.cafeArea}` : ''}
+                        </Text>
+                      </View>
                     </Pressable>
                   );
                 })}
@@ -922,10 +941,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
     backgroundColor: COLORS.cardBackground,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 10,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     ...SHADOWS.none,
+  },
+  noticeThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    backgroundColor: COLORS.imagePlaceholder,
+  },
+  noticeContent: {
+    flex: 1,
+    gap: 7,
   },
   noticeCardPressed: {
     opacity: 0.92,
