@@ -560,26 +560,29 @@ export default function HomeScreen() {
                 <Text style={styles.secondarySectionSubtitle}>Recent notes from the Beaned community</Text>
               </View>
               <View style={styles.noticeBoardList}>
-                {noticeBoardRows.map((row) => (
-                  <Pressable
-                    key={`${row.cafeId ?? 'pending'}-${row.createdAt}`}
-                    accessibilityRole={row.cafeId ? 'button' : undefined}
-                    accessibilityLabel={row.cafeId ? `Open ${row.cafeName}` : row.cafeName}
-                    onPress={row.cafeId ? () => router.push(`/cafe/${row.cafeId}`) : undefined}
-                    disabled={!row.cafeId}
-                    style={({ pressed }) => [styles.noticeCard, pressed && styles.noticeCardPressed]}
-                  >
-                    <Text style={styles.noticeQuote} numberOfLines={4}>
-                      {'\u201C'}
-                      {row.note}
-                      {'\u201D'}
-                    </Text>
-                    <Text style={styles.noticeCafeMeta} numberOfLines={1}>
-                      {row.cafeName}
-                      {row.cafeArea ? ` \u00B7 ${row.cafeArea}` : ''}
-                    </Text>
-                  </Pressable>
-                ))}
+                {noticeBoardRows.map((row) => {
+                  const cafeTarget = row.cafeId ?? row.cafeSlug;
+                  return (
+                    <Pressable
+                      key={`${row.cafeId ?? 'pending'}-${row.createdAt}`}
+                      accessibilityRole={cafeTarget ? 'button' : undefined}
+                      accessibilityLabel={cafeTarget ? `Open ${row.cafeName}` : row.cafeName}
+                      onPress={cafeTarget ? () => router.push(`/cafe/${cafeTarget}`) : undefined}
+                      disabled={!cafeTarget}
+                      style={({ pressed }) => [styles.noticeCard, pressed && styles.noticeCardPressed]}
+                    >
+                      <Text style={styles.noticeQuote} numberOfLines={4}>
+                        {'\u201C'}
+                        {row.note}
+                        {'\u201D'}
+                      </Text>
+                      <Text style={styles.noticeCafeMeta} numberOfLines={1}>
+                        {row.cafeName}
+                        {row.cafeArea ? ` \u00B7 ${row.cafeArea}` : ''}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
             </View>
           ) : null}
