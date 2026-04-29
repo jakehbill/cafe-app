@@ -335,6 +335,12 @@ export type CafeRecentReview = {
   displayName: string | null;
 };
 
+export type PublicVisitNote = {
+  cafeId: string;
+  note: string;
+  createdAt: string;
+};
+
 /**
  * Best tag for “X% of people rate this for Y” — uses the most common tag among
  * `rating_tags` rows for this cafe’s ratings; % = ratings that include that tag / total ratings.
@@ -514,5 +520,37 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
     });
 
   return cleaned.slice(0, limit);
+}
+
+/**
+ * Recent anonymous community notes from public visit logs.
+ * Source of truth: `user_cafe_visits` with `is_public = true`.
+ */
+export async function getRecentPublicVisitNotes(limit = 5): Promise<PublicVisitNote[]> {
+  const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
+  const res = await supabase
+    .from('user_cafe_visits')
+    .select('cafe_id, note, created_at')
+    .not('cafe_id', 'is', null)
+    .eq('is_public', true)
+    .not('note', 'is', null)
+    .neq('note', '')
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (res.error) {
+    console.error('getRecentPublicVisitNotes failed:', res.error);
+    return [];
+  }
+
+  return (res.data ?? [])
+    .map((row) => {
+      const cafeId = String((row as { cafe_id?: unknown }).cafe_id ?? '').trim();
+      const note = String((row as { note?: unknown }).note ?? '').trim();
+      const createdAt = String((row as { created_at?: unknown }).created_at ?? '').trim();
+      if (!cafeId || !note || !createdAt) return null;
+      return { cafeId, note, createdAt } satisfies PublicVisitNote;
+    })
+    .filter((row): row is PublicVisitNote => row != null);
 }
 

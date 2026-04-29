@@ -29,7 +29,7 @@ import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking'
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
-import { getTopCafeTags } from '@/lib/supabase';
+import { getRecentPublicVisitNotes, getTopCafeTags, type PublicVisitNote } from '@/lib/supabase';
 import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
 import { computeTrendingScore, rankCafesForTrending } from '@/lib/cafeTrending';
 import { withCafeDistances } from '@/lib/cafeDistance';
@@ -41,6 +41,7 @@ const HOME_ONBOARDING_BANNER_DISMISSED_KEY = 'home_onboarding_banner_dismissed_v
 
 /** Matches horizontal padding for header, section titles, and card content below. */
 const SCREEN_HORIZONTAL_PADDING = 20;
+const NOTICE_BOARD_LIMIT = 5;
 
 function heroGradientId(cafeId: string): string {
   return `homeHero_${cafeId.replace(/[^a-zA-Z0-9_]/g, '_')}`;
@@ -286,6 +287,7 @@ export default function HomeScreen() {
   const onboardingPrefs = useOnboardingPreferencesForRanking();
   const [homeBannerVisible, setHomeBannerVisible] = useState(false);
   const [homeBannerPrefLoaded, setHomeBannerPrefLoaded] = useState(false);
+  const [noticeBoardNotes, setNoticeBoardNotes] = useState<PublicVisitNote[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -316,6 +318,17 @@ export default function HomeScreen() {
     // Refresh once on Home mount; avoids stale distance labels after app resume.
     void refreshLocation();
   }, [refreshLocation]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
+      if (!cancelled) setNoticeBoardNotes(rows);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -405,6 +418,18 @@ export default function HomeScreen() {
     if (trendingNearby.activeRadiusMiles == null) return 'Popular around you';
     return `Popular around you · Within ${trendingNearby.activeRadiusMiles} mi`;
   }, [trendingNearby.activeRadiusMiles, userLocation]);
+
+  const noticeBoardRows = useMemo(() => {
+    if (noticeBoardNotes.length === 0) return [];
+    const cafeById = new Map(cafeCatalog.map((cafe) => [cafe.id, cafe]));
+    return noticeBoardNotes
+      .map((item) => {
+        const cafe = cafeById.get(item.cafeId);
+        if (!cafe) return null;
+        return { ...item, cafe };
+      })
+      .filter((row): row is (PublicVisitNote & { cafe: Cafe }) => row != null);
+  }, [noticeBoardNotes, cafeCatalog]);
 
   const { width: windowWidth } = useWindowDimensions();
   const picksCarousel = useMemo(() => {
@@ -535,6 +560,36 @@ export default function HomeScreen() {
               ))}
             </ScrollView>
           </View>
+
+          {noticeBoardRows.length > 0 ? (
+            <View style={styles.homeSection}>
+              <View style={styles.homeSectionHeader}>
+                <Text style={styles.secondarySectionTitle}>Notice Board</Text>
+                <Text style={styles.secondarySectionSubtitle}>Recent notes from the Beaned community</Text>
+              </View>
+              <View style={styles.noticeBoardList}>
+                {noticeBoardRows.map((row) => (
+                  <Pressable
+                    key={`${row.cafeId}-${row.createdAt}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${row.cafe.name}`}
+                    onPress={() => router.push(`/cafe/${row.cafe.id}`)}
+                    style={({ pressed }) => [styles.noticeCard, pressed && styles.noticeCardPressed]}
+                  >
+                    <Text style={styles.noticeQuote} numberOfLines={4}>
+                      {'\u201C'}
+                      {row.note}
+                      {'\u201D'}
+                    </Text>
+                    <Text style={styles.noticeCafeMeta} numberOfLines={1}>
+                      {row.cafe.name}
+                      {row.cafe.neighborhood ? ` \u00B7 ${row.cafe.neighborhood}` : ''}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -825,5 +880,35 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: COLORS.accent,
     opacity: 0.92,
+  },
+  noticeBoardList: {
+    gap: 10,
+  },
+  noticeCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+    ...SHADOWS.none,
+  },
+  noticeCardPressed: {
+    opacity: 0.92,
+  },
+  noticeQuote: {
+    color: COLORS.text,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
+    letterSpacing: -0.05,
+  },
+  noticeCafeMeta: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.semibold,
+    letterSpacing: -0.05,
   },
 });

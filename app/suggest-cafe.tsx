@@ -12,6 +12,7 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -60,6 +61,7 @@ export default function SuggestCafeScreen() {
     visitPhotoUri?: string | string[];
     visitPhotoMimeType?: string | string[];
     visitPhotoFileName?: string | string[];
+    visitKeepNotePrivate?: string | string[];
   }>();
   const fromVisitLog = (Array.isArray(params.fromVisitLog) ? params.fromVisitLog[0] : params.fromVisitLog) === '1';
   const initialNameParam = Array.isArray(params.prefillName) ? params.prefillName[0] : params.prefillName;
@@ -79,6 +81,9 @@ export default function SuggestCafeScreen() {
   const initialVisitPhotoFileName = Array.isArray(params.visitPhotoFileName)
     ? params.visitPhotoFileName[0]
     : params.visitPhotoFileName;
+  const initialVisitKeepNotePrivateRaw = Array.isArray(params.visitKeepNotePrivate)
+    ? params.visitKeepNotePrivate[0]
+    : params.visitKeepNotePrivate;
   const [cafeName, setCafeName] = useState(initialName);
   const [addressText, setAddressText] = useState('');
   const [area, setArea] = useState('');
@@ -95,6 +100,9 @@ export default function SuggestCafeScreen() {
       .filter(Boolean)
   );
   const [visitNote, setVisitNote] = useState(String(initialVisitNote ?? ''));
+  const [visitKeepNotePrivate, setVisitKeepNotePrivate] = useState(
+    String(initialVisitKeepNotePrivateRaw ?? '') === '1'
+  );
   const [visitPhoto, setVisitPhoto] = useState<{
     uri: string;
     mimeType?: string | null;
@@ -195,6 +203,7 @@ export default function SuggestCafeScreen() {
     setNotes('');
     setSelectedTags([]);
     setSelectedPhotos([null, null, null]);
+      setVisitKeepNotePrivate(false);
   }
 
   function handleBack() {
@@ -311,6 +320,7 @@ export default function SuggestCafeScreen() {
           rating: visitRating,
           tags: visitTags,
           note: visitNote,
+          keepNotePrivate: visitKeepNotePrivate,
           photoAsset: visitPhoto,
         });
         if (!linkedVisit.ok) {
@@ -506,6 +516,22 @@ export default function SuggestCafeScreen() {
                       }}
                     />
                   </View>
+                  {visitNote.trim().length > 0 ? (
+                    <View style={styles.notePrivacyRow}>
+                      <View style={styles.notePrivacyTextWrap}>
+                        <Text style={styles.notePrivacyLabel}>Keep this note private</Text>
+                        <Text style={styles.notePrivacyHint}>
+                          Otherwise, it may appear anonymously on the public Notice Board to help other users.
+                        </Text>
+                      </View>
+                      <Switch
+                        value={visitKeepNotePrivate}
+                        onValueChange={setVisitKeepNotePrivate}
+                        trackColor={{ false: 'rgba(225, 92, 49, 0.25)', true: 'rgba(92, 86, 80, 0.3)' }}
+                        thumbColor={visitKeepNotePrivate ? '#ffffff' : COLORS.accent}
+                      />
+                    </View>
+                  ) : null}
                 </>
               ) : (
                 <>
@@ -874,6 +900,31 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
+  },
+  notePrivacyRow: {
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.cardBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  notePrivacyTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  notePrivacyLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
+  },
+  notePrivacyHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
     fontFamily: FONTS.sans.regular,
   },
   validationText: {
