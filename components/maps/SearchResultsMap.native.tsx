@@ -5,7 +5,6 @@ import MapView, { Callout, Marker, type Region } from 'react-native-maps';
 import type { Cafe } from '@/data/cafes';
 import { MapCafeCallout } from '@/components/maps/MapCafeCallout';
 import { BeanMapMarkerContent } from '@/components/maps/BeanMapMarkerContent';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { hasValidCafeCoordinates } from '@/lib/cafeMapsUrl';
 import { COLORS } from '@/components/theme';
 
@@ -31,7 +30,6 @@ export default function SearchResultsMap({
       initialRegion={initialRegion}
     >
       {results.filter(hasValidCafeCoordinates).map((cafe) => {
-        const coffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
         const isSelected = selectedCafeId != null && cafe.id === selectedCafeId;
         return (
           <Marker
@@ -45,7 +43,7 @@ export default function SearchResultsMap({
               <BeanMapMarkerContent />
             </View>
             <Callout onPress={() => onPressCafe(cafe.id)}>
-              <MapCafeCallout cafeName={cafe.name} scoreDisplay={coffeeLabel} />
+              <MapCafeCallout cafe={cafe} />
             </Callout>
           </Marker>
         );

@@ -9,7 +9,6 @@ import { MapCafeCallout } from '@/components/maps/MapCafeCallout';
 import { COLORS } from '@/components/theme';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { hasValidCafeCoordinates } from '@/lib/cafeMapsUrl';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 
 /**
  * Native-only map implementation (iOS/Android).
@@ -38,7 +37,6 @@ export default function MapViewNative() {
 
       <MapView style={styles.map} initialRegion={initialRegion}>
         {cafes.filter(hasValidCafeCoordinates).map((cafe) => {
-          const coffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
           return (
             <Marker
               key={cafe.id}
@@ -51,7 +49,7 @@ export default function MapViewNative() {
                 <BeanMapMarkerContent />
               </View>
               <Callout onPress={() => router.push(`/cafe/${cafe.id}`)}>
-                <MapCafeCallout cafeName={cafe.name} scoreDisplay={coffeeLabel} />
+                <MapCafeCallout cafe={cafe} />
               </Callout>
             </Marker>
           );

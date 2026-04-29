@@ -1,70 +1,125 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
-import { CoffeeScoreBadge } from '@/components/CoffeeScoreBadge';
-import { COLORS } from '@/components/theme';
+import type { Cafe } from '@/data/cafes';
+import { COLORS, FONTS, SHADOWS } from '@/components/theme';
+import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
+import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 
 export type MapCafeCalloutProps = {
-  cafeName: string;
-  /** From `formatPublicCoffeeOutOf5` — numeric string or em dash when absent. */
-  scoreDisplay: string;
+  cafe: Cafe;
 };
 
 /**
- * Minimal callout body for map markers: name, score badge, subtle forward affordance.
+ * Compact map marker preview card for opening cafe detail.
  */
-export function MapCafeCallout({ cafeName, scoreDisplay }: MapCafeCalloutProps) {
+export function MapCafeCallout({ cafe }: MapCafeCalloutProps) {
+  const imageUrl = resolveLiveCafePrimaryImageUrl({ cafe });
+  const metadata = buildMapMetadataLine(cafe);
+
   return (
     <View style={styles.root}>
-      <View style={styles.row}>
+      <Image source={{ uri: imageUrl }} style={styles.thumb} resizeMode="cover" />
+      <View style={styles.content}>
         <View style={styles.textBlock}>
-          <Text style={styles.title} numberOfLines={2}>
-            {cafeName}
+          <Text style={styles.title} numberOfLines={1}>
+            {cafe.name}
           </Text>
-          <CoffeeScoreBadge scoreLabel={scoreDisplay} size="small" />
+          {metadata ? (
+            <Text style={styles.meta} numberOfLines={1}>
+              {metadata}
+            </Text>
+          ) : null}
         </View>
-        <Ionicons
-          name="chevron-forward"
-          size={15}
-          color={COLORS.muted}
-          style={styles.arrow}
-        />
+        <View style={styles.openPill}>
+          <Text style={styles.openPillText}>Open</Text>
+          <Ionicons
+            name="chevron-forward"
+            size={13}
+            color={COLORS.accent}
+            style={styles.arrow}
+          />
+        </View>
       </View>
     </View>
   );
 }
 
+function buildMapMetadataLine(cafe: Cafe): string {
+  const parts: string[] = [];
+  const score = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore).trim();
+  if (score && score !== '\u2014') parts.push(`${score} \u2605`);
+
+  const neighborhood = (cafe.neighborhood ?? '').trim();
+  if (neighborhood.length > 0) parts.push(neighborhood);
+
+  const distance = (cafe.distanceLabel ?? '').trim();
+  if (distance.length > 0) parts.push(distance);
+
+  return parts.join(' \u2022 ');
+}
+
 const styles = StyleSheet.create({
   root: {
-    minWidth: 160,
-    maxWidth: 220,
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
+    minWidth: 214,
+    maxWidth: 250,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E6DCCB',
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+    overflow: 'hidden',
+    ...SHADOWS.card,
+  },
+  thumb: {
+    width: '100%',
+    height: 92,
+    backgroundColor: COLORS.imagePlaceholder,
+  },
+  content: {
     paddingHorizontal: 10,
     paddingVertical: 10,
-    paddingRight: 8,
-  },
-  row: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 6,
+    gap: 8,
   },
   textBlock: {
     flex: 1,
-    gap: 6,
-    paddingRight: 2,
+    gap: 3,
+    minWidth: 0,
   },
   title: {
     color: COLORS.text,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    lineHeight: 19,
+    fontFamily: FONTS.sans.semibold,
+    letterSpacing: -0.15,
+  },
+  meta: {
+    color: COLORS.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.regular,
+  },
+  openPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  openPillText: {
+    color: COLORS.accent,
+    fontSize: 11,
+    lineHeight: 13,
+    fontFamily: FONTS.sans.semibold,
   },
   arrow: {
-    marginBottom: 1,
-    opacity: 0.65,
+    marginTop: 0.5,
   },
 });
