@@ -388,7 +388,7 @@ export default function SuggestCafeScreen() {
                 onPress={handleBack}
               />
             </View>
-            <Text style={styles.headerTitle}>{fromVisitLog ? 'Log a cafe' : 'Suggest a cafe'}</Text>
+            <Text style={styles.headerTitle}>{fromVisitLog ? '' : 'Suggest a cafe'}</Text>
             <View style={styles.headerRight} />
           </View>
 
@@ -397,8 +397,8 @@ export default function SuggestCafeScreen() {
             <Text style={styles.pageSubtitle}>
               {fromVisitLog
                 ? visitFlowStep === 1
-                  ? 'Log a cafe you’ve been to. We’ll ask for a couple details next.'
-                  : 'Add a few details so we can find this place again.'
+                  ? 'Add your visit details.'
+                  : 'Add cafe details.'
                 : 'Know a spot we&apos;ve missed? Send it in for review.'}
             </Text>
           </View>
@@ -408,31 +408,33 @@ export default function SuggestCafeScreen() {
               {visitFlowStep === 1 ? (
                 <>
                   <Text style={styles.fieldLabel}>Visit details</Text>
-                  <Text style={styles.visitSectionHint}>Save this to your personal cafe diary.</Text>
-
-                  <Text style={styles.fieldLabel}>Add a memory</Text>
-                  <Text style={styles.tagHelperText}>
-                    A coffee, the space, or anything you want to remember.
-                  </Text>
-                  <View style={styles.photoSlotActionsRow}>
-                    <TouchableOpacity
-                      activeOpacity={0.88}
-                      style={styles.photoSlotButton}
-                      onPress={() => void pickVisitPhoto()}
-                      disabled={submitting || redirecting}
-                    >
-                      <Text style={styles.photoSlotButtonText}>{visitPhoto ? 'Replace photo' : 'Add photo'}</Text>
-                    </TouchableOpacity>
-                    {visitPhoto ? (
-                      <TouchableOpacity
-                        activeOpacity={0.88}
-                        style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
-                        onPress={() => setVisitPhoto(null)}
-                        disabled={submitting || redirecting}
-                      >
-                        <Text style={styles.photoSlotButtonSecondaryText}>Remove</Text>
-                      </TouchableOpacity>
-                    ) : null}
+                  <Text style={styles.fieldLabel}>Add photo (optional)</Text>
+                  <View style={styles.photoSlotsWrap}>
+                    {['Exterior photo', 'Coffee / interior', 'Third photo'].map((label) => (
+                      <View key={`visit-photo-prompt-${label}`} style={styles.photoSlotCard}>
+                        <Text style={styles.photoSlotLabel}>{label}</Text>
+                        <View style={styles.photoSlotActionsRow}>
+                          <TouchableOpacity
+                            activeOpacity={0.88}
+                            style={styles.photoSlotButton}
+                            onPress={() => void pickVisitPhoto()}
+                            disabled={submitting || redirecting}
+                          >
+                            <Text style={styles.photoSlotButtonText}>{visitPhoto ? 'Replace photo' : 'Add photo'}</Text>
+                          </TouchableOpacity>
+                          {visitPhoto ? (
+                            <TouchableOpacity
+                              activeOpacity={0.88}
+                              style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
+                              onPress={() => setVisitPhoto(null)}
+                              disabled={submitting || redirecting}
+                            >
+                              <Text style={styles.photoSlotButtonSecondaryText}>Remove</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      </View>
+                    ))}
                   </View>
                   {visitPhoto ? (
                     <Image source={{ uri: visitPhoto.uri }} style={styles.photoPreview} resizeMode="cover" />
@@ -452,9 +454,6 @@ export default function SuggestCafeScreen() {
                     maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
                     thumbTintColor={COLORS.accent}
                   />
-                  <TouchableOpacity onPress={() => setVisitRating(null)}>
-                    <Text style={styles.clearVisitRatingText}>Clear rating</Text>
-                  </TouchableOpacity>
 
                   <Text style={styles.fieldLabel}>What stood out?</Text>
                   {visitTagSections.map((section) => (
@@ -510,7 +509,6 @@ export default function SuggestCafeScreen() {
                 </>
               ) : (
                 <>
-                  <Text style={styles.fieldLabel}>Add a few details so we can find this place again</Text>
                   <TextInput
                     style={styles.input}
                     value={cafeName}
@@ -615,9 +613,9 @@ export default function SuggestCafeScreen() {
             <Text style={styles.fieldLabel}>Add photos (recommended)</Text>
             <View style={styles.photoSlotsWrap}>
               {[
-                { label: 'Front / exterior', index: 0 },
-                { label: 'Coffee or interior', index: 1 },
-                { label: 'Optional third photo', index: 2 },
+                { label: 'Exterior photo', index: 0 },
+                { label: 'Coffee / interior', index: 1 },
+                { label: 'Third photo', index: 2 },
               ].map((slot) => {
                 const photo = selectedPhotos[slot.index];
                 return (
@@ -994,24 +992,10 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontFamily: FONTS.sans.semibold,
   },
-  visitSectionHint: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.regular,
-    marginTop: -2,
-    marginBottom: 2,
-  },
   visitRatingValue: {
     fontSize: 19,
     lineHeight: 24,
     color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
-  },
-  clearVisitRatingText: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: COLORS.muted,
     fontFamily: FONTS.sans.semibold,
   },
   submitButton: {
