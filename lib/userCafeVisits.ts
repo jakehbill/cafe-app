@@ -27,8 +27,6 @@ type SaveVisitInput = {
   rating?: number | null;
   tags?: string[];
   note?: string;
-  /** When true, user opts out of anonymous Notice Board visibility for this note. */
-  keepNotePrivate?: boolean;
   photoAsset?: VisitPhotoAsset | null;
 };
 
@@ -254,8 +252,6 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
   const rating = normalizeRating(input.rating);
   const tags = normalizeTags(input.tags);
   const note = String(input.note ?? '').trim();
-  const keepNotePrivate = input.keepNotePrivate === true;
-  const noteEligibleForPublicBoard = note.length > 0 && !keepNotePrivate;
 
   const isRapidDuplicate = await detectRapidDuplicate({
     userId,
@@ -289,7 +285,6 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
       rating,
       tags,
       note,
-      is_public: noteEligibleForPublicBoard,
     })
     .select('id')
     .single();
@@ -382,7 +377,6 @@ export async function updateUserCafeVisit(
     rating?: number | null;
     tags?: string[];
     note?: string;
-    keepNotePrivate?: boolean;
     photoAsset?: VisitPhotoAsset | null;
   }
 ): Promise<SupabaseActionResult> {
@@ -409,8 +403,6 @@ export async function updateUserCafeVisit(
   const nextRating = normalizeRating(input.rating ?? existing.rating);
   const nextTags = normalizeTags(input.tags ?? existing.tags);
   const nextNote = String(input.note ?? existing.note).trim();
-  const keepNotePrivate = input.keepNotePrivate === true;
-  const noteEligibleForPublicBoard = nextNote.length > 0 && !keepNotePrivate;
 
   const updateRes = await supabase
     .from('user_cafe_visits')
@@ -418,7 +410,6 @@ export async function updateUserCafeVisit(
       rating: nextRating,
       tags: nextTags,
       note: nextNote,
-      is_public: noteEligibleForPublicBoard,
       updated_at: new Date().toISOString(),
     })
     .eq('id', visitId);

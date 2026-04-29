@@ -9,7 +9,6 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -42,7 +41,6 @@ export default function LogVisitScreen() {
   const [rating, setRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [note, setNote] = useState('');
-  const [keepNotePrivate, setKeepNotePrivate] = useState(false);
   const [photoAsset, setPhotoAsset] = useState<{
     uri: string;
     mimeType?: string | null;
@@ -82,7 +80,6 @@ export default function LogVisitScreen() {
       setRating(existing.rating);
       setSelectedTags(existing.tags);
       setNote(existing.note);
-      setKeepNotePrivate(existing.note.trim().length > 0 ? !existing.isPublic : false);
       setExistingPendingName(existing.submissionCafeName);
       if (!targetCafeId && existing.cafeId) {
         const resolvedCafe = await fetchCafeByIdFromSupabase(existing.cafeId);
@@ -142,7 +139,6 @@ export default function LogVisitScreen() {
             rating,
             tags: selectedTags,
             note,
-            keepNotePrivate,
             photoAsset,
           })
         : await saveUserCafeVisit({
@@ -150,7 +146,6 @@ export default function LogVisitScreen() {
             rating,
             tags: selectedTags,
             note,
-            keepNotePrivate,
             photoAsset,
           });
       if (!res.ok) {
@@ -184,7 +179,6 @@ export default function LogVisitScreen() {
         visitRating: rating != null ? String(rating) : '',
         visitTags: selectedTags.join(','),
         visitNote: note,
-        visitKeepNotePrivate: keepNotePrivate ? '1' : '',
         visitPhotoUri: photoAsset?.uri ?? '',
         visitPhotoMimeType: photoAsset?.mimeType ?? '',
         visitPhotoFileName: photoAsset?.fileName ?? '',
@@ -361,22 +355,6 @@ export default function LogVisitScreen() {
               value={note}
               onChangeText={setNote}
             />
-            {note.trim().length > 0 ? (
-              <View style={styles.notePrivacyRow}>
-                <View style={styles.notePrivacyTextWrap}>
-                  <Text style={styles.notePrivacyLabel}>Keep this note private</Text>
-                  <Text style={styles.notePrivacyHint}>
-                    Otherwise, it may appear anonymously on the public Notice Board to help other users.
-                  </Text>
-                </View>
-                <Switch
-                  value={keepNotePrivate}
-                  onValueChange={setKeepNotePrivate}
-                  trackColor={{ false: 'rgba(225, 92, 49, 0.25)', true: 'rgba(92, 86, 80, 0.3)' }}
-                  thumbColor={keepNotePrivate ? '#ffffff' : COLORS.accent}
-                />
-              </View>
-            ) : null}
           </View> : null}
 
           {!successState && error ? <Text style={styles.errorText}>{error}</Text> : null}

@@ -289,6 +289,14 @@ export default function HomeScreen() {
   const [homeBannerPrefLoaded, setHomeBannerPrefLoaded] = useState(false);
   const [noticeBoardNotes, setNoticeBoardNotes] = useState<PublicVisitNote[]>([]);
 
+  const loadNoticeBoard = React.useCallback(async () => {
+    const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
+    if (__DEV__) {
+      console.log('[NoticeBoard] home load rows:', rows.length);
+    }
+    setNoticeBoardNotes(rows);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -320,21 +328,15 @@ export default function HomeScreen() {
   }, [refreshLocation]);
 
   useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
-      if (!cancelled) setNoticeBoardNotes(rows);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadNoticeBoard();
+  }, [loadNoticeBoard]);
 
   useFocusEffect(
     React.useCallback(() => {
       // Home cards use signed URLs for approved photos; refresh on focus to keep URLs fresh.
       void refetchCafeCatalog();
-    }, [refetchCafeCatalog])
+      void loadNoticeBoard();
+    }, [refetchCafeCatalog, loadNoticeBoard])
   );
 
   const cafesWithDistance = useMemo(
@@ -419,17 +421,7 @@ export default function HomeScreen() {
     return `Popular around you · Within ${trendingNearby.activeRadiusMiles} mi`;
   }, [trendingNearby.activeRadiusMiles, userLocation]);
 
-  const noticeBoardRows = useMemo(() => {
-    if (noticeBoardNotes.length === 0) return [];
-    const cafeById = new Map(cafeCatalog.map((cafe) => [cafe.id, cafe]));
-    return noticeBoardNotes
-      .map((item) => {
-        const cafe = cafeById.get(item.cafeId);
-        if (!cafe) return null;
-        return { ...item, cafe };
-      })
-      .filter((row): row is (PublicVisitNote & { cafe: Cafe }) => row != null);
-  }, [noticeBoardNotes, cafeCatalog]);
+  const noticeBoardRows = useMemo(() => noticeBoardNotes, [noticeBoardNotes]);
 
   const { width: windowWidth } = useWindowDimensions();
   const picksCarousel = useMemo(() => {
@@ -570,10 +562,11 @@ export default function HomeScreen() {
               <View style={styles.noticeBoardList}>
                 {noticeBoardRows.map((row) => (
                   <Pressable
-                    key={`${row.cafeId}-${row.createdAt}`}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Open ${row.cafe.name}`}
-                    onPress={() => router.push(`/cafe/${row.cafe.id}`)}
+                    key={`${row.cafeId ?? 'pending'}-${row.createdAt}`}
+                    accessibilityRole={row.cafeId ? 'button' : undefined}
+                    accessibilityLabel={row.cafeId ? `Open ${row.cafeName}` : row.cafeName}
+                    onPress={row.cafeId ? () => router.push(`/cafe/${row.cafeId}`) : undefined}
+                    disabled={!row.cafeId}
                     style={({ pressed }) => [styles.noticeCard, pressed && styles.noticeCardPressed]}
                   >
                     <Text style={styles.noticeQuote} numberOfLines={4}>
@@ -582,8 +575,8 @@ export default function HomeScreen() {
                       {'\u201D'}
                     </Text>
                     <Text style={styles.noticeCafeMeta} numberOfLines={1}>
-                      {row.cafe.name}
-                      {row.cafe.neighborhood ? ` \u00B7 ${row.cafe.neighborhood}` : ''}
+                      {row.cafeName}
+                      {row.cafeArea ? ` \u00B7 ${row.cafeArea}` : ''}
                     </Text>
                   </Pressable>
                 ))}

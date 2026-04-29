@@ -336,7 +336,9 @@ export type CafeRecentReview = {
 };
 
 export type PublicVisitNote = {
-  cafeId: string;
+  cafeId: string | null;
+  cafeName: string;
+  cafeArea: string | null;
   note: string;
   createdAt: string;
 };
@@ -524,33 +526,96 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
 
 /**
  * Recent anonymous community notes from public visit logs.
- * Source of truth: `user_cafe_visits` with `is_public = true`.
+ * Source of truth: non-empty notes in `user_cafe_visits`.
  */
 export async function getRecentPublicVisitNotes(limit = 5): Promise<PublicVisitNote[]> {
   const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
-  const res = await supabase
+  const visitsRes = await supabase
     .from('user_cafe_visits')
-    .select('cafe_id, note, created_at')
-    .not('cafe_id', 'is', null)
-    .eq('is_public', true)
+    .select('cafe_id, submission_id, note, created_at')
     .not('note', 'is', null)
-    .neq('note', '')
     .order('created_at', { ascending: false })
-    .limit(safeLimit);
-
-  if (res.error) {
-    console.error('getRecentPublicVisitNotes failed:', res.error);
+    .limit(Math.max(safeLimit * 4, safeLimit));
+  if (visitsRes.error) {
+    console.error('getRecentPublicVisitNotes failed (visits):', visitsRes.error);
     return [];
   }
 
-  return (res.data ?? [])
+  const normalized = (visitsRes.data ?? [])
     .map((row) => {
-      const cafeId = String((row as { cafe_id?: unknown }).cafe_id ?? '').trim();
+      const cafeIdRaw = String((row as { cafe_id?: unknown }).cafe_id ?? '').trim();
+      const submissionIdRaw = String((row as { submission_id?: unknown }).submission_id ?? '').trim();
       const note = String((row as { note?: unknown }).note ?? '').trim();
       const createdAt = String((row as { created_at?: unknown }).created_at ?? '').trim();
-      if (!cafeId || !note || !createdAt) return null;
-      return { cafeId, note, createdAt } satisfies PublicVisitNote;
+      if (!note || !createdAt) return null;
+      return {
+        cafeId: cafeIdRaw || null,
+        submissionId: submissionIdRaw || null,
+        note,
+        createdAt,
+      };
     })
-    .filter((row): row is PublicVisitNote => row != null);
+    .filter((row): row is { cafeId: string | null; submissionId: string | null; note: string; createdAt: string } => row != null);
+
+  const uniqueCafeIds = Array.from(new Set(normalized.map((row) => row.cafeId).filter((id): id is string => Boolean(id))));
+  const uniqueSubmissionIds = Array.from(
+    new Set(normalized.map((row) => row.submissionId).filter((id): id is string => Boolean(id)))
+  );
+
+  const cafeMeta = new Map<string, { name: string; area: string | null }>();
+  await Promise.all(
+    uniqueCafeIds.map(async (cafeId) => {
+      const cafeRes = await supabase.from('cafes').select('id, name, neighborhood').eq('id', cafeId).maybeSingle();
+      if (cafeRes.error) {
+        console.error('getRecentPublicVisitNotes failed (cafe lookup):', { cafeId, error: cafeRes.error });
+        return;
+      }
+      if (!cafeRes.data) return;
+      const row = cafeRes.data as { name?: unknown; neighborhood?: unknown };
+      const name = String(row.name ?? '').trim();
+      if (!name) return;
+      const area = String(row.neighborhood ?? '').trim() || null;
+      cafeMeta.set(cafeId, { name, area });
+    })
+  );
+
+  const submissionMeta = new Map<string, { name: string; area: string | null }>();
+  if (uniqueSubmissionIds.length > 0) {
+    const submissionsRes = await supabase
+      .from('cafe_submissions')
+      .select('id, cafe_name, area, approved_cafe_id')
+      .in('id', uniqueSubmissionIds);
+    if (submissionsRes.error) {
+      console.error('getRecentPublicVisitNotes failed (submission lookup):', submissionsRes.error);
+    } else {
+      for (const row of submissionsRes.data ?? []) {
+        const id = String((row as { id?: unknown }).id ?? '').trim();
+        if (!id) continue;
+        const name = String((row as { cafe_name?: unknown }).cafe_name ?? '').trim();
+        const area = String((row as { area?: unknown }).area ?? '').trim() || null;
+        if (!name) continue;
+        submissionMeta.set(id, { name, area });
+      }
+    }
+  }
+
+  const rows = normalized
+    .map((item) => {
+      const cafeMetaRow = item.cafeId ? cafeMeta.get(item.cafeId) : null;
+      const submissionMetaRow = item.submissionId ? submissionMeta.get(item.submissionId) : null;
+      const cafeName = cafeMetaRow?.name || submissionMetaRow?.name || 'Cafe pending review';
+      return {
+        cafeId: item.cafeId,
+        cafeName,
+        cafeArea: cafeMetaRow?.area ?? submissionMetaRow?.area ?? null,
+        note: item.note,
+        createdAt: item.createdAt,
+      } satisfies PublicVisitNote;
+    })
+    .slice(0, safeLimit);
+  if (__DEV__) {
+    console.log('[NoticeBoard] fetched notes:', rows.length);
+  }
+  return rows;
 }
 
