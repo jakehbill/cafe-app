@@ -29,7 +29,7 @@ import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking'
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
-import { getRecentPublicVisitNotes, getTopCafeTags, type PublicVisitNote } from '@/lib/supabase';
+import { getRecentPublicVisitNotes, getTopCafeTags, supabase, type PublicVisitNote } from '@/lib/supabase';
 import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
 import { computeTrendingScore, rankCafesForTrending } from '@/lib/cafeTrending';
 import { withCafeDistances } from '@/lib/cafeDistance';
@@ -288,6 +288,7 @@ export default function HomeScreen() {
   const [homeBannerVisible, setHomeBannerVisible] = useState(false);
   const [homeBannerPrefLoaded, setHomeBannerPrefLoaded] = useState(false);
   const [noticeBoardNotes, setNoticeBoardNotes] = useState<PublicVisitNote[]>([]);
+  const [visitedFromVisitLogs, setVisitedFromVisitLogs] = useState<Set<string>>(new Set());
 
   const loadNoticeBoard = React.useCallback(async () => {
     const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
@@ -295,6 +296,33 @@ export default function HomeScreen() {
       console.log('[NoticeBoard] home load rows:', rows.length);
     }
     setNoticeBoardNotes(rows);
+  }, []);
+
+  const loadVisitedCafeIdsFromVisitLogs = React.useCallback(async () => {
+    const auth = await supabase.auth.getUser();
+    const userId = auth.data.user?.id ?? null;
+    if (!userId) {
+      setVisitedFromVisitLogs(new Set());
+      return;
+    }
+
+    const res = await supabase
+      .from('user_cafe_visits')
+      .select('cafe_id')
+      .eq('user_id', userId)
+      .not('cafe_id', 'is', null);
+
+    if (res.error) {
+      console.error('Failed to load visited cafes from visit logs:', res.error);
+      return;
+    }
+
+    const ids = new Set(
+      (res.data ?? [])
+        .map((row) => String((row as { cafe_id?: unknown }).cafe_id ?? '').trim())
+        .filter((id) => id.length > 0)
+    );
+    setVisitedFromVisitLogs(ids);
   }, []);
 
   useEffect(() => {
@@ -331,12 +359,17 @@ export default function HomeScreen() {
     void loadNoticeBoard();
   }, [loadNoticeBoard]);
 
+  useEffect(() => {
+    void loadVisitedCafeIdsFromVisitLogs();
+  }, [loadVisitedCafeIdsFromVisitLogs]);
+
   useFocusEffect(
     React.useCallback(() => {
       // Home cards use signed URLs for approved photos; refresh on focus to keep URLs fresh.
       void refetchCafeCatalog();
       void loadNoticeBoard();
-    }, [refetchCafeCatalog, loadNoticeBoard])
+      void loadVisitedCafeIdsFromVisitLogs();
+    }, [refetchCafeCatalog, loadNoticeBoard, loadVisitedCafeIdsFromVisitLogs])
   );
 
   const cafesWithDistance = useMemo(
@@ -364,8 +397,12 @@ export default function HomeScreen() {
       // Lower index is better; subtract small distance boost.
       return (aBase - aDistanceBoost) - (bBase - bDistanceBoost);
     });
-    return rescored.slice(0, 5);
-  }, [cafesWithDistance, ratingsByCafeId, tasteProfile, onboardingPrefs]);
+    if (visitedFromVisitLogs.size === 0) {
+      return rescored.slice(0, 5);
+    }
+    const unvisited = rescored.filter((cafe) => !visitedFromVisitLogs.has(String(cafe.id).trim()));
+    return unvisited.slice(0, 5);
+  }, [cafesWithDistance, ratingsByCafeId, tasteProfile, onboardingPrefs, visitedFromVisitLogs]);
 
   const fallbackHighRatedCafes = useMemo(() => {
     const copy = [...cafesWithDistance];
