@@ -105,6 +105,19 @@ export type LevelProgress = {
   isMaxLevel: boolean;
 };
 
+export function getUserLevel(totalPoints: number | null | undefined): number {
+  const safePoints =
+    typeof totalPoints === 'number' && Number.isFinite(totalPoints) ? Math.max(0, totalPoints) : 0;
+  let tierIndex = 0;
+  for (let i = LEVEL_TIERS.length - 1; i >= 0; i--) {
+    if (safePoints >= LEVEL_TIERS[i].minPoints) {
+      tierIndex = i;
+      break;
+    }
+  }
+  return tierIndex + 1;
+}
+
 export function getLevelProgress(totalPoints: number): LevelProgress {
   const lastIdx = LEVEL_TIERS.length - 1;
   const maxTier = LEVEL_TIERS[lastIdx];

@@ -25,6 +25,7 @@ import {
   computeTotalPoints,
   countTagsInRatings,
   getLevelProgress,
+  getUserLevel,
   hasCafeSavedVisitedAndRated,
   POINTS,
   type ActivitySnapshot,
@@ -270,6 +271,7 @@ export default function ProfileScreen() {
 
   const totalPoints = useMemo(() => computeTotalPoints(activitySnapshot), [activitySnapshot]);
   const levelProgress = useMemo(() => getLevelProgress(totalPoints), [totalPoints]);
+  const userLevel = useMemo(() => getUserLevel(totalPoints), [totalPoints]);
   const badges = useMemo(() => computeProfileBadges(activitySnapshot), [activitySnapshot]);
   const canAccessModeration = useMemo(() => isModerator(user?.id), [user?.id]);
   const gamificationHelpLines = useMemo(
@@ -444,11 +446,14 @@ export default function ProfileScreen() {
         {/* Points + progress toward next level (same model as achievements) */}
         <View style={styles.pointsCard}>
           <View style={styles.pointsHeaderRow}>
-            <Text style={styles.pointsLabel}>Total points</Text>
+            <Text style={styles.pointsLabel}>Level {userLevel}</Text>
             {countsLoading ? (
               <ActivityIndicator color={COLORS.muted} />
             ) : (
-              <Text style={styles.pointsBig}>{formatPoints(totalPoints)}</Text>
+              <Text style={styles.pointsBig}>
+                {formatPoints(totalPoints)}
+                <Text style={styles.pointsSuffix}> pts</Text>
+              </Text>
             )}
           </View>
           <TouchableOpacity
@@ -756,15 +761,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pointsLabel: {
-    fontSize: 14,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
+    fontSize: 24,
+    fontFamily: FONTS.sans.bold,
+    color: COLORS.text,
+    letterSpacing: -0.5,
   },
   pointsBig: {
     fontSize: 28,
     fontFamily: FONTS.sans.bold,
     color: COLORS.text,
     letterSpacing: -0.5,
+  },
+  pointsSuffix: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+    letterSpacing: 0,
   },
   progressMetaRow: {
     flexDirection: 'row',
