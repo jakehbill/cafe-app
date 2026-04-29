@@ -296,9 +296,9 @@ export default function CafeDetailScreen() {
     void router.push({
       pathname: '/search',
       params: {
-        focusCafeId: cafe.id,
-        focusLat: String(cafe.latitude),
-        focusLng: String(cafe.longitude),
+        cafe_id: cafe.id,
+        latitude: String(cafe.latitude),
+        longitude: String(cafe.longitude),
       },
     });
   }
@@ -480,13 +480,8 @@ export default function CafeDetailScreen() {
 
               <View style={styles.identityActionsRow}>
                 {hasValidCafeCoordinates(cafe) ? (
-                  <CompactActionButton
-                    label="Show on Beaned map"
-                    accentActive
-                    onPress={handleShowOnBeanedMap}
-                  />
+                  <CompactActionButton label="Show on Beaned map" onPress={handleShowOnBeanedMap} />
                 ) : null}
-                <CompactActionButton label="Open in Google Maps" onPress={handleOpenGoogleMaps} />
               </View>
           </View>
 

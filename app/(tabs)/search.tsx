@@ -69,15 +69,34 @@ export default function SearchScreen() {
     focusCafeId: focusCafeIdRaw,
     focusLat: focusLatRaw,
     focusLng: focusLngRaw,
+    cafe_id: cafeIdRawLegacy,
+    latitude: latitudeRawLegacy,
+    longitude: longitudeRawLegacy,
   } = useLocalSearchParams<{
     focusCafeId?: string | string[];
     focusLat?: string | string[];
     focusLng?: string | string[];
+    cafe_id?: string | string[];
+    latitude?: string | string[];
+    longitude?: string | string[];
   }>();
 
-  const focusCafeId = Array.isArray(focusCafeIdRaw) ? focusCafeIdRaw[0] : focusCafeIdRaw;
-  const focusLatStr = Array.isArray(focusLatRaw) ? focusLatRaw[0] : focusLatRaw;
-  const focusLngStr = Array.isArray(focusLngRaw) ? focusLngRaw[0] : focusLngRaw;
+  const focusCafeIdFromFocus =
+    Array.isArray(focusCafeIdRaw) ? focusCafeIdRaw[0] : focusCafeIdRaw;
+  const focusLatStrFromFocus = Array.isArray(focusLatRaw) ? focusLatRaw[0] : focusLatRaw;
+  const focusLngStrFromFocus = Array.isArray(focusLngRaw) ? focusLngRaw[0] : focusLngRaw;
+
+  const focusCafeIdFromLegacy = Array.isArray(cafeIdRawLegacy) ? cafeIdRawLegacy[0] : cafeIdRawLegacy;
+  const focusLatStrFromLegacy = Array.isArray(latitudeRawLegacy)
+    ? latitudeRawLegacy[0]
+    : latitudeRawLegacy;
+  const focusLngStrFromLegacy = Array.isArray(longitudeRawLegacy)
+    ? longitudeRawLegacy[0]
+    : longitudeRawLegacy;
+
+  const focusCafeId = (String(focusCafeIdFromFocus ?? '').trim().length > 0
+    ? focusCafeIdFromFocus
+    : focusCafeIdFromLegacy) as string | undefined;
 
   function parseFiniteCoord(v: unknown): number | null {
     if (v == null) return null;
@@ -101,8 +120,13 @@ export default function SearchScreen() {
     );
   }
 
-  const focusLat = parseFiniteCoord(focusLatStr);
-  const focusLng = parseFiniteCoord(focusLngStr);
+  const focusLatFromFocus = parseFiniteCoord(focusLatStrFromFocus);
+  const focusLngFromFocus = parseFiniteCoord(focusLngStrFromFocus);
+  const focusLatFromLegacy = parseFiniteCoord(focusLatStrFromLegacy);
+  const focusLngFromLegacy = parseFiniteCoord(focusLngStrFromLegacy);
+
+  const focusLat = focusLatFromFocus ?? focusLatFromLegacy;
+  const focusLng = focusLngFromFocus ?? focusLngFromLegacy;
   const focusCoordsFromParams =
     focusLat != null && focusLng != null && hasValidCoordinatePair(focusLat, focusLng)
       ? { latitude: focusLat, longitude: focusLng }
