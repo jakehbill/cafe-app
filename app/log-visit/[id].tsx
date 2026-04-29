@@ -49,6 +49,7 @@ export default function LogVisitScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
+  const [redirectingMissingCafe, setRedirectingMissingCafe] = useState(false);
   const [existingPendingName, setExistingPendingName] = useState<string | null>(null);
   const [successState, setSuccessState] = useState<{
     movedFromSaved: boolean;
@@ -186,6 +187,15 @@ export default function LogVisitScreen() {
     });
   }
 
+  React.useEffect(() => {
+    if (successState || editingVisitId) return;
+    if (!targetCafeId) return;
+    if (cafeLoading) return;
+    if (cafe) return;
+    setRedirectingMissingCafe(true);
+    openSuggestPrefilled();
+  }, [successState, editingVisitId, targetCafeId, cafeLoading, cafe]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
@@ -254,20 +264,10 @@ export default function LogVisitScreen() {
 
           {!successState && !canRenderVisitForm ? (
             <View style={styles.sectionCard}>
-              <Text style={styles.pageTitle}>Cafe not found</Text>
+              <ActivityIndicator color={COLORS.accent} />
               <Text style={styles.pageSubtitle}>
-                This cafe isn&apos;t on Beaned yet — add it?
+                {redirectingMissingCafe ? 'Opening Log a cafe flow...' : 'Loading cafe...'}
               </Text>
-              <TouchableOpacity style={styles.photoButton} activeOpacity={0.9} onPress={openSuggestPrefilled}>
-                <Text style={styles.photoButtonText}>Add this cafe</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.photoButton, styles.secondaryButton]}
-                onPress={() => router.replace('/')}
-              >
-                <Text style={styles.secondaryButtonText}>Back to cafes</Text>
-              </TouchableOpacity>
             </View>
           ) : null}
 
