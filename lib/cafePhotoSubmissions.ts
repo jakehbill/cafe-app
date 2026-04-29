@@ -1,5 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
+import { Platform } from 'react-native';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 
 const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
@@ -64,36 +65,63 @@ export async function uploadCafePhotoAssetToStorage(params: {
   });
 
   try {
-    let base64 = '';
-    try {
-      base64 = await FileSystem.readAsStringAsync(params.asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-    } catch (error) {
-      throw new Error(
-        `Failed to read selected image: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+    let uploadResult:
+      | { error: null }
+      | {
+          error: { message: string };
+        };
+    if (Platform.OS === 'web') {
+      let blob: Blob;
+      try {
+        const response = await fetch(params.asset.uri);
+        blob = await response.blob();
+      } catch (error) {
+        console.error('[uploadCafePhotoAssetToStorage] web blob conversion failed:', error);
+        throw new Error(
+          `Failed to read selected image on web: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
+      if (!blob || blob.size === 0) {
+        throw new Error('Selected image is empty (0 bytes). Please choose another image.');
+      }
+      uploadResult = await supabase.storage
+        .from(CAFE_USER_PHOTO_BUCKET)
+        .upload(storagePath, blob, {
+          contentType,
+          upsert: false,
+        });
+    } else {
+      let base64 = '';
+      try {
+        base64 = await FileSystem.readAsStringAsync(params.asset.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      } catch (error) {
+        throw new Error(
+          `Failed to read selected image: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
 
-    if (!base64 || base64.length === 0) {
-      throw new Error('Selected image could not be read.');
-    }
+      if (!base64 || base64.length === 0) {
+        throw new Error('Selected image could not be read.');
+      }
 
-    let arrayBuffer: ArrayBuffer;
-    try {
-      arrayBuffer = decode(base64);
-    } catch (error) {
-      throw new Error(
-        `Failed to decode image data: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
+      let arrayBuffer: ArrayBuffer;
+      try {
+        arrayBuffer = decode(base64);
+      } catch (error) {
+        throw new Error(
+          `Failed to decode image data: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
+      }
 
-    const uploadResult = await supabase.storage
-      .from(CAFE_USER_PHOTO_BUCKET)
-      .upload(storagePath, arrayBuffer, {
-        contentType,
-        upsert: false,
-      });
+      uploadResult = await supabase.storage
+        .from(CAFE_USER_PHOTO_BUCKET)
+        .upload(storagePath, arrayBuffer, {
+          contentType,
+          upsert: false,
+        });
+    }
 
     if (uploadResult.error) {
       throw new Error(`Upload failed: ${uploadResult.error.message}`);
