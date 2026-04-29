@@ -72,6 +72,8 @@ export type CompactCafeCardProps = {
   reserveTagSpaceWhenEmpty?: boolean;
   /** Optional metadata line override under title. */
   metadataLineOverride?: string;
+  /** Optional subtle metadata subline under primary metadata (Visited date, etc.). */
+  metadataSublineOverride?: string;
   /** Search-only: enable save/unsave quick action on thumbnail. */
   showBookmarkAction?: boolean;
   /** Optional top-right thumbnail action (e.g. quick "Log visit"). */
@@ -94,6 +96,7 @@ export function CompactCafeCard({
   compactNameMetaGap = false,
   reserveTagSpaceWhenEmpty = false,
   metadataLineOverride,
+  metadataSublineOverride,
   showBookmarkAction = false,
   topRightActionLabel,
   onTopRightActionPress,
@@ -273,6 +276,11 @@ export function CompactCafeCard({
                     ? (metadataLineOverride ?? renderScoreLocationMeta(metadataLine))
                     : metadataLineOverride ?? cafe.neighborhood}
                 </Text>
+                {metadataSublineOverride ? (
+                  <Text style={styles.metadataSubline} numberOfLines={1}>
+                    {metadataSublineOverride}
+                  </Text>
+                ) : null}
               </View>
               {showTagRow ? (
                 <View
@@ -545,6 +553,15 @@ const styles = StyleSheet.create({
   locationCompactMetaGap: {
     marginTop: 0,
     marginBottom: 0,
+  },
+  metadataSubline: {
+    fontSize: 11,
+    lineHeight: 14,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.medium,
+    opacity: 0.88,
+    marginTop: 1,
+    letterSpacing: -0.05,
   },
   locationScore: {
     fontFamily: FONTS.sans.medium,

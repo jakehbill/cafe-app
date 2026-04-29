@@ -21,6 +21,33 @@ import {
 
 import { COLORS, FONTS } from '@/components/theme';
 
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function formatVisitedDateLabel(createdAtIso: string): string | null {
+  const ms = Date.parse(createdAtIso);
+  if (!Number.isFinite(ms)) return null;
+  const d = new Date(ms);
+  const now = new Date();
+  if (isSameLocalDay(d, now)) return 'Visited today';
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (isSameLocalDay(d, yesterday)) return 'Visited yesterday';
+
+  const dateText = d.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+  return `Visited ${dateText}`;
+}
+
 export default function MyCafesScreen() {
   const router = useRouter();
   const { movedFromSaved } = useLocalSearchParams<{ movedFromSaved?: string | string[] }>();
@@ -162,6 +189,7 @@ export default function MyCafesScreen() {
                 const areaFromCafe = String((cafe as unknown as { area?: unknown }).area ?? '').trim();
                 const area = areaFromCafe || String(cafe.neighborhood ?? '').trim();
                 const ratingText = visit.rating != null ? `${visit.rating.toFixed(1)} ★` : '';
+                const visitedDate = formatVisitedDateLabel(visit.createdAt);
                 const metadataLine = [ratingText, area].filter(Boolean).join(' · ');
                 return (
                   <CompactCafeCard
@@ -169,6 +197,7 @@ export default function MyCafesScreen() {
                     cafe={cafe}
                     thumbnailUri={visit?.imageUrl ?? undefined}
                     metadataLineOverride={metadataLine.length > 0 ? metadataLine : undefined}
+                    metadataSublineOverride={visitedDate ?? undefined}
                     notePreview={visit && visit.note.trim().length > 0 ? visit.note.trim() : undefined}
                     scorePosition="cardTopRight"
                     tags={
