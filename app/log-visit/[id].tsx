@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -38,6 +39,7 @@ export default function LogVisitScreen() {
   const guessedCafeName = decodeURIComponent(targetCafeId).replace(/[-_]+/g, ' ').trim();
 
   const [cafe, setCafe] = useState<Cafe | null>(null);
+  const [cafeLoading, setCafeLoading] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [note, setNote] = useState('');
@@ -57,11 +59,18 @@ export default function LogVisitScreen() {
   } | null>(null);
 
   React.useEffect(() => {
-    if (!targetCafeId) return;
+    if (!targetCafeId) {
+      setCafeLoading(false);
+      return;
+    }
     let cancelled = false;
+    setCafeLoading(true);
     void (async () => {
       const row = await fetchCafeByIdFromSupabase(targetCafeId);
-      if (!cancelled) setCafe(row);
+      if (!cancelled) {
+        setCafe(row);
+        setCafeLoading(false);
+      }
     })();
     return () => {
       cancelled = true;

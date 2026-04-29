@@ -345,8 +345,6 @@ export type PublicVisitNote = {
   createdAt: string;
 };
 
-let hasLoggedNoticeBoardCafeLookupWarning = false;
-
 /**
  * Best tag for “X% of people rate this for Y” — uses the most common tag among
  * `rating_tags` rows for this cafe’s ratings; % = ratings that include that tag / total ratings.
@@ -449,107 +447,35 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
 
 /**
  * Recent anonymous community notes from public visit logs.
- * Source of truth: non-empty notes in `user_cafe_visits`.
+ * Source of truth: `get_recent_public_visit_notes` RPC.
  */
 export async function getRecentPublicVisitNotes(limit = 5): Promise<PublicVisitNote[]> {
   const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
-  const visitsRes = await supabase
-    .from('user_cafe_visits')
-    .select('id, cafe_id, submission_id, note, rating, tags, created_at')
-    .not('note', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(Math.max(10, safeLimit));
-  if (visitsRes.error) {
-    console.error('getRecentPublicVisitNotes failed (visits):', visitsRes.error);
+  const rpcRes = await supabase.rpc('get_recent_public_visit_notes', { p_limit: 10 });
+  if (rpcRes.error) {
+    console.error('getRecentPublicVisitNotes RPC failed:', rpcRes.error);
     return [];
   }
 
-  const normalized = (visitsRes.data ?? [])
-    .map((row) => {
-      const cafeIdNum = Number((row as { cafe_id?: unknown }).cafe_id);
-      const cafeIdRaw = Number.isFinite(cafeIdNum) ? String(cafeIdNum).trim() : '';
-      const submissionIdRaw = String((row as { submission_id?: unknown }).submission_id ?? '').trim();
+  const rows = ((rpcRes.data ?? []) as Array<Record<string, unknown>>)
+    .map((row: Record<string, unknown>) => {
+      const cafeIdRaw = String((row as { cafe_id?: unknown }).cafe_id ?? '').trim();
+      const cafeSlug = String((row as { cafe_slug?: unknown }).cafe_slug ?? '').trim();
+      const cafeName = String((row as { cafe_name?: unknown }).cafe_name ?? '').trim();
+      const cafeArea = String((row as { cafe_area?: unknown }).cafe_area ?? '').trim();
       const note = String((row as { note?: unknown }).note ?? '').trim();
       const createdAt = String((row as { created_at?: unknown }).created_at ?? '').trim();
       if (!note || !createdAt) return null;
       return {
         cafeId: cafeIdRaw || null,
-        submissionId: submissionIdRaw || null,
+        cafeSlug: cafeSlug || null,
+        cafeName: cafeName || 'Cafe',
+        cafeArea: cafeArea || null,
         note,
         createdAt,
-      };
-    })
-    .filter((row): row is { cafeId: string | null; submissionId: string | null; note: string; createdAt: string } => row != null);
-
-  const uniqueCafeIds = Array.from(
-    new Set(normalized.map((row) => row.cafeId).filter((id): id is string => Boolean(id)))
-  );
-  const uniqueCafeNumericIds = Array.from(new Set(uniqueCafeIds.map((id) => Number(id)).filter(Number.isFinite)));
-  const uniqueSubmissionIds = Array.from(
-    new Set(normalized.map((row) => row.submissionId).filter((id): id is string => Boolean(id)))
-  );
-
-  const cafeMeta = new Map<string, { name: string; area: string | null; slug: string | null }>();
-  if (uniqueCafeNumericIds.length > 0) {
-    const cafesRes = await supabase
-      .from('cafes')
-      .select('id, name, area, slug')
-      .in('id', uniqueCafeNumericIds);
-    if (cafesRes.error) {
-      if (__DEV__ && !hasLoggedNoticeBoardCafeLookupWarning) {
-        console.warn('getRecentPublicVisitNotes cafes lookup warning:', cafesRes.error);
-        hasLoggedNoticeBoardCafeLookupWarning = true;
-      }
-    } else {
-      for (const row of cafesRes.data ?? []) {
-        const id = String((row as { id?: unknown }).id ?? '').trim();
-        if (!id) continue;
-        const name = String((row as { name?: unknown }).name ?? '').trim();
-        if (!name) continue;
-        const area = String((row as { area?: unknown }).area ?? '').trim() || null;
-        const slug = String((row as { slug?: unknown }).slug ?? '').trim() || null;
-        cafeMeta.set(id, { name, area, slug });
-      }
-    }
-  }
-
-  const submissionMeta = new Map<string, { name: string; area: string | null }>();
-  if (uniqueSubmissionIds.length > 0) {
-    const submissionsRes = await supabase
-      .from('cafe_submissions')
-      .select('id, cafe_name, area, approved_cafe_id')
-      .in('id', uniqueSubmissionIds);
-    if (submissionsRes.error) {
-      console.error('getRecentPublicVisitNotes failed (submission lookup):', submissionsRes.error);
-    } else {
-      for (const row of submissionsRes.data ?? []) {
-        const id = String((row as { id?: unknown }).id ?? '').trim();
-        if (!id) continue;
-        const name = String((row as { cafe_name?: unknown }).cafe_name ?? '').trim();
-        const area = String((row as { area?: unknown }).area ?? '').trim() || null;
-        if (!name) continue;
-        submissionMeta.set(id, { name, area });
-      }
-    }
-  }
-
-  const rows = normalized
-    .map((item) => {
-      const cafeMetaRow = item.cafeId ? cafeMeta.get(item.cafeId) : null;
-      const submissionMetaRow = item.submissionId ? submissionMeta.get(item.submissionId) : null;
-      const cafeName = cafeMetaRow?.name
-        || (item.cafeId
-          ? `Cafe #${item.cafeId}`
-          : (submissionMetaRow?.name || (item.submissionId ? 'Cafe pending review' : 'Cafe')));
-      return {
-        cafeId: item.cafeId,
-        cafeSlug: cafeMetaRow?.slug ?? null,
-        cafeName,
-        cafeArea: cafeMetaRow?.area ?? submissionMetaRow?.area ?? null,
-        note: item.note,
-        createdAt: item.createdAt,
       } satisfies PublicVisitNote;
     })
+    .filter((row: PublicVisitNote | null): row is PublicVisitNote => row != null)
     .slice(0, safeLimit);
   return rows;
 }
