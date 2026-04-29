@@ -493,3 +493,53 @@ export async function getUserCafeVisitTimeline(): Promise<UserCafeVisit[]> {
 
   return withSigned;
 }
+
+/**
+ * Most recent visit log for a specific cafe (current user only).
+ * Returns null when not signed in or when no visit exists.
+ */
+export async function getMostRecentUserVisitForCafe(cafeId: string): Promise<UserCafeVisit | null> {
+  const normalizedCafeId = String(cafeId).trim();
+  if (!normalizedCafeId) return null;
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user?.id) return null;
+
+  const res = await supabase
+    .from('user_cafe_visits')
+    .select(
+      'id, cafe_id, submission_id, created_at, rating, tags, note, is_public, cafe_submissions(cafe_name,status)'
+    )
+    .eq('user_id', data.user.id)
+    .eq('cafe_id', normalizedCafeId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (res.error || !res.data) return null;
+
+  const row = res.data;
+  const imageMap = await fetchPrimaryPhotoUrlByVisitId([String(row.id)]);
+
+  return {
+    id: String(row.id),
+    cafeId: row.cafe_id == null ? null : String(row.cafe_id),
+    submissionId: row.submission_id == null ? null : String(row.submission_id),
+    submissionCafeName:
+      row.cafe_submissions && typeof row.cafe_submissions === 'object'
+        ? String((row.cafe_submissions as { cafe_name?: unknown }).cafe_name ?? '').trim() || null
+        : null,
+    submissionStatus:
+      row.cafe_submissions && typeof row.cafe_submissions === 'object'
+        ? (((row.cafe_submissions as { status?: unknown }).status as
+            | 'pending'
+            | 'approved'
+            | 'rejected'
+            | undefined) ?? null)
+        : null,
+    createdAt: String(row.created_at ?? ''),
+    rating: typeof row.rating === 'number' ? row.rating : null,
+    tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
+    note: typeof row.note === 'string' ? row.note : '',
+    isPublic: row.is_public === true,
+    imageUrl: imageMap.get(String(row.id)) ?? null,
+  };
+}

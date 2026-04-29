@@ -14,7 +14,6 @@ import { CompactCafeCard } from '@/components/CompactCafeCard';
 import type { Cafe } from '@/data/cafes';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
-import { supabase } from '@/lib/supabase';
 import {
   getUserCafeVisitTimeline,
   type UserCafeVisit,
@@ -22,18 +21,12 @@ import {
 
 import { COLORS, FONTS } from '@/components/theme';
 
-type RatingFallback = {
-  coffee: number;
-  tags: string[];
-};
-
 export default function MyCafesScreen() {
   const router = useRouter();
   const { movedFromSaved } = useLocalSearchParams<{ movedFromSaved?: string | string[] }>();
   const navigation = useNavigation();
   const [visitLogs, setVisitLogs] = useState<UserCafeVisit[]>([]);
   const [cafesById, setCafesById] = useState<Record<string, Cafe>>({});
-  const [ratingFallbackByCafeId, setRatingFallbackByCafeId] = useState<Record<string, RatingFallback>>({});
   const [showMovedToast, setShowMovedToast] = useState(false);
 
   useEffect(() => {
@@ -51,34 +44,15 @@ export default function MyCafesScreen() {
     let cancelled = false;
     void (async () => {
       const logs = await getUserCafeVisitTimeline();
-      const fallbackRatings: Record<string, RatingFallback> = {};
-      const authRes = await supabase.auth.getUser();
-      const userId = authRes.data.user?.id;
-      if (userId) {
-        const ratingsRes = await supabase
-          .from('user_cafe_ratings')
-          .select('cafe_id, coffee, tags')
-          .eq('user_id', userId);
-        if (!ratingsRes.error) {
-          for (const row of ratingsRes.data ?? []) {
-            const cafeId = String(row.cafe_id ?? '').trim();
-            if (!cafeId) continue;
-            const coffee = typeof row.coffee === 'number' ? row.coffee : 0;
-            const tags = Array.isArray(row.tags) ? row.tags.map(String) : [];
-            fallbackRatings[cafeId] = { coffee, tags };
-          }
-        }
-      }
-
-      const visitCafeIds = logs.map((row) => row.cafeId).filter((id): id is string => Boolean(id));
-      const allCafeIds = Array.from(new Set([...visitCafeIds, ...Object.keys(fallbackRatings)]));
-      const cafes = await fetchCafesByIdsOrdered(allCafeIds);
+      const visitCafeIds = Array.from(
+        new Set(logs.map((row) => row.cafeId).filter((id): id is string => Boolean(id)))
+      );
+      const cafes = await fetchCafesByIdsOrdered(visitCafeIds);
       if (cancelled) return;
       const nextMap: Record<string, Cafe> = {};
       for (const cafe of cafes) nextMap[cafe.id] = cafe;
       setVisitLogs(logs);
       setCafesById(nextMap);
-      setRatingFallbackByCafeId(fallbackRatings);
     })();
     return () => {
       cancelled = true;
@@ -134,20 +108,12 @@ export default function MyCafesScreen() {
   }, [visitLogs, cafesById]);
 
   const compactRows = React.useMemo(() => {
-    const rows: Array<{ cafe: Cafe; visit: UserCafeVisit | null; fallback: RatingFallback | null }> = [];
-    const seen = new Set<string>();
+    const rows: Array<{ cafe: Cafe; visit: UserCafeVisit }> = [];
     for (const row of latestVisitByCafe) {
-      rows.push({ cafe: row.cafe, visit: row.visit, fallback: null });
-      seen.add(row.cafeId);
-    }
-    for (const [cafeId, fallback] of Object.entries(ratingFallbackByCafeId)) {
-      if (seen.has(cafeId)) continue;
-      const cafe = cafesById[cafeId];
-      if (!cafe) continue;
-      rows.push({ cafe, visit: null, fallback });
+      rows.push({ cafe: row.cafe, visit: row.visit });
     }
     return rows;
-  }, [latestVisitByCafe, ratingFallbackByCafeId, cafesById]);
+  }, [latestVisitByCafe]);
 
   const hasVisits = compactRows.length > 0;
 
@@ -191,12 +157,11 @@ export default function MyCafesScreen() {
           ) : null}
           <Text style={styles.hint}>A record of the cafes you’ve visited, rated and remembered.</Text>
           <View style={styles.timelineList}>
-            {compactRows.map(({ cafe, visit, fallback }) => (
+            {compactRows.map(({ cafe, visit }) => (
               (() => {
                 const areaFromCafe = String((cafe as unknown as { area?: unknown }).area ?? '').trim();
                 const area = areaFromCafe || String(cafe.neighborhood ?? '').trim();
-                const ratingValue = visit?.rating != null ? visit.rating : fallback?.coffee ?? null;
-                const ratingText = ratingValue != null ? ratingValue.toFixed(1) : '';
+                const ratingText = visit.rating != null ? `${visit.rating.toFixed(1)} ★` : '';
                 const metadataLine = [ratingText, area].filter(Boolean).join(' · ');
                 return (
                   <CompactCafeCard
@@ -207,9 +172,7 @@ export default function MyCafesScreen() {
                     notePreview={visit && visit.note.trim().length > 0 ? visit.note.trim() : undefined}
                     scorePosition="cardTopRight"
                     tags={
-                      visit
-                        ? (visit.tags.length > 0 ? visit.tags : undefined)
-                        : ((fallback?.tags.length ?? 0) > 0 ? fallback?.tags : undefined)
+                      visit.tags.length > 0 ? visit.tags : undefined
                     }
                     maxTags={3}
                     onPress={() => router.push(`/cafe/${cafe.id}`)}

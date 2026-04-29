@@ -49,15 +49,16 @@ type ProfileCounts = {
  * Uses `cafe_id` in select so PostgREST returns a reliable `count` with `head: true`.
  */
 async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCounts> {
-  const [savedRes, visitedRes, ratingsRes, submissionRes, approvedSubmissionRes, photoRes, approvedPhotoRes, submissionPhotoRes] = await Promise.all([
+  const [savedRes, visitedCafeRowsRes, ratingsRes, submissionRes, approvedSubmissionRes, photoRes, approvedPhotoRes, submissionPhotoRes] = await Promise.all([
     supabase
       .from('user_saved_cafes')
       .select('cafe_id', { count: 'exact', head: true })
       .eq('user_id', userId),
     supabase
       .from('user_cafe_visits')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId),
+      .select('cafe_id')
+      .eq('user_id', userId)
+      .not('cafe_id', 'is', null),
     supabase
       .from('user_cafe_ratings')
       .select('cafe_id', { count: 'exact', head: true })
@@ -89,8 +90,8 @@ async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCo
   if (savedRes.error) {
     console.error('Profile count saved:', savedRes.error);
   }
-  if (visitedRes.error) {
-    console.error('Profile count visited:', visitedRes.error);
+  if (visitedCafeRowsRes.error) {
+    console.error('Profile count visited:', visitedCafeRowsRes.error);
   }
   if (ratingsRes.error) {
     console.error('Profile count ratings:', ratingsRes.error);
@@ -122,7 +123,13 @@ async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCo
 
   return {
     saved: savedRes.count ?? 0,
-    visited: visitedRes.count ?? 0,
+    // Definition: number of unique cafes the user has logged in user_cafe_visits.
+    // Multiple logs for the same cafe count once. Submission-only logs (no cafe_id) are excluded.
+    visited: new Set(
+      (visitedCafeRowsRes.data ?? [])
+        .map((row) => String((row as { cafe_id?: unknown }).cafe_id ?? '').trim())
+        .filter(Boolean)
+    ).size,
     ratings: ratingsRes.count ?? 0,
     cafesSuggested: meaningfulSuggestionKeys.size,
     cafesApproved: approvedSubmissionRes.count ?? 0,

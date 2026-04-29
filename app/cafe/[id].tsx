@@ -17,6 +17,7 @@ import {
   type CafeCommunityTagInsight,
   type CafeRecentReview,
 } from '@/lib/supabase';
+import { getMostRecentUserVisitForCafe } from '@/lib/userCafeVisits';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -128,6 +129,7 @@ export default function CafeDetailScreen() {
   const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
   const [recentReviews, setRecentReviews] = useState<CafeRecentReview[]>([]);
   const [approvedUserPhotoUrls, setApprovedUserPhotoUrls] = useState<string[]>([]);
+  const [mostRecentVisitId, setMostRecentVisitId] = useState<string | null>(null);
   const { coords: userLocation, refreshLocation } = useUserLocation();
 
   const { width: windowWidth } = useWindowDimensions();
@@ -150,6 +152,7 @@ export default function CafeDetailScreen() {
     if (!cafeId) {
       setCafe(null);
       setCafeLoading(false);
+      setMostRecentVisitId(null);
       return;
     }
     let cancelled = false;
@@ -165,6 +168,24 @@ export default function CafeDetailScreen() {
       cancelled = true;
     };
   }, [cafeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!cafe?.id) {
+      setMostRecentVisitId(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+    void (async () => {
+      const recent = await getMostRecentUserVisitForCafe(cafe.id);
+      if (cancelled) return;
+      setMostRecentVisitId(recent?.id ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cafe?.id]);
 
   useEffect(() => {
     if (!cafe?.id) {
@@ -556,9 +577,18 @@ export default function CafeDetailScreen() {
               <Text style={styles.savedVisitPromptText}>Been here? Log your visit</Text>
             ) : null}
             <ActionButton
-              label="Log this cafe"
+              label={mostRecentVisitId ? 'Edit rating' : 'Log this cafe'}
               accentActive
-              onPress={() => router.push(`/log-visit/${cafe.id}` as never)}
+              onPress={() =>
+                router.push(
+                  mostRecentVisitId
+                    ? ({
+                        pathname: `/log-visit/${cafe.id}`,
+                        params: { visitId: mostRecentVisitId },
+                      } as never)
+                    : (`/log-visit/${cafe.id}` as never)
+                )
+              }
             />
           </View>
         </View>
