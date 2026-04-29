@@ -54,6 +54,7 @@ export default function SuggestCafeScreen() {
   const params = useLocalSearchParams<{
     prefillName?: string | string[];
     fromVisitLog?: string | string[];
+    cafeId?: string | string[];
     visitRating?: string | string[];
     visitTags?: string | string[];
     visitNote?: string | string[];
@@ -62,6 +63,15 @@ export default function SuggestCafeScreen() {
     visitPhotoFileName?: string | string[];
   }>();
   const fromVisitLog = (Array.isArray(params.fromVisitLog) ? params.fromVisitLog[0] : params.fromVisitLog) === '1';
+  const routeCafeId = (Array.isArray(params.cafeId) ? params.cafeId[0] : params.cafeId) ?? '';
+  const existingCafeId = String(routeCafeId).trim();
+  const isExistingCafeFlow = fromVisitLog && existingCafeId.length > 0;
+  const isMissingCafeFlow = fromVisitLog && !isExistingCafeFlow;
+  React.useEffect(() => {
+    if (!fromVisitLog) return;
+    console.log('cafeId:', existingCafeId);
+    console.log('flow type:', existingCafeId ? 'existing' : 'new');
+  }, [fromVisitLog, existingCafeId]);
   const initialNameParam = Array.isArray(params.prefillName) ? params.prefillName[0] : params.prefillName;
   const initialName = (() => {
     const candidate = String(initialNameParam ?? '').trim();
@@ -172,8 +182,8 @@ export default function SuggestCafeScreen() {
     };
   }, []);
 
-  const submitDisabled = fromVisitLog
-    ? submitting || redirecting || cafeName.trim().length === 0 || !isValidOptionalUrl(googleMapsUrl)
+  const submitDisabled = isExistingCafeFlow
+    ? submitting || redirecting
     : submitting || redirecting || cafeName.trim().length === 0 || !isValidOptionalUrl(googleMapsUrl);
 
   function toggleTag(tag: string) {
@@ -198,7 +208,7 @@ export default function SuggestCafeScreen() {
   }
 
   function handleBack() {
-    if (fromVisitLog && visitFlowStep === 2) {
+    if (isMissingCafeFlow && visitFlowStep === 2) {
       setVisitFlowStep(1);
       return;
     }
@@ -268,11 +278,11 @@ export default function SuggestCafeScreen() {
 
   async function handleSubmit() {
     const nameTrimmed = cafeName.trim();
-    if (!nameTrimmed) {
+    if (!isExistingCafeFlow && !nameTrimmed) {
       setSubmitError('Cafe name is required.');
       return;
     }
-    if (!isValidOptionalUrl(googleMapsUrl)) {
+    if (!isExistingCafeFlow && !isValidOptionalUrl(googleMapsUrl)) {
       setSubmitError('Please enter a valid URL (including https://).');
       return;
     }
@@ -282,6 +292,28 @@ export default function SuggestCafeScreen() {
     setSuccessMessage(null);
 
     try {
+      if (isExistingCafeFlow) {
+        const linkedVisit = await saveUserCafeVisit({
+          cafeId: existingCafeId,
+          submissionId: null,
+          rating: visitRating,
+          tags: visitTags,
+          note: visitNote,
+          photoAsset: visitPhoto,
+        });
+        if (!linkedVisit.ok) {
+          setSubmitError(linkedVisit.error);
+          return;
+        }
+        setSuccessMessage('Visit saved');
+        setVisitLogSuccessState({
+          hadPhoto: Boolean(visitPhoto?.uri),
+          pendingReview: false,
+        });
+        resetForm();
+        return;
+      }
+
       const result = await createCafeSuggestionWithId(
         fromVisitLog
           ? {
@@ -507,7 +539,7 @@ export default function SuggestCafeScreen() {
                     />
                   </View>
                 </>
-              ) : (
+              ) : isMissingCafeFlow ? (
                 <>
                   <TextInput
                     style={styles.input}
@@ -542,7 +574,7 @@ export default function SuggestCafeScreen() {
                     <Text style={styles.validationText}>Enter a valid URL with http:// or https://.</Text>
                   ) : null}
                 </>
-              )}
+              ) : null}
             </View>
           ) : null}
 
@@ -729,14 +761,14 @@ export default function SuggestCafeScreen() {
             </View>
           ) : null}
 
-          {fromVisitLog && !visitLogSuccessState && visitFlowStep === 1 ? (
+          {isMissingCafeFlow && !visitLogSuccessState && visitFlowStep === 1 ? (
             <TouchableOpacity
               activeOpacity={0.88}
               style={[styles.submitButton, (submitting || redirecting) && styles.submitButtonDisabled]}
               onPress={() => setVisitFlowStep(2)}
               disabled={submitting || redirecting}
             >
-              <Text style={styles.submitButtonText}>Continue</Text>
+              <Text style={styles.submitButtonText}>Next</Text>
             </TouchableOpacity>
           ) : !visitLogSuccessState ? (
             <TouchableOpacity
@@ -749,7 +781,7 @@ export default function SuggestCafeScreen() {
                 <ActivityIndicator color="#ffffff" />
               ) : (
                 <Text style={styles.submitButtonText}>
-                  {fromVisitLog ? 'Save to my diary' : 'Submit for review'}
+                  {isExistingCafeFlow ? 'Save visit' : fromVisitLog ? 'Add details' : 'Submit for review'}
                 </Text>
               )}
             </TouchableOpacity>

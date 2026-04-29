@@ -39,7 +39,6 @@ export default function LogVisitScreen() {
   const guessedCafeName = decodeURIComponent(targetCafeId).replace(/[-_]+/g, ' ').trim();
 
   const [cafe, setCafe] = useState<Cafe | null>(null);
-  const [cafeLoading, setCafeLoading] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [note, setNote] = useState('');
@@ -59,17 +58,12 @@ export default function LogVisitScreen() {
   } | null>(null);
 
   React.useEffect(() => {
-    if (!targetCafeId) {
-      setCafeLoading(false);
-      return;
-    }
+    if (!targetCafeId) return;
     let cancelled = false;
-    setCafeLoading(true);
     void (async () => {
       const row = await fetchCafeByIdFromSupabase(targetCafeId);
       if (!cancelled) {
         setCafe(row);
-        setCafeLoading(false);
       }
     })();
     return () => {
@@ -178,7 +172,7 @@ export default function LogVisitScreen() {
     if (!cafe) return undefined;
     return resolveLiveCafePrimaryImageUrl({ cafe });
   }, [cafe, photoAsset?.uri]);
-  const canRenderVisitForm = Boolean(cafe) || Boolean(editingVisitId);
+  const canRenderVisitForm = Boolean(targetCafeId) || Boolean(cafe) || Boolean(editingVisitId);
 
   function openSuggestPrefilled() {
     router.push({
@@ -197,13 +191,13 @@ export default function LogVisitScreen() {
   }
 
   React.useEffect(() => {
+    console.log('cafeId:', cafeId ?? '');
+    console.log('flow type:', cafeId ? 'existing' : 'new');
     if (successState || editingVisitId) return;
-    if (!targetCafeId) return;
-    if (cafeLoading) return;
-    if (cafe) return;
+    if (cafeId) return;
     setRedirectingMissingCafe(true);
     openSuggestPrefilled();
-  }, [successState, editingVisitId, targetCafeId, cafeLoading, cafe]);
+  }, [successState, editingVisitId, cafeId]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
