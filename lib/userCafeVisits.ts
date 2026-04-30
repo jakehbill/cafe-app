@@ -87,7 +87,7 @@ async function insertVisitPhoto(params: {
   const nextSort =
     !current.error && typeof current.data?.sort_order === 'number' ? current.data.sort_order + 1 : 0;
 
-  await supabase.from('visit_photos').insert({
+  const insertRes = await supabase.from('visit_photos').insert({
     visit_id: params.visitId,
     user_id: params.userId,
     storage_path: params.storagePath,
@@ -95,6 +95,9 @@ async function insertVisitPhoto(params: {
     is_public: false,
     public_status: 'private',
   });
+  if (insertRes.error) {
+    throw new Error(`Failed to save visit photo: ${insertRes.error.message}`);
+  }
 }
 
 async function ensureSubmissionPhotoFromVisit(params: {
@@ -113,8 +116,11 @@ async function ensureSubmissionPhotoFromVisit(params: {
     .from('cafe_submission_photos')
     .select('id', { count: 'exact', head: true })
     .eq('submission_id', params.submissionId);
+  if (countRes.error) {
+    throw new Error(`Failed to prepare submission photo queue row: ${countRes.error.message}`);
+  }
   const nextSort = countRes.count ?? 0;
-  await supabase.from('cafe_submission_photos').insert({
+  const insertRes = await supabase.from('cafe_submission_photos').insert({
     submission_id: params.submissionId,
     user_id: params.userId,
     storage_path: params.storagePath,
@@ -122,6 +128,9 @@ async function ensureSubmissionPhotoFromVisit(params: {
     photo_kind: 'other',
     sort_order: nextSort,
   });
+  if (insertRes.error) {
+    throw new Error(`Failed to queue photo for submission moderation: ${insertRes.error.message}`);
+  }
 }
 
 async function getLatestVisitPhotoStoragePath(visitId: string): Promise<string | null> {
@@ -180,7 +189,7 @@ async function queueVisitPhotoForModeration(params: {
     .eq('storage_path', params.storagePath)
     .limit(1);
   if (!existing.error && (existing.data?.length ?? 0) > 0) return;
-  await supabase.from('cafe_photos').insert({
+  const insertRes = await supabase.from('cafe_photos').insert({
     user_id: params.userId,
     cafe_id: numericCafeId,
     storage_path: params.storagePath,
@@ -189,6 +198,9 @@ async function queueVisitPhotoForModeration(params: {
     source_visit_id: params.visitId,
     status: 'pending',
   });
+  if (insertRes.error) {
+    throw new Error(`Failed to queue photo for cafe moderation: ${insertRes.error.message}`);
+  }
 }
 
 async function removeVisitFromPendingPublicPool(visitId: string) {
@@ -197,7 +209,11 @@ async function removeVisitFromPendingPublicPool(visitId: string) {
 
 function normalizeRating(rating: number | null | undefined): number | null {
   if (typeof rating !== 'number') return null;
-  return Math.min(5, Math.max(1, Math.round(rating * 2) / 2));
+  return Math.min(5, Math.max(1, Math.round(rating)));
+}
+
+function toCoffeeRatingIntScale(rating: number): number {
+  return Math.min(10, Math.max(2, Math.round(rating * 2)));
 }
 
 function normalizeTags(tags: string[] | undefined): string[] {
@@ -296,38 +312,56 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
     await removeSavedCafeIfExists({ userId, cafeId });
   }
 
-  if (storagePath) {
-    await insertVisitPhoto({
+  try {
+    if (storagePath) {
+      await insertVisitPhoto({
+        visitId,
+        userId,
+        storagePath,
+      });
+    }
+
+    if (storagePath && cafeId) {
+      await queueVisitPhotoForModeration({
+        visitId,
+        userId,
+        cafeId,
+        storagePath,
+        note,
+      });
+    }
+
+    if (storagePath && submissionId) {
+      await ensureSubmissionPhotoFromVisit({
+        submissionId,
+        userId,
+        storagePath,
+      });
+    }
+
+    if (rating != null && cafeId) {
+      const rateRes = await rateCafe(cafeId, {
+        coffee: toCoffeeRatingIntScale(rating),
+        tags,
+        notes: note,
+      });
+      if (!rateRes.ok) {
+        return {
+          ok: false,
+          error: `Visit saved, but rating sync failed: ${rateRes.error}`,
+        };
+      }
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Moderation routing failed.';
+    console.error('[saveUserCafeVisit] moderation routing failed', {
       visitId,
-      userId,
+      cafeId: cafeId || null,
+      submissionId: submissionId || null,
       storagePath,
+      message,
     });
-  }
-
-  if (storagePath && cafeId) {
-    await queueVisitPhotoForModeration({
-      visitId,
-      userId,
-      cafeId,
-      storagePath,
-      note,
-    });
-  }
-
-  if (storagePath && submissionId) {
-    await ensureSubmissionPhotoFromVisit({
-      submissionId,
-      userId,
-      storagePath,
-    });
-  }
-
-  if (rating != null && cafeId) {
-    await rateCafe(cafeId, {
-      coffee: rating,
-      tags,
-      notes: note,
-    });
+    return { ok: false, error: `Visit saved, but moderation routing failed: ${message}` };
   }
 
   return { ok: true };
@@ -415,22 +449,42 @@ export async function updateUserCafeVisit(
     .eq('id', visitId);
   if (updateRes.error) return { ok: false, error: updateRes.error.message };
 
-  if (input.photoAsset?.uri && nextStoragePath) {
-    await insertVisitPhoto({
-      visitId,
-      userId,
-      storagePath: nextStoragePath,
-    });
-  }
+  try {
+    if (input.photoAsset?.uri && nextStoragePath) {
+      await insertVisitPhoto({
+        visitId,
+        userId,
+        storagePath: nextStoragePath,
+      });
+    }
 
-  if (existing.cafeId && nextStoragePath) {
-    await queueVisitPhotoForModeration({
+    if (existing.cafeId && nextStoragePath) {
+      await queueVisitPhotoForModeration({
+        visitId,
+        userId,
+        cafeId: existing.cafeId,
+        storagePath: nextStoragePath,
+        note: nextNote,
+      });
+    }
+
+    if (existing.submissionId && nextStoragePath) {
+      await ensureSubmissionPhotoFromVisit({
+        submissionId: existing.submissionId,
+        userId,
+        storagePath: nextStoragePath,
+      });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Moderation routing failed.';
+    console.error('[updateUserCafeVisit] moderation routing failed', {
       visitId,
-      userId,
       cafeId: existing.cafeId,
+      submissionId: existing.submissionId,
       storagePath: nextStoragePath,
-      note: nextNote,
+      message,
     });
+    return { ok: false, error: `Visit updated, but moderation routing failed: ${message}` };
   }
   return { ok: true };
 }

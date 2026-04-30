@@ -300,13 +300,13 @@ export default function LogVisitScreen() {
 
           {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>How was it?</Text>
-            <Text style={styles.ratingValue}>{rating == null ? 'Not rated' : `${rating.toFixed(1)} / 5`}</Text>
+            <Text style={styles.ratingValue}>{rating == null ? 'Not rated' : `${Math.round(rating)} / 5`}</Text>
             <Slider
               value={rating ?? 3}
               onValueChange={(v) => setRating(v)}
               minimumValue={1}
               maximumValue={5}
-              step={0.5}
+              step={1}
               minimumTrackTintColor={COLORS.accent}
               maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
               thumbTintColor={COLORS.accent}

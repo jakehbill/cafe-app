@@ -320,6 +320,8 @@ export default function SuggestCafeScreen() {
               cafeName: nameTrimmed,
               area,
               googleMapsUrl,
+              notes: visitNote,
+              selectedTags: visitTags,
             }
           : {
               cafeName: nameTrimmed,
@@ -474,14 +476,14 @@ export default function SuggestCafeScreen() {
 
                   <Text style={styles.fieldLabel}>How was it?</Text>
                   <Text style={styles.visitRatingValue}>
-                    {visitRating == null ? 'Not rated' : `${visitRating.toFixed(1)} / 5`}
+                    {visitRating == null ? 'Not rated' : `${Math.round(visitRating)} / 5`}
                   </Text>
                   <Slider
                     value={visitRating ?? 3}
                     onValueChange={(v) => setVisitRating(v)}
                     minimumValue={1}
                     maximumValue={5}
-                    step={0.5}
+                    step={1}
                     minimumTrackTintColor={COLORS.accent}
                     maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
                     thumbTintColor={COLORS.accent}
