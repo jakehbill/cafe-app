@@ -1,16 +1,23 @@
 /**
- * Google Places API (New) — autocomplete + place details for café suggestions.
+ * Google Places API (New) — text search + place details for café suggestions.
  * Uses EXPO_PUBLIC_GOOGLE_PLACES_API_KEY (client-side; restrict key by HTTP referrer in GCP).
  */
 
 import Constants from 'expo-constants';
 
-const AUTOCOMPLETE_URL = 'https://places.googleapis.com/v1/places:autocomplete';
+const SEARCH_TEXT_URL = 'https://places.googleapis.com/v1/places:searchText';
 
-const LONDON_VIEWPORT = {
-  low: { latitude: 51.25, longitude: -0.52 },
-  high: { latitude: 51.72, longitude: 0.22 },
-} as const;
+/** No spaces in field mask (Places API requirement). */
+const TEXT_SEARCH_FIELD_MASK =
+  'places.id,places.displayName,places.formattedAddress,places.location,places.types,places.primaryType,places.websiteUri,places.nationalPhoneNumber,places.googleMapsUri';
+
+const PREFERRED_TYPES = new Set([
+  'cafe',
+  'coffee_shop',
+  'bakery',
+  'restaurant',
+  'food',
+]);
 
 export function createPlacesSessionToken(): string {
   if (typeof globalThis !== 'undefined' && globalThis.crypto?.randomUUID) {
@@ -38,20 +45,18 @@ export function getGooglePlacesApiKeyOrEmpty(): string {
   return getApiKey();
 }
 
-export type PlacesAutocompleteItem = {
+export type PlacesSearchListItem = {
   placeId: string;
   title: string;
   subtitle: string;
 };
 
-type AutocompletePrediction = {
-  place?: string;
-  placeId?: string;
-  text?: { text?: string };
-  structuredFormat?: {
-    mainText?: { text?: string };
-    secondaryText?: { text?: string };
-  };
+type TextSearchPlaceRow = {
+  id?: string;
+  displayName?: { text?: string };
+  formattedAddress?: string;
+  types?: string[];
+  primaryType?: string;
 };
 
 function normalizePlaceId(raw: string): string {
@@ -60,73 +65,90 @@ function normalizePlaceId(raw: string): string {
   return s;
 }
 
-export async function fetchPlacesAutocomplete(
-  input: string,
-  sessionToken: string
-): Promise<PlacesAutocompleteItem[]> {
+function typePreferenceScore(primaryType: string | undefined, types: string[] | undefined): number {
+  let score = 0;
+  const pt = (primaryType ?? '').trim().toLowerCase();
+  if (pt.length > 0 && PREFERRED_TYPES.has(pt)) {
+    score += 6;
+  }
+  for (const t of types ?? []) {
+    if (PREFERRED_TYPES.has(String(t).toLowerCase())) {
+      score += 1;
+    }
+  }
+  return score;
+}
+
+/**
+ * Text Search (New): full query as `textQuery`, London circle bias, up to 10 results.
+ * Prefers cafe / coffee_shop / bakery / restaurant / food via sort only (no API type restriction).
+ */
+export async function fetchPlacesTextSearch(textQuery: string): Promise<PlacesSearchListItem[]> {
   const apiKey = getApiKey();
   if (!apiKey) {
     throw new Error('Missing EXPO_PUBLIC_GOOGLE_PLACES_API_KEY.');
   }
-  const q = input.trim();
+  const q = textQuery.trim();
   if (q.length < 2) {
     return [];
   }
 
   const body = {
-    input: q,
-    sessionToken,
-    includedRegionCodes: ['GB'],
-    includedPrimaryTypes: ['cafe', 'coffee_shop'],
+    textQuery: q,
+    pageSize: 10,
     languageCode: 'en-GB',
     regionCode: 'GB',
     locationBias: {
-      rectangle: {
-        low: LONDON_VIEWPORT.low,
-        high: LONDON_VIEWPORT.high,
+      circle: {
+        center: { latitude: 51.5072, longitude: -0.1276 },
+        radius: 25000,
       },
     },
   };
 
-  const res = await fetch(AUTOCOMPLETE_URL, {
+  const res = await fetch(SEARCH_TEXT_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask':
-        'suggestions.placePrediction.placeId,suggestions.placePrediction.place,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat',
+      'X-Goog-FieldMask': TEXT_SEARCH_FIELD_MASK,
     },
     body: JSON.stringify(body),
   });
 
   const json = (await res.json()) as {
-    suggestions?: { placePrediction?: AutocompletePrediction }[];
-    error?: { message?: string; status?: string };
+    places?: TextSearchPlaceRow[];
+    error?: { message?: string };
   };
 
   if (!res.ok) {
-    const msg = json.error?.message ?? res.statusText ?? 'Autocomplete request failed.';
+    const msg = json.error?.message ?? res.statusText ?? 'Text search request failed.';
     throw new Error(msg);
   }
 
-  const out: PlacesAutocompleteItem[] = [];
-  for (const s of json.suggestions ?? []) {
-    const p = s.placePrediction;
-    if (!p) continue;
-    const placeId =
-      (typeof p.placeId === 'string' && p.placeId.trim()) ||
-      (typeof p.place === 'string' ? normalizePlaceId(p.place) : '');
-    if (!placeId) continue;
+  const rows = (json.places ?? []).map((p, index) => ({
+    index,
+    placeId: normalizePlaceId(typeof p.id === 'string' ? p.id : ''),
+    title: p.displayName?.text?.trim() ?? '',
+    subtitle: p.formattedAddress?.trim() ?? '',
+    primaryType: p.primaryType,
+    types: p.types,
+  }));
 
-    const main = p.structuredFormat?.mainText?.text?.trim() ?? '';
-    const secondary = p.structuredFormat?.secondaryText?.text?.trim() ?? '';
-    const fallbackTitle = p.text?.text?.trim() ?? '';
-    const title = main || fallbackTitle || placeId;
-    const subtitle = secondary;
+  const filtered = rows.filter((r) => r.placeId.length > 0 && r.title.length > 0);
 
-    out.push({ placeId, title, subtitle });
-  }
-  return out;
+  filtered.sort((a, b) => {
+    const sa = typePreferenceScore(a.primaryType, a.types);
+    const sb = typePreferenceScore(b.primaryType, b.types);
+    if (sb !== sa) return sb - sa;
+    return a.index - b.index;
+  });
+
+  return filtered.map((r) => ({
+    placeId: r.placeId,
+    title: r.title,
+    subtitle: r.subtitle.length > 0 ? r.subtitle : 'Address not listed',
+  }));
 }
 
 export type GooglePlaceDetailsForSubmission = {

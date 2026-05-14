@@ -18,10 +18,10 @@ import { submitGooglePlacesCafeSuggestion } from '@/lib/cafeSubmissions';
 import {
   createPlacesSessionToken,
   fetchPlaceDetailsForSubmission,
-  fetchPlacesAutocomplete,
+  fetchPlacesTextSearch,
   getGooglePlacesApiKeyOrEmpty,
   type GooglePlaceDetailsForSubmission,
-  type PlacesAutocompleteItem,
+  type PlacesSearchListItem,
 } from '@/lib/googlePlaces';
 
 type Step = 'search' | 'preview';
@@ -37,7 +37,7 @@ export default function SuggestGooglePlaceScreen() {
   const [step, setStep] = useState<Step>('search');
   const [sessionToken, setSessionToken] = useState(createPlacesSessionToken);
   const [query, setQuery] = useState(initialQuery);
-  const [suggestions, setSuggestions] = useState<PlacesAutocompleteItem[]>([]);
+  const [suggestions, setSuggestions] = useState<PlacesSearchListItem[]>([]);
   const [autocompleteLoading, setAutocompleteLoading] = useState(false);
   const [autocompleteError, setAutocompleteError] = useState<string | null>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -77,7 +77,7 @@ export default function SuggestGooglePlaceScreen() {
     const t = setTimeout(() => {
       void (async () => {
         try {
-          const list = await fetchPlacesAutocomplete(q, sessionToken);
+          const list = await fetchPlacesTextSearch(q);
           if (cancelled) return;
           setSuggestions(list);
         } catch (e) {
@@ -94,13 +94,13 @@ export default function SuggestGooglePlaceScreen() {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [query, sessionToken, hasApiKey]);
+  }, [query, hasApiKey]);
 
   const openUrl = (url: string) => {
     void Linking.openURL(url);
   };
 
-  const onSelectSuggestion = async (item: PlacesAutocompleteItem) => {
+  const onSelectSuggestion = async (item: PlacesSearchListItem) => {
     if (!hasApiKey) return;
     setDetailsError(null);
     setDetailsLoading(true);
@@ -227,12 +227,15 @@ export default function SuggestGooglePlaceScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scrollPad} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Suggest from Google Maps</Text>
-        <Text style={styles.bodyMuted}>Search for a London café. Results are biased to cafés in the London area.</Text>
+        <Text style={styles.bodyMuted}>
+          Search like Google Maps: use the café name plus area, street or postcode. Results are biased to London
+          (not restricted). Food-related places are ranked first when types match.
+        </Text>
 
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Type a café name…"
+          placeholder="e.g. Drupe Bethnal Green"
           placeholderTextColor={COLORS.muted}
           autoCapitalize="none"
           autoCorrect={false}
@@ -266,13 +269,15 @@ export default function SuggestGooglePlaceScreen() {
               activeOpacity={0.85}
             >
               <Text style={styles.suggestionTitle}>{item.title}</Text>
-              {item.subtitle ? <Text style={styles.suggestionSubtitle}>{item.subtitle}</Text> : null}
+              <Text style={styles.suggestionSubtitle}>{item.subtitle}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
         {query.trim().length >= 2 && !autocompleteLoading && suggestions.length === 0 && !autocompleteError ? (
-          <Text style={styles.bodyMuted}>No matches yet — try another name or street.</Text>
+          <Text style={styles.bodyMuted}>
+            No strong matches found. Try adding the area, postcode or street name.
+          </Text>
         ) : null}
       </ScrollView>
     </SafeAreaView>
