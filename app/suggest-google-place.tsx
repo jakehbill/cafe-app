@@ -130,16 +130,7 @@ export default function SuggestGooglePlaceScreen() {
     setSubmitError(null);
     setSubmitting(true);
     try {
-      const res = await submitGooglePlacesCafeSuggestion({
-        placeId: preview.placeId,
-        cafeName: preview.cafeName,
-        addressText: preview.formattedAddress,
-        googleMapsUrl: preview.googleMapsUri,
-        website: preview.websiteUri,
-        phoneNumber: preview.nationalPhoneNumber,
-        latitude: preview.latitude,
-        longitude: preview.longitude,
-      });
+      const res = await submitGooglePlacesCafeSuggestion(preview);
       if (!res.ok) {
         setSubmitError(res.error);
         return;
