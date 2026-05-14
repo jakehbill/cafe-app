@@ -321,15 +321,13 @@ export default function SearchScreen() {
     });
   }
 
-  const showGooglePlacesSuggest = hasQuery && showNoResults;
-
-  function openGooglePlacesSuggestFlow() {
-    const initialQuery = query.trim();
-    if (!initialQuery) return;
+  function openSuggestCafeFlow() {
+    const initialSearch = query.trim();
+    if (!initialSearch) return;
     router.push({
-      pathname: '/suggest-google-place',
-      params: { initialQuery },
-    } as never);
+      pathname: '/suggest-cafe',
+      params: { initialSearch },
+    });
   }
 
   return (
@@ -561,27 +559,16 @@ export default function SearchScreen() {
                   ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
                   : 'No cafes found'}
               </Text>
-              {showLogMissingCafeCta ? (
+              {showNoResults && hasQuery ? (
                 <View style={styles.logMissingWrap}>
-                  <Text style={styles.logMissingTitle}>Can&apos;t find a cafe you&apos;ve been to?</Text>
-                  <Text style={styles.logMissingSubtext}>Log your visit and we&apos;ll add it to Beaned.</Text>
                   <TouchableOpacity
                     activeOpacity={0.88}
                     style={styles.logMissingButton}
-                    onPress={openLogMissingCafeFlow}
+                    onPress={openSuggestCafeFlow}
                   >
-                    <Text style={styles.logMissingButtonText}>Log this cafe</Text>
+                    <Text style={styles.logMissingButtonText}>Suggest a café using Google Maps</Text>
                   </TouchableOpacity>
                 </View>
-              ) : null}
-              {showGooglePlacesSuggest ? (
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  style={styles.googleSuggestLink}
-                  onPress={openGooglePlacesSuggestFlow}
-                >
-                  <Text style={styles.googleSuggestLinkText}>Can&apos;t find it? Suggest from Google Maps</Text>
-                </TouchableOpacity>
               ) : null}
             </>
           ) : (
@@ -594,6 +581,9 @@ export default function SearchScreen() {
                   </Text>
                   <TouchableOpacity activeOpacity={0.88} onPress={openLogMissingCafeFlow}>
                     <Text style={styles.logMissingInlineCta}>Log this cafe</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity activeOpacity={0.88} onPress={openSuggestCafeFlow}>
+                    <Text style={styles.logMissingInlineCta}>Suggest a café</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -621,27 +611,16 @@ export default function SearchScreen() {
                   ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
                   : 'No cafes found'}
               </Text>
-              {showLogMissingCafeCta ? (
+              {showNoResults && hasQuery ? (
                 <View style={styles.logMissingWrap}>
-                  <Text style={styles.logMissingTitle}>Can&apos;t find a cafe you&apos;ve been to?</Text>
-                  <Text style={styles.logMissingSubtext}>Log your visit and we&apos;ll add it to Beaned.</Text>
                   <TouchableOpacity
                     activeOpacity={0.88}
                     style={styles.logMissingButton}
-                    onPress={openLogMissingCafeFlow}
+                    onPress={openSuggestCafeFlow}
                   >
-                    <Text style={styles.logMissingButtonText}>Log this cafe</Text>
+                    <Text style={styles.logMissingButtonText}>Suggest a café using Google Maps</Text>
                   </TouchableOpacity>
                 </View>
-              ) : null}
-              {showGooglePlacesSuggest ? (
-                <TouchableOpacity
-                  activeOpacity={0.88}
-                  style={styles.googleSuggestLink}
-                  onPress={openGooglePlacesSuggestFlow}
-                >
-                  <Text style={styles.googleSuggestLinkText}>Can&apos;t find it? Suggest from Google Maps</Text>
-                </TouchableOpacity>
               ) : null}
             </>
           ) : isWeb ? (
@@ -898,18 +877,6 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 8,
   },
-  logMissingTitle: {
-    fontSize: 17,
-    lineHeight: 22,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
-  },
-  logMissingSubtext: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.regular,
-  },
   logMissingButton: {
     marginTop: 2,
     alignSelf: 'flex-start',
@@ -924,18 +891,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.accent,
     fontFamily: FONTS.sans.semibold,
-  },
-  googleSuggestLink: {
-    marginTop: 10,
-    alignSelf: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  googleSuggestLinkText: {
-    fontSize: 14,
-    color: COLORS.accent,
-    fontFamily: FONTS.sans.semibold,
-    textAlign: 'center',
   },
   logMissingInline: {
     marginBottom: 4,

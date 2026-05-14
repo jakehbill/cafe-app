@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -8,7 +8,9 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Platform,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -26,11 +28,22 @@ import {
   createCafeSuggestionWithId,
   getMyCafeSubmissions,
   isValidOptionalUrl,
+  submitGooglePlacesCafeSuggestion,
   type CafeSubmissionStatus,
   type MyCafeSubmissionRow,
 } from '@/lib/cafeSubmissions';
+import {
+  createPlacesSessionToken,
+  fetchPlaceDetailsForSubmission,
+  fetchPlacesTextSearch,
+  getGooglePlacesApiKeyOrEmpty,
+  type GooglePlaceDetailsForSubmission,
+  type PlacesSearchListItem,
+} from '@/lib/googlePlaces';
 import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
 import { saveUserCafeVisit } from '@/lib/userCafeVisits';
+
+const PLACES_SEARCH_DEBOUNCE_MS = 350;
 
 const STATUS_LABEL: Record<CafeSubmissionStatus, string> = {
   pending: 'Pending review',
@@ -53,6 +66,7 @@ export default function SuggestCafeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     prefillName?: string | string[];
+    initialSearch?: string | string[];
     fromVisitLog?: string | string[];
     cafeId?: string | string[];
     visitRating?: string | string[];
@@ -67,11 +81,6 @@ export default function SuggestCafeScreen() {
   const existingCafeId = String(routeCafeId).trim();
   const isExistingCafeFlow = fromVisitLog && existingCafeId.length > 0;
   const isMissingCafeFlow = fromVisitLog && !isExistingCafeFlow;
-  React.useEffect(() => {
-    if (!fromVisitLog) return;
-    console.log('cafeId:', existingCafeId);
-    console.log('flow type:', existingCafeId ? 'existing' : 'new');
-  }, [fromVisitLog, existingCafeId]);
   const initialNameParam = Array.isArray(params.prefillName) ? params.prefillName[0] : params.prefillName;
   const initialName = (() => {
     const candidate = String(initialNameParam ?? '').trim();
@@ -79,6 +88,14 @@ export default function SuggestCafeScreen() {
     if (candidate.toLowerCase() === 'undefined' || candidate.toLowerCase() === 'null') return '';
     return candidate;
   })();
+  const googlePlacesSeedQuery = useMemo(() => {
+    const initialSearchParam = Array.isArray(params.initialSearch)
+      ? params.initialSearch[0]
+      : params.initialSearch;
+    const s = String(initialSearchParam ?? '').trim();
+    if (s && s.toLowerCase() !== 'undefined' && s.toLowerCase() !== 'null') return s;
+    return initialName;
+  }, [params.initialSearch, initialName]);
   const initialVisitRatingRaw = Array.isArray(params.visitRating) ? params.visitRating[0] : params.visitRating;
   const initialVisitTagsRaw = Array.isArray(params.visitTags) ? params.visitTags[0] : params.visitTags;
   const initialVisitNote = Array.isArray(params.visitNote) ? params.visitNote[0] : params.visitNote;
@@ -90,7 +107,6 @@ export default function SuggestCafeScreen() {
     ? params.visitPhotoFileName[0]
     : params.visitPhotoFileName;
   const [cafeName, setCafeName] = useState(initialName);
-  const [addressText, setAddressText] = useState('');
   const [area, setArea] = useState('');
   const [googleMapsUrl, setGoogleMapsUrl] = useState('');
   const [notes, setNotes] = useState('');
@@ -139,6 +155,62 @@ export default function SuggestCafeScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [experienceInputY, setExperienceInputY] = useState(0);
 
+  type PublicSuggestStep = 'places_search' | 'place_confirm' | 'beaned_extras';
+  const [publicSuggestStep, setPublicSuggestStep] = useState<PublicSuggestStep>('places_search');
+  const [placesSessionToken, setPlacesSessionToken] = useState(createPlacesSessionToken);
+  const [placesQuery, setPlacesQuery] = useState(googlePlacesSeedQuery);
+  const [placesSuggestions, setPlacesSuggestions] = useState<PlacesSearchListItem[]>([]);
+  const [placesSearchLoading, setPlacesSearchLoading] = useState(false);
+  const [placesSearchError, setPlacesSearchError] = useState<string | null>(null);
+  const [placeDetailsLoading, setPlaceDetailsLoading] = useState(false);
+  const [placeDetailsError, setPlaceDetailsError] = useState<string | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<GooglePlaceDetailsForSubmission | null>(null);
+
+  const hasPlacesApiKey = useMemo(() => getGooglePlacesApiKeyOrEmpty().length > 0, []);
+
+  const rotatePlacesSession = useCallback(() => {
+    setPlacesSessionToken(createPlacesSessionToken());
+  }, []);
+
+  useEffect(() => {
+    if (fromVisitLog) return;
+    const s = googlePlacesSeedQuery.trim();
+    if (s) setPlacesQuery(s);
+  }, [fromVisitLog, googlePlacesSeedQuery]);
+
+  useEffect(() => {
+    if (fromVisitLog || !hasPlacesApiKey) return;
+    const q = placesQuery.trim();
+    if (q.length < 2) {
+      setPlacesSuggestions([]);
+      setPlacesSearchError(null);
+      setPlacesSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setPlacesSearchLoading(true);
+    setPlacesSearchError(null);
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          const list = await fetchPlacesTextSearch(q);
+          if (cancelled) return;
+          setPlacesSuggestions(list);
+        } catch (e) {
+          if (cancelled) return;
+          setPlacesSuggestions([]);
+          setPlacesSearchError(e instanceof Error ? e.message : 'Search failed.');
+        } finally {
+          if (!cancelled) setPlacesSearchLoading(false);
+        }
+      })();
+    }, PLACES_SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [fromVisitLog, hasPlacesApiKey, placesQuery]);
+
   const visitTagSections = useMemo(() => TAG_SECTIONS.slice(0, 3), []);
 
   const urlLooksValid = useMemo(
@@ -184,7 +256,12 @@ export default function SuggestCafeScreen() {
 
   const submitDisabled = isExistingCafeFlow
     ? submitting || redirecting
-    : submitting || redirecting || cafeName.trim().length === 0 || !isValidOptionalUrl(googleMapsUrl);
+    : fromVisitLog
+      ? submitting || redirecting || !cafeName.trim() || !isValidOptionalUrl(googleMapsUrl)
+      : submitting || redirecting || publicSuggestStep !== 'beaned_extras' || !selectedPlace;
+
+  const continueFromPreviewDisabled =
+    submitting || redirecting || !selectedPlace || placeDetailsLoading;
 
   function toggleTag(tag: string) {
     setSelectedTags((prev) => {
@@ -197,17 +274,41 @@ export default function SuggestCafeScreen() {
     setVisitTags((prev) => (prev.includes(tag) ? prev.filter((item) => item !== tag) : [...prev, tag]));
   }
 
+  function resetPublicSuggest() {
+    setPublicSuggestStep('places_search');
+    setPlacesQuery(googlePlacesSeedQuery);
+    setPlacesSuggestions([]);
+    setPlacesSearchError(null);
+    setPlaceDetailsError(null);
+    setSelectedPlace(null);
+    setPlacesSessionToken(createPlacesSessionToken());
+  }
+
   function resetForm() {
     setCafeName('');
-    setAddressText('');
     setArea('');
     setGoogleMapsUrl('');
     setNotes('');
     setSelectedTags([]);
     setSelectedPhotos([null, null, null]);
+    if (!fromVisitLog) {
+      resetPublicSuggest();
+    }
   }
 
   function handleBack() {
+    if (!fromVisitLog) {
+      if (publicSuggestStep === 'beaned_extras') {
+        setPublicSuggestStep('place_confirm');
+        return;
+      }
+      if (publicSuggestStep === 'place_confirm') {
+        setPublicSuggestStep('places_search');
+        setSelectedPlace(null);
+        setPlaceDetailsError(null);
+        return;
+      }
+    }
     if (isMissingCafeFlow && visitFlowStep === 2) {
       setVisitFlowStep(1);
       return;
@@ -276,23 +377,34 @@ export default function SuggestCafeScreen() {
     });
   }
 
-  async function handleSubmit() {
-    const nameTrimmed = cafeName.trim();
-    if (!isExistingCafeFlow && !nameTrimmed) {
-      setSubmitError('Cafe name is required.');
-      return;
+  async function pickPlaceFromSearchResult(item: PlacesSearchListItem) {
+    if (!hasPlacesApiKey) return;
+    setPlaceDetailsError(null);
+    setPlaceDetailsLoading(true);
+    try {
+      const details = await fetchPlaceDetailsForSubmission(item.placeId, placesSessionToken);
+      rotatePlacesSession();
+      setSelectedPlace(details);
+      setPublicSuggestStep('place_confirm');
+    } catch (e) {
+      rotatePlacesSession();
+      setPlaceDetailsError(e instanceof Error ? e.message : 'Could not load place details.');
+    } finally {
+      setPlaceDetailsLoading(false);
     }
-    if (!isExistingCafeFlow && !isValidOptionalUrl(googleMapsUrl)) {
-      setSubmitError('Please enter a valid URL (including https://).');
-      return;
-    }
+  }
 
-    setSubmitting(true);
+  function openExternalUrl(url: string) {
+    void Linking.openURL(url);
+  }
+
+  async function handleSubmit() {
     setSubmitError(null);
     setSuccessMessage(null);
 
-    try {
-      if (isExistingCafeFlow) {
+    if (isExistingCafeFlow) {
+      setSubmitting(true);
+      try {
         const linkedVisit = await saveUserCafeVisit({
           cafeId: existingCafeId,
           submissionId: null,
@@ -311,51 +423,28 @@ export default function SuggestCafeScreen() {
           pendingReview: false,
         });
         resetForm();
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    if (!fromVisitLog) {
+      if (!selectedPlace || publicSuggestStep !== 'beaned_extras') {
+        setSubmitError('Select a place and continue to add details before submitting.');
         return;
       }
-
-      const result = await createCafeSuggestionWithId(
-        fromVisitLog
-          ? {
-              cafeName: nameTrimmed,
-              area,
-              googleMapsUrl,
-              notes: visitNote,
-              selectedTags: visitTags,
-            }
-          : {
-              cafeName: nameTrimmed,
-              addressText,
-              area,
-              googleMapsUrl,
-              notes,
-              selectedTags,
-            }
-      );
-
-      if (!result.ok) {
-        setSubmitError(result.error);
-        return;
-      }
-
-      if (fromVisitLog) {
-        const linkedVisit = await saveUserCafeVisit({
-          cafeId: null,
-          submissionId: result.submissionId,
-          rating: visitRating,
-          tags: visitTags,
-          note: visitNote,
-          photoAsset: visitPhoto,
+      setSubmitting(true);
+      try {
+        const result = await submitGooglePlacesCafeSuggestion(selectedPlace, {
+          notes,
+          selectedTags,
         });
-        if (!linkedVisit.ok) {
-          setSuccessMessage(
-            `Cafe details saved, but your visit draft was not linked yet: ${linkedVisit.error}. You can retry from Visit log.`
-          );
+        if (!result.ok) {
+          setSubmitError(result.error);
           return;
         }
-      }
 
-      if (!fromVisitLog) {
         const imagesToUpload = selectedPhotos.filter(
           (photo): photo is { uri: string; mimeType?: string | null; fileName?: string | null } => photo != null
         );
@@ -376,23 +465,67 @@ export default function SuggestCafeScreen() {
         } else {
           setSuccessMessage('Thanks — we’ll review this before adding it to Beaned.');
         }
-      } else {
-        setSuccessMessage('Visit saved');
-        setVisitLogSuccessState({
-          hadPhoto: Boolean(visitPhoto?.uri),
-          pendingReview: true,
-        });
-      }
-      resetForm();
-      const rows = await getMyCafeSubmissions(6);
-      setMySubmissions(rows);
-      if (!fromVisitLog) {
+        resetForm();
+        const rows = await getMyCafeSubmissions(6);
+        setMySubmissions(rows);
         setRedirecting(true);
-        // Briefly show success feedback before returning to the homepage.
         redirectTimeoutRef.current = setTimeout(() => {
           router.replace('/');
         }, 600);
+      } finally {
+        setSubmitting(false);
       }
+      return;
+    }
+
+    const nameTrimmed = cafeName.trim();
+    if (!nameTrimmed) {
+      setSubmitError('Cafe name is required.');
+      return;
+    }
+    if (!isValidOptionalUrl(googleMapsUrl)) {
+      setSubmitError('Please enter a valid URL (including https://).');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await createCafeSuggestionWithId({
+        cafeName: nameTrimmed,
+        area,
+        googleMapsUrl,
+        notes: visitNote,
+        selectedTags: visitTags,
+      });
+
+      if (!result.ok) {
+        setSubmitError(result.error);
+        return;
+      }
+
+      const linkedVisit = await saveUserCafeVisit({
+        cafeId: null,
+        submissionId: result.submissionId,
+        rating: visitRating,
+        tags: visitTags,
+        note: visitNote,
+        photoAsset: visitPhoto,
+      });
+      if (!linkedVisit.ok) {
+        setSuccessMessage(
+          `Cafe details saved, but your visit draft was not linked yet: ${linkedVisit.error}. You can retry from Visit log.`
+        );
+        return;
+      }
+
+      setSuccessMessage('Visit saved');
+      setVisitLogSuccessState({
+        hadPhoto: Boolean(visitPhoto?.uri),
+        pendingReview: true,
+      });
+      resetForm();
+      const rows = await getMyCafeSubmissions(6);
+      setMySubmissions(rows);
     } finally {
       setSubmitting(false);
     }
@@ -433,7 +566,11 @@ export default function SuggestCafeScreen() {
                 ? visitFlowStep === 1
                   ? 'Add your visit details.'
                   : 'Add cafe details.'
-                : 'Know a spot we&apos;ve missed? Send it in for review.'}
+                : publicSuggestStep === 'places_search'
+                  ? 'Search Google Places, confirm the café, then add optional notes, photos, and tags.'
+                  : publicSuggestStep === 'place_confirm'
+                    ? 'Check the details, then continue to add Beaned-specific info.'
+                    : 'Add optional notes, photos, and tags — everything goes to moderation before going live.'}
             </Text>
           </View>
 
@@ -580,146 +717,198 @@ export default function SuggestCafeScreen() {
             </View>
           ) : null}
 
-          {!fromVisitLog ? <View style={styles.sectionCard}>
-            <Text style={styles.fieldLabel}>Cafe name</Text>
-            <TextInput
-              style={styles.input}
-              value={cafeName}
-              onChangeText={setCafeName}
-              placeholder="Required"
-              placeholderTextColor={COLORS.muted}
-              maxLength={120}
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
+          {!fromVisitLog ? (
+            <>
+              {!hasPlacesApiKey ? (
+                <View style={styles.sectionCard}>
+                  <Text style={styles.tagHelperText}>
+                    Add EXPO_PUBLIC_GOOGLE_PLACES_API_KEY to your environment and restart Expo. If it is already in your
+                    project .env file, save the file (unsaved editor changes are not loaded) then run npx expo start
+                    --clear.
+                  </Text>
+                </View>
+              ) : null}
 
-            <Text style={styles.fieldLabel}>Address / location</Text>
-            <TextInput
-              style={styles.input}
-              value={addressText}
-              onChangeText={setAddressText}
-              placeholder="Optional"
-              placeholderTextColor={COLORS.muted}
-              maxLength={180}
-              autoCapitalize="words"
-            />
-
-            <Text style={styles.fieldLabel}>Area / neighbourhood</Text>
-            <TextInput
-              style={styles.input}
-              value={area}
-              onChangeText={setArea}
-              placeholder="Optional"
-              placeholderTextColor={COLORS.muted}
-              maxLength={120}
-              autoCapitalize="words"
-            />
-
-            <Text style={styles.fieldLabel}>Google Maps URL</Text>
-            <TextInput
-              style={[styles.input, !urlLooksValid && styles.inputInvalid]}
-              value={googleMapsUrl}
-              onChangeText={setGoogleMapsUrl}
-              placeholder="Optional"
-              placeholderTextColor={COLORS.muted}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-            {!urlLooksValid ? (
-              <Text style={styles.validationText}>Enter a valid URL with http:// or https://.</Text>
-            ) : null}
-
-            <Text style={styles.fieldLabel}>Note</Text>
-            <TextInput
-              style={styles.notesInput}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Anything helpful for review?"
-              placeholderTextColor={COLORS.muted}
-              multiline
-              textAlignVertical="top"
-              maxLength={400}
-            />
-          </View> : null}
-
-          {!fromVisitLog ? <View style={styles.sectionCard}>
-            <Text style={styles.fieldLabel}>Add photos (recommended)</Text>
-            <View style={styles.photoSlotsWrap}>
-              {[
-                { label: 'Exterior photo', index: 0 },
-                { label: 'Coffee / interior', index: 1 },
-                { label: 'Third photo', index: 2 },
-              ].map((slot) => {
-                const photo = selectedPhotos[slot.index];
-                return (
-                  <View key={`suggest-photo-slot-${slot.index}`} style={styles.photoSlotCard}>
-                    <Text style={styles.photoSlotLabel}>{slot.label}</Text>
-                    {photo ? (
-                      <Image source={{ uri: photo.uri }} style={styles.photoPreview} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.photoEmptyState}>
-                        <Text style={styles.photoEmptyStateText}>No photo selected</Text>
-                      </View>
-                    )}
-                    <View style={styles.photoSlotActionsRow}>
+              {hasPlacesApiKey && publicSuggestStep === 'places_search' ? (
+                <View style={styles.sectionCard}>
+                  <Text style={styles.fieldLabel}>Find the café</Text>
+                  <Text style={styles.tagHelperText}>
+                    Search by name plus area, street or postcode. Results are biased to London (not restricted).
+                  </Text>
+                  <TextInput
+                    style={styles.input}
+                    value={placesQuery}
+                    onChangeText={setPlacesQuery}
+                    placeholder="e.g. Drupe Bethnal Green"
+                    placeholderTextColor={COLORS.muted}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  {placesSearchError ? <Text style={styles.validationText}>{placesSearchError}</Text> : null}
+                  {placeDetailsError ? <Text style={styles.validationText}>{placeDetailsError}</Text> : null}
+                  {placesSearchLoading ? (
+                    <View style={styles.placesLoaderRow}>
+                      <ActivityIndicator color={COLORS.accent} />
+                      <Text style={styles.placesLoaderLabel}>Searching…</Text>
+                    </View>
+                  ) : null}
+                  {placeDetailsLoading ? (
+                    <View style={styles.placesLoaderRow}>
+                      <ActivityIndicator color={COLORS.accent} />
+                      <Text style={styles.placesLoaderLabel}>Loading place…</Text>
+                    </View>
+                  ) : null}
+                  <View style={styles.placesSuggestionsList}>
+                    {placesSuggestions.map((item) => (
                       <TouchableOpacity
-                        activeOpacity={0.88}
-                        style={styles.photoSlotButton}
-                        onPress={() => void pickPhotoForSlot(slot.index)}
-                        disabled={submitting || redirecting}
+                        key={item.placeId}
+                        style={styles.placesSuggestionRow}
+                        onPress={() => void pickPlaceFromSearchResult(item)}
+                        disabled={placeDetailsLoading}
+                        activeOpacity={0.85}
                       >
-                        <Text style={styles.photoSlotButtonText}>{photo ? 'Replace' : 'Add photo'}</Text>
+                        <Text style={styles.placesSuggestionTitle}>{item.title}</Text>
+                        <Text style={styles.placesSuggestionSubtitle}>{item.subtitle}</Text>
                       </TouchableOpacity>
-                      {photo ? (
-                        <TouchableOpacity
-                          activeOpacity={0.88}
-                          style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
-                          onPress={() => removePhotoForSlot(slot.index)}
-                          disabled={submitting || redirecting}
-                        >
-                          <Text style={styles.photoSlotButtonSecondaryText}>Remove</Text>
-                        </TouchableOpacity>
-                      ) : null}
+                    ))}
+                  </View>
+                  {placesQuery.trim().length >= 2 &&
+                  !placesSearchLoading &&
+                  placesSuggestions.length === 0 &&
+                  !placesSearchError ? (
+                    <Text style={styles.tagHelperText}>
+                      No strong matches found. Try adding the area, postcode or street name.
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {hasPlacesApiKey && publicSuggestStep === 'place_confirm' && selectedPlace ? (
+                <View style={styles.sectionCard}>
+                  <Text style={styles.fieldLabel}>Confirm</Text>
+                  <Text style={styles.placesPreviewName}>{selectedPlace.cafeName}</Text>
+                  <Text style={styles.placesPreviewAddress}>{selectedPlace.formattedAddress}</Text>
+                  {selectedPlace.googleMapsUri ? (
+                    <Pressable onPress={() => openExternalUrl(selectedPlace.googleMapsUri!)}>
+                      <Text style={styles.placesLinkText}>Open in Google Maps</Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.tagHelperText}>No Maps link returned for this place.</Text>
+                  )}
+                  {selectedPlace.websiteUri ? (
+                    <Pressable onPress={() => openExternalUrl(selectedPlace.websiteUri!)}>
+                      <Text style={styles.placesLinkText} numberOfLines={2}>
+                        {selectedPlace.websiteUri}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={styles.tagHelperText}>No website on file</Text>
+                  )}
+                  {selectedPlace.nationalPhoneNumber ? (
+                    <Text style={styles.mutedText}>{selectedPlace.nationalPhoneNumber}</Text>
+                  ) : (
+                    <Text style={styles.tagHelperText}>No phone on file</Text>
+                  )}
+                </View>
+              ) : null}
+
+              {hasPlacesApiKey && publicSuggestStep === 'beaned_extras' ? (
+                <>
+                  <View style={styles.sectionCard}>
+                    <Text style={styles.fieldLabel}>Note</Text>
+                    <TextInput
+                      style={styles.notesInput}
+                      value={notes}
+                      onChangeText={setNotes}
+                      placeholder="Anything helpful for review?"
+                      placeholderTextColor={COLORS.muted}
+                      multiline
+                      textAlignVertical="top"
+                      maxLength={400}
+                    />
+                  </View>
+
+                  <View style={styles.sectionCard}>
+                    <Text style={styles.fieldLabel}>Add photos (recommended)</Text>
+                    <View style={styles.photoSlotsWrap}>
+                      {[
+                        { label: 'Exterior photo', index: 0 },
+                        { label: 'Coffee / interior', index: 1 },
+                        { label: 'Third photo', index: 2 },
+                      ].map((slot) => {
+                        const photo = selectedPhotos[slot.index];
+                        return (
+                          <View key={`suggest-photo-slot-${slot.index}`} style={styles.photoSlotCard}>
+                            <Text style={styles.photoSlotLabel}>{slot.label}</Text>
+                            {photo ? (
+                              <Image source={{ uri: photo.uri }} style={styles.photoPreview} resizeMode="cover" />
+                            ) : (
+                              <View style={styles.photoEmptyState}>
+                                <Text style={styles.photoEmptyStateText}>No photo selected</Text>
+                              </View>
+                            )}
+                            <View style={styles.photoSlotActionsRow}>
+                              <TouchableOpacity
+                                activeOpacity={0.88}
+                                style={styles.photoSlotButton}
+                                onPress={() => void pickPhotoForSlot(slot.index)}
+                                disabled={submitting || redirecting}
+                              >
+                                <Text style={styles.photoSlotButtonText}>{photo ? 'Replace' : 'Add photo'}</Text>
+                              </TouchableOpacity>
+                              {photo ? (
+                                <TouchableOpacity
+                                  activeOpacity={0.88}
+                                  style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
+                                  onPress={() => removePhotoForSlot(slot.index)}
+                                  disabled={submitting || redirecting}
+                                >
+                                  <Text style={styles.photoSlotButtonSecondaryText}>Remove</Text>
+                                </TouchableOpacity>
+                              ) : null}
+                            </View>
+                          </View>
+                        );
+                      })}
                     </View>
                   </View>
-                );
-              })}
-            </View>
-          </View> : null}
 
-          {!fromVisitLog ? <View style={styles.sectionCard}>
-            <Text style={styles.fieldLabel}>Tags</Text>
-            <Text style={styles.tagHelperText}>Help us understand the space before we review it.</Text>
-            {TAG_SECTIONS.map((section) => (
-              <View key={section.title} style={styles.tagSection}>
-                <Text style={styles.tagSectionTitle}>{section.title}</Text>
-                <View style={styles.tagsWrap}>
-                  {section.tags.map((tag) => {
-                    const selected = selectedTags.includes(tag);
-                    return (
-                      <TouchableOpacity
-                        key={tag}
-                        activeOpacity={0.85}
-                        style={[styles.tagChip, selected && styles.tagChipSelected]}
-                        onPress={() => toggleTag(tag)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                      >
-                        <TagWithOptionalIcon
-                          tag={tag}
-                          iconSize={14}
-                          color={selected ? COLORS.accent : COLORS.text}
-                          textStyle={[styles.tagChipText, selected && styles.tagChipTextSelected]}
-                          gap={5}
-                        />
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-          </View> : null}
+                  <View style={styles.sectionCard}>
+                    <Text style={styles.fieldLabel}>Tags</Text>
+                    <Text style={styles.tagHelperText}>Help us understand the space before we review it.</Text>
+                    {TAG_SECTIONS.map((section) => (
+                      <View key={section.title} style={styles.tagSection}>
+                        <Text style={styles.tagSectionTitle}>{section.title}</Text>
+                        <View style={styles.tagsWrap}>
+                          {section.tags.map((tag) => {
+                            const selected = selectedTags.includes(tag);
+                            return (
+                              <TouchableOpacity
+                                key={tag}
+                                activeOpacity={0.85}
+                                style={[styles.tagChip, selected && styles.tagChipSelected]}
+                                onPress={() => toggleTag(tag)}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected }}
+                              >
+                                <TagWithOptionalIcon
+                                  tag={tag}
+                                  iconSize={14}
+                                  color={selected ? COLORS.accent : COLORS.text}
+                                  textStyle={[styles.tagChipText, selected && styles.tagChipTextSelected]}
+                                  gap={5}
+                                />
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </>
+              ) : null}
+            </>
+          ) : null}
 
           {submitError ? (
             <View style={styles.feedbackBannerError}>
@@ -772,7 +961,23 @@ export default function SuggestCafeScreen() {
             >
               <Text style={styles.submitButtonText}>Next</Text>
             </TouchableOpacity>
-          ) : !visitLogSuccessState ? (
+          ) : !visitLogSuccessState &&
+            !fromVisitLog &&
+            hasPlacesApiKey &&
+            publicSuggestStep === 'place_confirm' ? (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              style={[styles.submitButton, continueFromPreviewDisabled && styles.submitButtonDisabled]}
+              onPress={() => setPublicSuggestStep('beaned_extras')}
+              disabled={continueFromPreviewDisabled}
+            >
+              {placeDetailsLoading ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <Text style={styles.submitButtonText}>Continue</Text>
+              )}
+            </TouchableOpacity>
+          ) : !visitLogSuccessState && !fromVisitLog && publicSuggestStep === 'places_search' ? null : !visitLogSuccessState ? (
             <TouchableOpacity
               activeOpacity={0.88}
               style={[styles.submitButton, submitDisabled && styles.submitButtonDisabled]}
@@ -1148,5 +1353,51 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontFamily: FONTS.sans.semibold,
     textAlign: 'right',
+  },
+  placesLoaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  placesLoaderLabel: {
+    fontSize: 14,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+  },
+  placesSuggestionsList: {
+    gap: 0,
+  },
+  placesSuggestionRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.cardBorder,
+  },
+  placesSuggestionTitle: {
+    fontSize: 16,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+  },
+  placesSuggestionSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+  },
+  placesPreviewName: {
+    fontSize: 18,
+    fontFamily: FONTS.display.semibold,
+    color: COLORS.text,
+  },
+  placesPreviewAddress: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.text,
+  },
+  placesLinkText: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.accent,
+    alignSelf: 'flex-start',
   },
 });

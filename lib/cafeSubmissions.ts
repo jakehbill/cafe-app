@@ -118,11 +118,12 @@ export async function createCafeSuggestionWithId(
 }
 
 export type GooglePlacesCafeSubmissionResult =
-  | { ok: true; submissionId: string }
+  | { ok: true; submissionId: string; userId: string }
   | { ok: false; error: string };
 
 /** Row shape for `public.cafe_submissions` inserts from Google Place Details (single source of truth for mapping). */
 export type GooglePlacesCafeSubmissionInsertRow = {
+  /** Submitting user (same as `submitted_by_user_id` when that column exists in your schema). */
   user_id: string;
   google_place_id: string;
   cafe_name: string;
@@ -132,7 +133,7 @@ export type GooglePlacesCafeSubmissionInsertRow = {
   longitude: number;
   website: string | null;
   phone_number: string | null;
-  notes: null;
+  notes: string | null;
   area: null;
   selected_tags: string[];
   source: 'google_places';
@@ -140,13 +141,19 @@ export type GooglePlacesCafeSubmissionInsertRow = {
   status: CafeSubmissionStatus;
 };
 
+export type GooglePlacesCafeSubmissionExtras = {
+  notes?: string | null;
+  selectedTags?: string[];
+};
+
 /**
- * Maps Google Place Details → `cafe_submissions` insert payload.
- * Field names match Supabase columns (place.id → google_place_id, displayName.text → cafe_name, …).
+ * Maps Google Place Details (+ optional Beaned fields) → `cafe_submissions` insert payload.
+ * Google fields: place.id → google_place_id, displayName.text → cafe_name, formattedAddress → address_text, etc.
  */
 export function buildGooglePlacesCafeSubmissionPayload(
   place: GooglePlaceDetailsForSubmission,
-  userId: string
+  userId: string,
+  extras?: GooglePlacesCafeSubmissionExtras
 ): GooglePlacesCafeSubmissionInsertRow {
   const google_place_id = place.placeId.trim();
   const cafe_name = place.cafeName.trim();
@@ -154,6 +161,10 @@ export function buildGooglePlacesCafeSubmissionPayload(
   const google_maps_url = (place.googleMapsUri ?? '').trim() || null;
   const website = (place.websiteUri ?? '').trim() || null;
   const phone_number = (place.nationalPhoneNumber ?? '').trim() || null;
+  const notes = extras?.notes?.trim() || null;
+  const selected_tags = Array.from(
+    new Set((extras?.selectedTags ?? []).map((tag) => tag.trim()).filter(Boolean))
+  );
 
   return {
     user_id: userId,
@@ -165,9 +176,9 @@ export function buildGooglePlacesCafeSubmissionPayload(
     longitude: place.longitude,
     website: website || null,
     phone_number: phone_number || null,
-    notes: null,
+    notes,
     area: null,
-    selected_tags: [],
+    selected_tags,
     source: 'google_places',
     moderation_status: 'pending',
     status: 'pending',
@@ -215,13 +226,68 @@ async function liveCafeAlreadyExistsForGooglePlace(googlePlaceId: string): Promi
   return { exists: false, error: null };
 }
 
+type GooglePlaceDupRow = {
+  id: string;
+  user_id: string | null;
+  status: string | null;
+  moderation_status?: string | null;
+};
+
+/**
+ * Prefer `status` for lifecycle (moderation updates it on approve/reject).
+ * Falls back to `moderation_status` when `status` is not a known value.
+ */
+function effectiveModerationStatus(row: {
+  status?: string | null;
+  moderation_status?: string | null;
+}): 'pending' | 'approved' | 'rejected' {
+  const s = (row.status ?? '').trim().toLowerCase();
+  if (s === 'pending' || s === 'approved' || s === 'rejected') return s;
+  const m = (row.moderation_status ?? '').trim().toLowerCase();
+  if (m === 'pending' || m === 'approved' || m === 'rejected') return m;
+  return 'pending';
+}
+
+function isActiveSubmissionStatus(e: 'pending' | 'approved' | 'rejected'): boolean {
+  return e === 'pending' || e === 'approved';
+}
+
+async function fetchSubmissionsForGooglePlaceDuplicateCheck(googlePlaceId: string): Promise<{
+  rows: GooglePlaceDupRow[];
+  error: string | null;
+}> {
+  let res = await supabase
+    .from('cafe_submissions')
+    .select('id, user_id, status, moderation_status')
+    .eq('google_place_id', googlePlaceId);
+
+  if (res.error && isPostgresUndefinedColumnMessage(res.error.message)) {
+    const res2 = await supabase
+      .from('cafe_submissions')
+      .select('id, user_id, status')
+      .eq('google_place_id', googlePlaceId);
+    if (res2.error) {
+      return { rows: [], error: res2.error.message };
+    }
+    return { rows: (res2.data ?? []) as GooglePlaceDupRow[], error: null };
+  }
+
+  if (res.error) {
+    return { rows: [], error: res.error.message };
+  }
+
+  return { rows: (res.data ?? []) as GooglePlaceDupRow[], error: null };
+}
+
 /**
  * Inserts a pending `cafe_submissions` row from Google Place Details. Duplicate checks:
- * `cafe_submissions.google_place_id`, then live `cafes` by `google_place_id` when that column exists,
- * else `cafes.google_maps_url` ILIKE the Place id (no schema change required).
+ * Blocks when any submission for this `google_place_id` is **active** (`pending` or `approved` on `status`,
+ * or the same on `moderation_status` if `status` is unset). **Rejected** rows do not block re-submission.
+ * Then live `cafes` by `google_place_id` when that column exists, else `cafes.google_maps_url` ILIKE the Place id.
  */
 export async function submitGooglePlacesCafeSuggestion(
-  place: GooglePlaceDetailsForSubmission
+  place: GooglePlaceDetailsForSubmission,
+  extras?: GooglePlacesCafeSubmissionExtras
 ): Promise<GooglePlacesCafeSubmissionResult> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
@@ -237,16 +303,24 @@ export async function submitGooglePlacesCafeSuggestion(
     return { ok: false, error: 'Missing place id.' };
   }
 
-  const dupRes = await supabase
-    .from('cafe_submissions')
-    .select('id')
-    .eq('google_place_id', googlePlaceId)
-    .maybeSingle();
-  if (dupRes.error) {
-    return { ok: false, error: dupRes.error.message };
+  const { rows: dupRows, error: dupFetchError } = await fetchSubmissionsForGooglePlaceDuplicateCheck(googlePlaceId);
+  if (dupFetchError) {
+    return { ok: false, error: dupFetchError };
   }
-  if (dupRes.data?.id != null) {
-    return { ok: false, error: 'This café has already been suggested.' };
+
+  const hasBlockingActive = dupRows.some((row) => isActiveSubmissionStatus(effectiveModerationStatus(row)));
+  if (hasBlockingActive) {
+    const currentUserHasActive = dupRows.some(
+      (row) =>
+        String(row.user_id ?? '').trim() === userId &&
+        isActiveSubmissionStatus(effectiveModerationStatus(row))
+    );
+    return {
+      ok: false,
+      error: currentUserHasActive
+        ? 'You already have an active suggestion for this café (pending or approved).'
+        : 'This café already has an active suggestion (pending or approved).',
+    };
   }
 
   const live = await liveCafeAlreadyExistsForGooglePlace(googlePlaceId);
@@ -257,7 +331,7 @@ export async function submitGooglePlacesCafeSuggestion(
     return { ok: false, error: 'This café is already in Beaned.' };
   }
 
-  const payload = buildGooglePlacesCafeSubmissionPayload(place, userId);
+  const payload = buildGooglePlacesCafeSubmissionPayload(place, userId, extras);
 
   const mapsUrl = payload.google_maps_url ?? '';
   if (mapsUrl && !isValidOptionalUrl(mapsUrl)) {
@@ -273,7 +347,7 @@ export async function submitGooglePlacesCafeSuggestion(
     return { ok: false, error: res.error?.message ?? 'Submission could not be created.' };
   }
 
-  return { ok: true, submissionId: String(res.data.id) };
+  return { ok: true, submissionId: String(res.data.id), userId };
 }
 
 export async function getMyCafeSubmissions(limit = 8): Promise<MyCafeSubmissionRow[]> {
