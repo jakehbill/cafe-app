@@ -61,6 +61,38 @@ function formatDate(dateIso: string): string {
   });
 }
 
+/** Same behaviour as `app/rate/[id].tsx` coffee slider (half steps 1–5). */
+function SuggestCoffeeRatingSlider({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (rating: number) => void;
+}) {
+  const current = value ?? 3;
+  return (
+    <View style={styles.suggestRatingSliderBlock}>
+      <View style={styles.suggestRatingSliderMetaRow}>
+        <Text style={styles.visitRatingValue}>
+          {value == null ? 'Not rated' : `${value.toFixed(1)} / 5`}
+        </Text>
+        <Text style={styles.suggestRatingSliderHint}>out of 5</Text>
+      </View>
+      <Slider
+        value={current}
+        onValueChange={onChange}
+        minimumValue={1}
+        maximumValue={5}
+        step={0.5}
+        minimumTrackTintColor={COLORS.accent}
+        maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
+        thumbTintColor={COLORS.accent}
+        accessibilityLabel="Coffee rating slider"
+      />
+    </View>
+  );
+}
+
 export default function SuggestCafeScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -150,6 +182,7 @@ export default function SuggestCafeScreen() {
     mimeType?: string | null;
     fileName?: string | null;
   } | null)[]>([null, null, null]);
+  const [suggestCoffeeRating, setSuggestCoffeeRating] = useState<number | null>(null);
   const redirectTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -290,6 +323,7 @@ export default function SuggestCafeScreen() {
     setGoogleMapsUrl('');
     setNotes('');
     setSelectedTags([]);
+    setSuggestCoffeeRating(null);
     setSelectedPhotos([null, null, null]);
     if (!fromVisitLog) {
       resetPublicSuggest();
@@ -439,6 +473,7 @@ export default function SuggestCafeScreen() {
         const result = await submitGooglePlacesCafeSuggestion(selectedPlace, {
           notes,
           selectedTags,
+          coffeeRating: suggestCoffeeRating,
         });
         if (!result.ok) {
           setSubmitError(result.error);
@@ -815,17 +850,53 @@ export default function SuggestCafeScreen() {
               {hasPlacesApiKey && publicSuggestStep === 'beaned_extras' ? (
                 <>
                   <View style={styles.sectionCard}>
-                    <Text style={styles.fieldLabel}>Note</Text>
-                    <TextInput
-                      style={styles.notesInput}
-                      value={notes}
-                      onChangeText={setNotes}
-                      placeholder="Anything helpful for review?"
-                      placeholderTextColor={COLORS.muted}
-                      multiline
-                      textAlignVertical="top"
-                      maxLength={400}
+                    <Text style={styles.fieldLabel}>Coffee rating</Text>
+                    <Text style={styles.tagHelperText}>Your score for this café (optional). Not from Google.</Text>
+                    <SuggestCoffeeRatingSlider
+                      value={suggestCoffeeRating}
+                      onChange={(v) => setSuggestCoffeeRating(v)}
                     />
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      onPress={() => setSuggestCoffeeRating(null)}
+                      disabled={submitting || redirecting}
+                      style={styles.suggestClearRating}
+                    >
+                      <Text style={styles.suggestClearRatingText}>Clear rating</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.sectionCard}>
+                    <Text style={styles.fieldLabel}>Tags</Text>
+                    <Text style={styles.tagHelperText}>Help us understand the space before we review it.</Text>
+                    {TAG_SECTIONS.map((section) => (
+                      <View key={section.title} style={styles.tagSection}>
+                        <Text style={styles.tagSectionTitle}>{section.title}</Text>
+                        <View style={styles.tagsWrap}>
+                          {section.tags.map((tag) => {
+                            const selected = selectedTags.includes(tag);
+                            return (
+                              <TouchableOpacity
+                                key={tag}
+                                activeOpacity={0.85}
+                                style={[styles.tagChip, selected && styles.tagChipSelected]}
+                                onPress={() => toggleTag(tag)}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected }}
+                              >
+                                <TagWithOptionalIcon
+                                  tag={tag}
+                                  iconSize={14}
+                                  color={selected ? COLORS.accent : COLORS.text}
+                                  textStyle={[styles.tagChipText, selected && styles.tagChipTextSelected]}
+                                  gap={5}
+                                />
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    ))}
                   </View>
 
                   <View style={styles.sectionCard}>
@@ -874,36 +945,17 @@ export default function SuggestCafeScreen() {
                   </View>
 
                   <View style={styles.sectionCard}>
-                    <Text style={styles.fieldLabel}>Tags</Text>
-                    <Text style={styles.tagHelperText}>Help us understand the space before we review it.</Text>
-                    {TAG_SECTIONS.map((section) => (
-                      <View key={section.title} style={styles.tagSection}>
-                        <Text style={styles.tagSectionTitle}>{section.title}</Text>
-                        <View style={styles.tagsWrap}>
-                          {section.tags.map((tag) => {
-                            const selected = selectedTags.includes(tag);
-                            return (
-                              <TouchableOpacity
-                                key={tag}
-                                activeOpacity={0.85}
-                                style={[styles.tagChip, selected && styles.tagChipSelected]}
-                                onPress={() => toggleTag(tag)}
-                                accessibilityRole="button"
-                                accessibilityState={{ selected }}
-                              >
-                                <TagWithOptionalIcon
-                                  tag={tag}
-                                  iconSize={14}
-                                  color={selected ? COLORS.accent : COLORS.text}
-                                  textStyle={[styles.tagChipText, selected && styles.tagChipTextSelected]}
-                                  gap={5}
-                                />
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      </View>
-                    ))}
+                    <Text style={styles.fieldLabel}>Note</Text>
+                    <TextInput
+                      style={styles.notesInput}
+                      value={notes}
+                      onChangeText={setNotes}
+                      placeholder="Anything helpful for review?"
+                      placeholderTextColor={COLORS.muted}
+                      multiline
+                      textAlignVertical="top"
+                      maxLength={400}
+                    />
                   </View>
                 </>
               ) : null}
@@ -1260,6 +1312,29 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: 24,
     color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
+  },
+  suggestRatingSliderBlock: {
+    gap: 8,
+  },
+  suggestRatingSliderMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  suggestRatingSliderHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+  },
+  suggestClearRating: {
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  suggestClearRatingText: {
+    fontSize: 13,
+    color: COLORS.accent,
     fontFamily: FONTS.sans.semibold,
   },
   submitButton: {

@@ -136,6 +136,8 @@ export type GooglePlacesCafeSubmissionInsertRow = {
   notes: string | null;
   area: null;
   selected_tags: string[];
+  /** Submitting user’s coffee score (1.0–5.0); optional if `cafe_submissions.coffee_rating` exists. */
+  coffee_rating?: number | null;
   source: 'google_places';
   moderation_status: 'pending';
   status: CafeSubmissionStatus;
@@ -144,12 +146,20 @@ export type GooglePlacesCafeSubmissionInsertRow = {
 export type GooglePlacesCafeSubmissionExtras = {
   notes?: string | null;
   selectedTags?: string[];
+  /** User’s Beaned coffee rating (1–5, half steps); persisted when `coffee_rating` column exists. */
+  coffeeRating?: number | null;
 };
 
 /**
  * Maps Google Place Details (+ optional Beaned fields) → `cafe_submissions` insert payload.
  * Google fields: place.id → google_place_id, displayName.text → cafe_name, formattedAddress → address_text, etc.
  */
+function clampCoffeeRatingForSubmission(value: number): number {
+  const v = Number.isFinite(value) ? value : 3;
+  const clamped = Math.min(5, Math.max(1, v));
+  return Math.round(clamped * 10) / 10;
+}
+
 export function buildGooglePlacesCafeSubmissionPayload(
   place: GooglePlaceDetailsForSubmission,
   userId: string,
@@ -166,7 +176,7 @@ export function buildGooglePlacesCafeSubmissionPayload(
     new Set((extras?.selectedTags ?? []).map((tag) => tag.trim()).filter(Boolean))
   );
 
-  return {
+  const row: GooglePlacesCafeSubmissionInsertRow = {
     user_id: userId,
     google_place_id,
     cafe_name,
@@ -183,6 +193,12 @@ export function buildGooglePlacesCafeSubmissionPayload(
     moderation_status: 'pending',
     status: 'pending',
   };
+
+  if (extras?.coffeeRating != null && Number.isFinite(extras.coffeeRating)) {
+    row.coffee_rating = clampCoffeeRatingForSubmission(extras.coffeeRating);
+  }
+
+  return row;
 }
 
 function isPostgresUndefinedColumnMessage(message: string): boolean {
@@ -358,7 +374,24 @@ export async function submitGooglePlacesCafeSuggestion(
     return { ok: false, error: 'Invalid website URL from place details.' };
   }
 
-  const res = await supabase.from('cafe_submissions').insert(payload).select('id').maybeSingle();
+  let insertPayload: GooglePlacesCafeSubmissionInsertRow = payload;
+  let res = await supabase.from('cafe_submissions').insert(insertPayload).select('id').maybeSingle();
+
+  if (
+    res.error &&
+    isPostgresUndefinedColumnMessage(res.error.message) &&
+    insertPayload.coffee_rating != null
+  ) {
+    if (__DEV__) {
+      console.warn(
+        '[submitGooglePlacesCafeSuggestion] cafe_submissions.coffee_rating missing; retry insert without rating. Add column: alter table public.cafe_submissions add column if not exists coffee_rating numeric(2,1);'
+      );
+    }
+    const { coffee_rating: _omit, ...withoutRating } = insertPayload;
+    insertPayload = withoutRating as GooglePlacesCafeSubmissionInsertRow;
+    res = await supabase.from('cafe_submissions').insert(insertPayload).select('id').maybeSingle();
+  }
+
   if (res.error || !res.data?.id) {
     const msg = res.error?.message ?? '';
     if (
