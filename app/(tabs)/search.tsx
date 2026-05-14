@@ -321,6 +321,17 @@ export default function SearchScreen() {
     });
   }
 
+  const showGooglePlacesSuggest = hasQuery && showNoResults;
+
+  function openGooglePlacesSuggestFlow() {
+    const initialQuery = query.trim();
+    if (!initialQuery) return;
+    router.push({
+      pathname: '/suggest-google-place',
+      params: { initialQuery },
+    } as never);
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
@@ -563,6 +574,15 @@ export default function SearchScreen() {
                   </TouchableOpacity>
                 </View>
               ) : null}
+              {showGooglePlacesSuggest ? (
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  style={styles.googleSuggestLink}
+                  onPress={openGooglePlacesSuggestFlow}
+                >
+                  <Text style={styles.googleSuggestLinkText}>Can&apos;t find it? Suggest from Google Maps</Text>
+                </TouchableOpacity>
+              ) : null}
             </>
           ) : (
             <>
@@ -613,6 +633,15 @@ export default function SearchScreen() {
                     <Text style={styles.logMissingButtonText}>Log this cafe</Text>
                   </TouchableOpacity>
                 </View>
+              ) : null}
+              {showGooglePlacesSuggest ? (
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  style={styles.googleSuggestLink}
+                  onPress={openGooglePlacesSuggestFlow}
+                >
+                  <Text style={styles.googleSuggestLinkText}>Can&apos;t find it? Suggest from Google Maps</Text>
+                </TouchableOpacity>
               ) : null}
             </>
           ) : isWeb ? (
@@ -895,6 +924,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.accent,
     fontFamily: FONTS.sans.semibold,
+  },
+  googleSuggestLink: {
+    marginTop: 10,
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  googleSuggestLinkText: {
+    fontSize: 14,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
   },
   logMissingInline: {
     marginBottom: 4,

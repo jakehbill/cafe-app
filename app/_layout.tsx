@@ -231,6 +231,14 @@ function RootNavigator() {
             }}
           />
           <Stack.Screen
+            name="suggest-google-place"
+            options={{
+              ...stackHeaderOn,
+              title: 'Suggest from Maps',
+              headerTitle: 'Suggest from Maps',
+            }}
+          />
+          <Stack.Screen
             name="moderation"
             options={{
               ...stackHeaderOn,

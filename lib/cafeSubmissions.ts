@@ -116,6 +116,93 @@ export async function createCafeSuggestionWithId(
   return { ok: true, submissionId: String(res.data.id), userId };
 }
 
+export type GooglePlacesCafeSubmissionResult =
+  | { ok: true; submissionId: string }
+  | { ok: false; error: string };
+
+/**
+ * Inserts a café submission sourced from Google Places (New), after duplicate checks
+ * on `cafes.google_place_id` and `cafe_submissions.google_place_id`.
+ */
+export async function submitGooglePlacesCafeSuggestion(input: {
+  placeId: string;
+  cafeName: string;
+  addressText: string;
+  googleMapsUrl: string | null;
+  website: string | null;
+  phoneNumber: string | null;
+  latitude: number;
+  longitude: number;
+}): Promise<GooglePlacesCafeSubmissionResult> {
+  const { data, error: authError } = await supabase.auth.getUser();
+  if (authError) {
+    return { ok: false, error: authError.message };
+  }
+  const userId = data.user?.id;
+  if (!userId) {
+    return { ok: false, error: 'You must be signed in to suggest a cafe.' };
+  }
+
+  const googlePlaceId = input.placeId.trim();
+  if (!googlePlaceId) {
+    return { ok: false, error: 'Missing place id.' };
+  }
+
+  const liveRes = await supabase.from('cafes').select('id').eq('google_place_id', googlePlaceId).maybeSingle();
+  if (liveRes.error) {
+    return { ok: false, error: liveRes.error.message };
+  }
+  if (liveRes.data?.id != null) {
+    return { ok: false, error: 'This café is already in Beaned.' };
+  }
+
+  const dupRes = await supabase
+    .from('cafe_submissions')
+    .select('id')
+    .eq('google_place_id', googlePlaceId)
+    .maybeSingle();
+  if (dupRes.error) {
+    return { ok: false, error: dupRes.error.message };
+  }
+  if (dupRes.data?.id != null) {
+    return { ok: false, error: 'This café has already been suggested.' };
+  }
+
+  const mapsUrl = input.googleMapsUrl?.trim() ?? '';
+  if (mapsUrl && !isValidOptionalUrl(mapsUrl)) {
+    return { ok: false, error: 'Please enter a valid URL (including https://).' };
+  }
+  const website = input.website?.trim() ?? '';
+  if (website && !isValidOptionalUrl(website)) {
+    return { ok: false, error: 'Invalid website URL from place details.' };
+  }
+
+  const payload = {
+    user_id: userId,
+    cafe_name: input.cafeName.trim(),
+    address_text: input.addressText.trim() || null,
+    area: null,
+    google_maps_url: mapsUrl || null,
+    notes: null,
+    selected_tags: [] as string[],
+    google_place_id: googlePlaceId,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    website: website || null,
+    phone_number: input.phoneNumber?.trim() || null,
+    source: 'google_places',
+    moderation_status: 'pending',
+    status: 'pending' as CafeSubmissionStatus,
+  };
+
+  const res = await supabase.from('cafe_submissions').insert(payload).select('id').maybeSingle();
+  if (res.error || !res.data?.id) {
+    return { ok: false, error: res.error?.message ?? 'Submission could not be created.' };
+  }
+
+  return { ok: true, submissionId: String(res.data.id) };
+}
+
 export async function getMyCafeSubmissions(limit = 8): Promise<MyCafeSubmissionRow[]> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError || !data.user?.id) {
