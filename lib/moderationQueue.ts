@@ -258,7 +258,11 @@ export async function reviewCafeSuggestion(
 ): Promise<SupabaseActionResult> {
   const res = await supabase
     .from('cafe_submissions')
-    .update({ status: decision, reviewed_at: new Date().toISOString() })
+    .update({
+      status: decision,
+      moderation_status: decision,
+      reviewed_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .eq('status', 'pending');
 
@@ -439,6 +443,7 @@ export async function createCafeAndApproveSubmission(
     .from('cafe_submissions')
     .update({
       status: 'approved',
+      moderation_status: 'approved',
       reviewed_at: new Date().toISOString(),
       approved_cafe_id: createdCafeId,
     })

@@ -229,61 +229,77 @@ async function liveCafeAlreadyExistsForGooglePlace(googlePlaceId: string): Promi
 type GooglePlaceDupRow = {
   id: string;
   user_id: string | null;
-  status: string | null;
+  submitted_by_user_id?: string | null;
+  cafe_name: string | null;
+  google_place_id: string | null;
   moderation_status?: string | null;
+  status: string | null;
+  created_at: string | null;
 };
 
-/**
- * Prefer `status` for lifecycle (moderation updates it on approve/reject).
- * Falls back to `moderation_status` when `status` is not a known value.
- */
-function effectiveModerationStatus(row: {
-  status?: string | null;
-  moderation_status?: string | null;
-}): 'pending' | 'approved' | 'rejected' {
-  const s = (row.status ?? '').trim().toLowerCase();
-  if (s === 'pending' || s === 'approved' || s === 'rejected') return s;
-  const m = (row.moderation_status ?? '').trim().toLowerCase();
-  if (m === 'pending' || m === 'approved' || m === 'rejected') return m;
-  return 'pending';
+/** `moderation_status` only (not `status`) — matches partial unique index semantics. */
+function normalizeModerationStatusForDuplicateCheck(moderationStatus: string | null | undefined): string {
+  return String(moderationStatus ?? '').trim().toLowerCase();
 }
 
-function isActiveSubmissionStatus(e: 'pending' | 'approved' | 'rejected'): boolean {
-  return e === 'pending' || e === 'approved';
+/** Block only when `moderation_status` normalizes to pending or approved. */
+function googlePlaceRowBlocksResubmit(row: GooglePlaceDupRow): boolean {
+  const m = normalizeModerationStatusForDuplicateCheck(row.moderation_status);
+  return m === 'pending' || m === 'approved';
+}
+
+function logGooglePlaceDupRowsBeforeInsert(googlePlaceId: string, rows: GooglePlaceDupRow[]): void {
+  if (!__DEV__) return;
+  console.log(
+    `[submitGooglePlacesCafeSuggestion] cafe_submissions for google_place_id="${googlePlaceId}" (before insert), count=${rows.length} (duplicate check uses moderation_status only)`
+  );
+  for (const r of rows) {
+    const submitter =
+      String((r as GooglePlaceDupRow).submitted_by_user_id ?? r.user_id ?? '').trim() || null;
+    console.log('[submitGooglePlacesCafeSuggestion] row:', {
+      id: r.id,
+      cafe_name: r.cafe_name,
+      google_place_id: r.google_place_id,
+      moderation_status: r.moderation_status,
+      normalized_moderation_status: normalizeModerationStatusForDuplicateCheck(r.moderation_status),
+      status: r.status,
+      submitted_by_user_id: submitter,
+      created_at: r.created_at,
+    });
+  }
 }
 
 async function fetchSubmissionsForGooglePlaceDuplicateCheck(googlePlaceId: string): Promise<{
   rows: GooglePlaceDupRow[];
   error: string | null;
 }> {
-  let res = await supabase
-    .from('cafe_submissions')
-    .select('id, user_id, status, moderation_status')
-    .eq('google_place_id', googlePlaceId);
+  const selectAttempts: string[] = [
+    'id, cafe_name, google_place_id, user_id, submitted_by_user_id, moderation_status, status, created_at',
+    'id, cafe_name, google_place_id, user_id, moderation_status, status, created_at',
+    'id, cafe_name, google_place_id, user_id, status, created_at',
+  ];
 
-  if (res.error && isPostgresUndefinedColumnMessage(res.error.message)) {
-    const res2 = await supabase
-      .from('cafe_submissions')
-      .select('id, user_id, status')
-      .eq('google_place_id', googlePlaceId);
-    if (res2.error) {
-      return { rows: [], error: res2.error.message };
+  let lastError: string | null = null;
+  for (const sel of selectAttempts) {
+    const res = await supabase.from('cafe_submissions').select(sel as never).eq('google_place_id', googlePlaceId);
+    if (!res.error) {
+      return { rows: ((res.data ?? []) as unknown) as GooglePlaceDupRow[], error: null };
     }
-    return { rows: (res2.data ?? []) as GooglePlaceDupRow[], error: null };
+    lastError = res.error.message;
+    if (!isPostgresUndefinedColumnMessage(res.error.message)) {
+      return { rows: [], error: lastError };
+    }
   }
 
-  if (res.error) {
-    return { rows: [], error: res.error.message };
-  }
-
-  return { rows: (res.data ?? []) as GooglePlaceDupRow[], error: null };
+  return { rows: [], error: lastError ?? 'Could not load existing submissions.' };
 }
 
 /**
- * Inserts a pending `cafe_submissions` row from Google Place Details. Duplicate checks:
- * Blocks when any submission for this `google_place_id` is **active** (`pending` or `approved` on `status`,
- * or the same on `moderation_status` if `status` is unset). **Rejected** rows do not block re-submission.
- * Then live `cafes` by `google_place_id` when that column exists, else `cafes.google_maps_url` ILIKE the Place id.
+ * Inserts a pending `cafe_submissions` row from Google Place Details.
+ * Duplicate check: same `google_place_id` only blocks when some row’s **`moderation_status`**
+ * (normalized with trim + lowercase) is **`pending`** or **`approved`**.
+ * Does not use legacy **`status`** for this gate. Rejected, empty, null, archived, etc. do not block here.
+ * Live `cafes` duplicate check unchanged.
  */
 export async function submitGooglePlacesCafeSuggestion(
   place: GooglePlaceDetailsForSubmission,
@@ -308,19 +324,19 @@ export async function submitGooglePlacesCafeSuggestion(
     return { ok: false, error: dupFetchError };
   }
 
-  const hasBlockingActive = dupRows.some((row) => isActiveSubmissionStatus(effectiveModerationStatus(row)));
-  if (hasBlockingActive) {
-    const currentUserHasActive = dupRows.some(
-      (row) =>
-        String(row.user_id ?? '').trim() === userId &&
-        isActiveSubmissionStatus(effectiveModerationStatus(row))
-    );
-    return {
-      ok: false,
-      error: currentUserHasActive
-        ? 'You already have an active suggestion for this café (pending or approved).'
-        : 'This café already has an active suggestion (pending or approved).',
-    };
+  logGooglePlaceDupRowsBeforeInsert(googlePlaceId, dupRows);
+
+  const blockingRows = dupRows.filter((row) => googlePlaceRowBlocksResubmit(row));
+  if (blockingRows.length > 0) {
+    console.log('[submitGooglePlacesCafeSuggestion] duplicate block', {
+      google_place_id: googlePlaceId,
+      blocking_normalized_moderation_statuses: blockingRows.map((r) =>
+        normalizeModerationStatusForDuplicateCheck(r.moderation_status)
+      ),
+      blocking_row_ids: blockingRows.map((r) => r.id),
+      blocking_raw_moderation_statuses: blockingRows.map((r) => r.moderation_status),
+    });
+    return { ok: false, error: 'This café has already been suggested.' };
   }
 
   const live = await liveCafeAlreadyExistsForGooglePlace(googlePlaceId);
@@ -344,7 +360,14 @@ export async function submitGooglePlacesCafeSuggestion(
 
   const res = await supabase.from('cafe_submissions').insert(payload).select('id').maybeSingle();
   if (res.error || !res.data?.id) {
-    return { ok: false, error: res.error?.message ?? 'Submission could not be created.' };
+    const msg = res.error?.message ?? '';
+    if (
+      msg.includes('cafe_submissions_active_google_place_id_unique') ||
+      (msg.toLowerCase().includes('duplicate key') && msg.includes('google_place_id'))
+    ) {
+      return { ok: false, error: 'This café has already been suggested.' };
+    }
+    return { ok: false, error: msg || 'Submission could not be created.' };
   }
 
   return { ok: true, submissionId: String(res.data.id), userId };
