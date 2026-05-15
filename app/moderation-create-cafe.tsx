@@ -17,6 +17,7 @@ import {
 
 import { COLORS, FONTS } from '@/components/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { formatCoordinateForDisplay, parseCoordinateInput } from '@/lib/coordinates';
 import { isModerator } from '@/lib/moderator';
 import {
   createCafeAndApproveSubmission,
@@ -58,6 +59,9 @@ export default function ModerationCreateCafeScreen() {
   const [tagsText, setTagsText] = React.useState('');
   const [latitudeText, setLatitudeText] = React.useState('');
   const [longitudeText, setLongitudeText] = React.useState('');
+  /** Full-precision values used for approval payload (not derived from rounded display strings). */
+  const [latitudeValue, setLatitudeValue] = React.useState<number | null>(null);
+  const [longitudeValue, setLongitudeValue] = React.useState<number | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = React.useState(false);
   const [createdCafeId, setCreatedCafeId] = React.useState<string | null>(null);
@@ -84,13 +88,21 @@ export default function ModerationCreateCafeScreen() {
         setArea(row.area ?? '');
         setAddressLine(row.address_text ?? '');
         setGoogleMapsUrl(row.google_maps_url ?? '');
-        setShortDescription(row.notes ?? '');
+        setShortDescription('');
         setTagsText((row.selected_tags ?? []).join(', '));
         if (typeof row.latitude === 'number' && Number.isFinite(row.latitude)) {
-          setLatitudeText(String(row.latitude));
+          setLatitudeValue(row.latitude);
+          setLatitudeText(formatCoordinateForDisplay(row.latitude));
+        } else {
+          setLatitudeValue(null);
+          setLatitudeText('');
         }
         if (typeof row.longitude === 'number' && Number.isFinite(row.longitude)) {
-          setLongitudeText(String(row.longitude));
+          setLongitudeValue(row.longitude);
+          setLongitudeText(formatCoordinateForDisplay(row.longitude));
+        } else {
+          setLongitudeValue(null);
+          setLongitudeText('');
         }
       }
       setLoading(false);
@@ -158,8 +170,15 @@ export default function ModerationCreateCafeScreen() {
     const submissionIdValue = String(submissionId ?? '').trim();
     const cleanedName = name.trim();
     const cleanedArea = area.trim();
-    const latitude = Number.parseFloat(latitudeText.trim());
-    const longitude = Number.parseFloat(longitudeText.trim());
+    const cleanedShortDescription = shortDescription.trim();
+    const latitude =
+      latitudeValue != null && Number.isFinite(latitudeValue)
+        ? latitudeValue
+        : parseCoordinateInput(latitudeText);
+    const longitude =
+      longitudeValue != null && Number.isFinite(longitudeValue)
+        ? longitudeValue
+        : parseCoordinateInput(longitudeText);
 
     if (!submissionIdValue) {
       Alert.alert('Missing submission', 'No submission id was provided.');
@@ -169,7 +188,16 @@ export default function ModerationCreateCafeScreen() {
       Alert.alert('Required fields missing', 'Cafe name and area are required.');
       return;
     }
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    if (!cleanedShortDescription) {
+      setSaveError('Enter a short description for this café before creating it.');
+      return;
+    }
+    if (
+      latitude == null ||
+      longitude == null ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude)
+    ) {
       Alert.alert('Coordinates required', 'Latitude and longitude must be valid numbers.');
       return;
     }
@@ -221,7 +249,7 @@ export default function ModerationCreateCafeScreen() {
         longitude,
         addressLine,
         googleMapsUrl,
-        shortDescription,
+        shortDescription: cleanedShortDescription,
         tags:
           parseTags(tagsText).length > 0
             ? parseTags(tagsText)
@@ -282,11 +310,24 @@ export default function ModerationCreateCafeScreen() {
                   autoCapitalize="none"
                 />
 
-                <Text style={styles.label}>Short description</Text>
+                {submission.notes?.trim() ? (
+                  <>
+                    <Text style={styles.label}>Submitter&apos;s note (not the café description)</Text>
+                    <Text style={styles.submitterNoteText}>{submission.notes.trim()}</Text>
+                  </>
+                ) : null}
+
+                <Text style={styles.label}>Short description (required)</Text>
+                <Text style={styles.helperText}>
+                  Official Beaned copy for this café. Write this yourself — it is not taken from the
+                  submitter&apos;s note.
+                </Text>
                 <TextInput
                   style={styles.textArea}
                   value={shortDescription}
                   onChangeText={setShortDescription}
+                  placeholder="Describe this café for other Beaned users…"
+                  placeholderTextColor={COLORS.muted}
                   multiline
                   textAlignVertical="top"
                 />
@@ -298,7 +339,11 @@ export default function ModerationCreateCafeScreen() {
                 <TextInput
                   style={styles.input}
                   value={latitudeText}
-                  onChangeText={setLatitudeText}
+                  onChangeText={(text) => {
+                    setLatitudeText(text);
+                    const parsed = parseCoordinateInput(text);
+                    setLatitudeValue(parsed);
+                  }}
                   keyboardType="decimal-pad"
                   placeholder="Required"
                   placeholderTextColor={COLORS.muted}
@@ -308,7 +353,11 @@ export default function ModerationCreateCafeScreen() {
                 <TextInput
                   style={styles.input}
                   value={longitudeText}
-                  onChangeText={setLongitudeText}
+                  onChangeText={(text) => {
+                    setLongitudeText(text);
+                    const parsed = parseCoordinateInput(text);
+                    setLongitudeValue(parsed);
+                  }}
                   keyboardType="decimal-pad"
                   placeholder="Required"
                   placeholderTextColor={COLORS.muted}
@@ -636,6 +685,18 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     fontFamily: FONTS.sans.regular,
     marginBottom: 2,
+  },
+  submitterNoteText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.regular,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
   },
   photoGrid: {
     gap: 10,

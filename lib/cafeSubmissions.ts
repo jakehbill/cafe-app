@@ -179,8 +179,9 @@ export function buildGooglePlacesCafeSubmissionPayload(
     new Set((extras?.selectedTags ?? []).map((tag) => tag.trim()).filter(Boolean))
   );
 
-  const latitude = Number(place.latitude);
-  const longitude = Number(place.longitude);
+  // Preserve full Google Places precision (no rounding before insert).
+  const latitude = place.latitude;
+  const longitude = place.longitude;
 
   const row: GooglePlacesCafeSubmissionInsertRow = {
     user_id: userId,
