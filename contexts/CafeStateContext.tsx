@@ -8,6 +8,7 @@ import React, {
   useState,
 } from 'react';
 
+import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { supabase } from '@/lib/supabase';
 
 import { useAuth } from './AuthContext';
@@ -232,11 +233,12 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
         throw new Error('You must be signed in to save a rating');
       }
 
+      const coffee = quantizeCoffeeRatingForStorage(ratingData.coffee);
       const { error } = await supabase.from('user_cafe_ratings').upsert(
         {
           user_id: userId,
           cafe_id: String(id),
-          coffee: ratingData.coffee,
+          coffee,
           tags: ratingData.tags,
           notes: ratingData.notes,
         },
@@ -244,7 +246,10 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (error) {
-        console.error('Failed to save rating', error);
+        console.error('Failed to save legacy user_cafe_ratings row:', error.message, {
+          cafe_id: id,
+          coffee,
+        });
         throw error;
       }
 

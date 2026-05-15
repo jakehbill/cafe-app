@@ -41,6 +41,11 @@ import {
   type GooglePlaceDetailsForSubmission,
   type PlacesSearchListItem,
 } from '@/lib/googlePlaces';
+import {
+  formatCoffeeRatingOutOf5,
+  normalizeCoffeeRatingInput,
+  quantizeCoffeeRatingForStorage,
+} from '@/lib/coffeeRating';
 import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
 import { saveUserCafeVisit } from '@/lib/userCafeVisits';
 
@@ -75,13 +80,13 @@ function SuggestCoffeeRatingSlider({
     <View style={styles.suggestRatingSliderBlock}>
       <View style={styles.suggestRatingSliderMetaRow}>
         <Text style={styles.visitRatingValue}>
-          {value == null ? 'Not rated' : `${value.toFixed(1)} / 5`}
+          {formatCoffeeRatingOutOf5(value)}
         </Text>
         <Text style={styles.suggestRatingSliderHint}>out of 5</Text>
       </View>
       <Slider
         value={current}
-        onValueChange={onChange}
+        onValueChange={(v) => onChange(quantizeCoffeeRatingForStorage(v))}
         minimumValue={1}
         maximumValue={5}
         step={0.5}
@@ -144,8 +149,8 @@ export default function SuggestCafeScreen() {
   const [googleMapsUrl, setGoogleMapsUrl] = useState('');
   const [notes, setNotes] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [visitRating, setVisitRating] = useState<number | null>(
-    Number.isFinite(Number(initialVisitRatingRaw)) ? Number(initialVisitRatingRaw) : null
+  const [visitRating, setVisitRating] = useState<number | null>(() =>
+    normalizeCoffeeRatingInput(Number(initialVisitRatingRaw))
   );
   const [visitTags, setVisitTags] = useState<string[]>(
     String(initialVisitTagsRaw ?? '')
@@ -498,26 +503,56 @@ export default function SuggestCafeScreen() {
           return;
         }
 
+        const hasContributorExtras =
+          suggestCoffeeRating != null ||
+          notes.trim().length > 0 ||
+          selectedTags.length > 0;
+        if (hasContributorExtras) {
+          const visitRes = await saveUserCafeVisit({
+            submissionId: result.submissionId,
+            rating: suggestCoffeeRating,
+            tags: selectedTags,
+            note: notes,
+          });
+          if (!visitRes.ok) {
+            console.error('[suggest-cafe] submission visit log failed:', visitRes.error);
+            setSubmitError(
+              `Your café suggestion was saved, but your rating or note could not be saved: ${visitRes.error}`
+            );
+            return;
+          }
+        }
+
         const imagesToUpload = selectedPhotos.filter(
           (photo): photo is { uri: string; mimeType?: string | null; fileName?: string | null } => photo != null
         );
 
-        let uploadSummary: { uploadedCount: number; failedCount: number } | null = null;
         if (imagesToUpload.length > 0) {
-          uploadSummary = await uploadSubmissionPhotos({
+          const uploadSummary = await uploadSubmissionPhotos({
             userId: result.userId,
             submissionId: result.submissionId,
             images: imagesToUpload,
           });
+
+          if (uploadSummary.uploadedCount === 0) {
+            const detail = uploadSummary.errors[0];
+            setSubmitError(
+              detail
+                ? `Your café suggestion was saved, but your photos could not be uploaded: ${detail}`
+                : 'Your café suggestion was saved, but your photos could not be uploaded. Try again with smaller images or a different browser.'
+            );
+            return;
+          }
+
+          if (uploadSummary.failedCount > 0) {
+            setSubmitError(
+              `Your café suggestion was saved, but only ${uploadSummary.uploadedCount} of ${imagesToUpload.length} photos uploaded. You can add more photos when the café is live.`
+            );
+            return;
+          }
         }
 
-        if (uploadSummary && uploadSummary.failedCount > 0) {
-          setSuccessMessage(
-            `Thanks — we’ll review this before adding it to Beaned. (${uploadSummary.uploadedCount}/${imagesToUpload.length} photos uploaded)`
-          );
-        } else {
-          setSuccessMessage('Thanks — we’ll review this before adding it to Beaned.');
-        }
+        setSuccessMessage('Thanks — we’ll review this before adding it to Beaned.');
         resetForm();
         const rows = await getMyCafeSubmissions(6);
         setMySubmissions(rows);
@@ -666,14 +701,14 @@ export default function SuggestCafeScreen() {
 
                   <Text style={styles.fieldLabel}>How was it?</Text>
                   <Text style={styles.visitRatingValue}>
-                    {visitRating == null ? 'Not rated' : `${Math.round(visitRating)} / 5`}
+                    {formatCoffeeRatingOutOf5(visitRating)}
                   </Text>
                   <Slider
                     value={visitRating ?? 3}
-                    onValueChange={(v) => setVisitRating(v)}
+                    onValueChange={(v) => setVisitRating(quantizeCoffeeRatingForStorage(v))}
                     minimumValue={1}
                     maximumValue={5}
-                    step={1}
+                    step={0.5}
                     minimumTrackTintColor={COLORS.accent}
                     maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
                     thumbTintColor={COLORS.accent}

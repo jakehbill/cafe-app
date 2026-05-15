@@ -2,7 +2,10 @@ import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
+import { normalizeCoffeeRatingInput, quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { parseCafeTagsField } from '@/lib/cafeTags';
+
+export { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -98,6 +101,76 @@ export async function unsaveCafe(cafeId: number): Promise<SupabaseActionResult> 
 }
 
 /**
+ * Upsert `public.ratings` + `rating_tags` for a user/cafe pair (same path as rate screen).
+ * Used by rate flow and moderation approval when promoting a submitter’s first contribution.
+ */
+export async function upsertCoffeeRatingForUser(params: {
+  userId: string;
+  cafeId: number;
+  coffee: number;
+  tags?: string[];
+}): Promise<SupabaseActionResult> {
+  const userId = String(params.userId ?? '').trim();
+  if (!userId) {
+    return { ok: false, error: 'user_id is required.' };
+  }
+  if (!Number.isFinite(params.cafeId)) {
+    return { ok: false, error: 'Invalid cafe_id for ratings.' };
+  }
+
+  const coffeeRating = quantizeCoffeeRatingForStorage(params.coffee);
+  const ratingPayload = {
+    user_id: userId,
+    cafe_id: params.cafeId,
+    coffee_rating: coffeeRating,
+  };
+
+  const upsertRes = await supabase
+    .from('ratings')
+    .upsert(ratingPayload, { onConflict: 'user_id,cafe_id' })
+    .select('id');
+
+  if (upsertRes.error) {
+    console.error('[upsertCoffeeRatingForUser] ratings upsert failed:', upsertRes.error);
+    return { ok: false, error: upsertRes.error.message };
+  }
+
+  let ratingId: number | string | undefined = upsertRes.data?.[0]?.id;
+  if (ratingId == null) {
+    const fetchRes = await supabase
+      .from('ratings')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('cafe_id', params.cafeId)
+      .maybeSingle();
+    ratingId = fetchRes.data?.id;
+    if (fetchRes.error) {
+      return { ok: false, error: fetchRes.error.message };
+    }
+  }
+
+  if (ratingId == null) {
+    return { ok: false, error: 'Ratings upsert did not return a rating id.' };
+  }
+
+  const deleteTagsRes = await supabase.from('rating_tags').delete().eq('rating_id', ratingId);
+  if (deleteTagsRes.error) {
+    return { ok: false, error: deleteTagsRes.error.message };
+  }
+
+  const normalizedTags = Array.from(new Set((params.tags ?? []).map((t) => t.trim()).filter(Boolean)));
+  if (normalizedTags.length > 0) {
+    const tagRows = normalizedTags.map((tag) => ({ rating_id: ratingId, tag }));
+    const insertTagsRes = await supabase.from('rating_tags').insert(tagRows);
+    if (insertTagsRes.error) {
+      return { ok: false, error: insertTagsRes.error.message };
+    }
+  }
+
+  return { ok: true };
+}
+
+/**
  * Create or update a cafe rating for the current user.
  * Writes only `coffee_rating` on `public.ratings` (no `rating`, `work_rating`, or `vibe_rating`).
  * Replaces rows in `public.rating_tags` for that rating.
@@ -110,21 +183,8 @@ export async function rateCafe(
     notes?: string;
   }
 ): Promise<SupabaseActionResult> {
-  const logStep = (step: string, payload?: Record<string, unknown>) => {
-    if (!__DEV__) return;
-    if (payload) {
-      console.log(`[rateCafe] ${step}\n${JSON.stringify(payload, null, 2)}`);
-      return;
-    }
-    console.log(`[rateCafe] ${step}`);
-  };
-
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
-    logStep('auth.getUser failed', {
-      message: authError.message,
-      code: authError.code,
-    });
     console.error('rateCafe: auth getUser failed:', authError);
     return { ok: false, error: authError.message };
   }
@@ -134,114 +194,19 @@ export async function rateCafe(
     return { ok: false, error: 'You must be signed in to rate a cafe.' };
   }
 
-  const clamp015 = (n: number) => Math.min(5, Math.max(1, n));
-  const quantizeHalf = (n: number) => Math.round(n * 2) / 2;
-  const coffeeRating = quantizeHalf(clamp015(input.coffee));
   const normalizedCafeId = Number.parseInt(String(cafeId), 10);
-
   if (!Number.isFinite(normalizedCafeId)) {
     const message = `Invalid cafe_id for ratings submit: ${String(cafeId)}`;
-    logStep('invalid cafe_id', { cafeId });
     console.error('rateCafe:', message);
     return { ok: false, error: message };
   }
 
-  const ratingPayload = {
-    user_id: userId,
-    cafe_id: normalizedCafeId,
-    coffee_rating: coffeeRating,
-  };
-
-  logStep('step 1: upsert ratings', {
-    onConflict: 'user_id,cafe_id',
-    payload: ratingPayload,
+  return upsertCoffeeRatingForUser({
+    userId,
+    cafeId: normalizedCafeId,
+    coffee: input.coffee,
+    tags: input.tags,
   });
-
-  const upsertRes = await supabase
-    .from('ratings')
-    .upsert(ratingPayload, { onConflict: 'user_id,cafe_id' })
-    .select('id');
-
-  if (upsertRes.error) {
-    const err = upsertRes.error;
-    logStep('step 1 failed: upsert ratings error', {
-      message: err.message,
-      code: err.code,
-      details: err.details,
-      hint: err.hint,
-    });
-    console.error('rateCafe: upsert failed:', err);
-    return { ok: false, error: err.message };
-  }
-
-  const rows = upsertRes.data;
-  let ratingId: number | string | undefined = rows?.[0]?.id;
-
-  if (ratingId == null) {
-    const fetchRes = await supabase
-      .from('ratings')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('cafe_id', normalizedCafeId)
-      .maybeSingle();
-    ratingId = fetchRes.data?.id;
-    if (fetchRes.error) {
-      logStep('step 2 fallback select failed', { message: fetchRes.error.message });
-      console.error('rateCafe: fallback select ratings id failed:', fetchRes.error);
-      return { ok: false, error: fetchRes.error.message };
-    }
-  }
-
-  logStep('step 2: resolved rating id', { ratingId });
-
-  if (ratingId == null) {
-    const message = 'Ratings upsert did not return a rating id.';
-    logStep('step 2 failed: missing rating id', {});
-    console.error('rateCafe:', message);
-    return { ok: false, error: message };
-  }
-
-  logStep('step 3: delete existing rating_tags', { rating_id: ratingId });
-  const deleteTagsRes = await supabase.from('rating_tags').delete().eq('rating_id', ratingId);
-  if (deleteTagsRes.error) {
-    const err = deleteTagsRes.error;
-    logStep('step 3 failed: delete rating_tags error', {
-      message: err.message,
-      code: err.code,
-      details: err.details,
-      hint: err.hint,
-      rating_id: ratingId,
-    });
-    console.error('rateCafe: delete rating_tags failed:', err);
-    return { ok: false, error: err.message };
-  }
-
-  const normalizedTags = Array.from(new Set((input.tags ?? []).map((t) => t.trim()).filter(Boolean)));
-  logStep('step 4: insert rating_tags', {
-    rating_id: ratingId,
-    tagCount: normalizedTags.length,
-    tags: normalizedTags,
-  });
-
-  if (normalizedTags.length > 0) {
-    const tagRows = normalizedTags.map((tag) => ({ rating_id: ratingId, tag }));
-    const insertTagsRes = await supabase.from('rating_tags').insert(tagRows);
-    if (insertTagsRes.error) {
-      const err = insertTagsRes.error;
-      logStep('step 4 failed: insert rating_tags error', {
-        message: err.message,
-        code: err.code,
-        details: err.details,
-        hint: err.hint,
-        rating_id: ratingId,
-      });
-      console.error('rateCafe: insert rating_tags failed:', err);
-      return { ok: false, error: err.message };
-    }
-  }
-
-  logStep('submit flow complete', { rating_id: ratingId });
-  return { ok: true };
 }
 
 /**
@@ -259,11 +224,16 @@ export async function getUserCoffeeRating(cafeId: number | string): Promise<numb
     return null;
   }
 
+  const normalizedCafeId = Number.parseInt(String(cafeId), 10);
+  if (!Number.isFinite(normalizedCafeId)) {
+    return null;
+  }
+
   const res = await supabase
-    .from('user_cafe_ratings')
-    .select('coffee')
+    .from('ratings')
+    .select('coffee_rating')
     .eq('user_id', userId)
-    .eq('cafe_id', String(cafeId))
+    .eq('cafe_id', normalizedCafeId)
     .maybeSingle();
 
   if (res.error) {
@@ -271,10 +241,11 @@ export async function getUserCoffeeRating(cafeId: number | string): Promise<numb
     return null;
   }
 
-  const row = res.data;
-  if (!row) return null;
-  const c = typeof row.coffee === 'number' ? row.coffee : 0;
-  return c > 0 ? c : null;
+  const raw = res.data?.coffee_rating;
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) {
+    return null;
+  }
+  return quantizeCoffeeRatingForStorage(raw);
 }
 
 /**
@@ -467,7 +438,7 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
       const ratingRaw = (row as { rating?: unknown }).rating;
       const rating =
         typeof ratingRaw === 'number' && Number.isFinite(ratingRaw)
-          ? Math.max(1, Math.min(5, ratingRaw))
+          ? normalizeCoffeeRatingInput(ratingRaw)
           : null;
       const tagsRaw = (row as { tags?: unknown }).tags;
       const tags = Array.isArray(tagsRaw)

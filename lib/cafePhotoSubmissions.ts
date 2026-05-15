@@ -3,13 +3,13 @@ import { decode } from 'base64-arraybuffer';
 import { Platform } from 'react-native';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 
-const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
-
-type UploadableImageAsset = {
+export type UploadableImageAsset = {
   uri: string;
   mimeType?: string | null;
   fileName?: string | null;
 };
+
+export const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
 
 function safeFileExtension(asset: UploadableImageAsset): string {
   const fromMime = asset.mimeType?.toLowerCase().trim();
@@ -45,24 +45,15 @@ export function buildCafePhotoStoragePath(params: {
   return `${params.userId}/${params.cafeId}/${ts}.${extension}`;
 }
 
-export async function uploadCafePhotoAssetToStorage(params: {
-  userId: string;
-  cafeId: string;
+/** Shared storage upload for café photos, submission photos, and visit photos (web + native). */
+export async function uploadImageAssetToStorageBucket(params: {
   asset: UploadableImageAsset;
-}): Promise<
-  | { ok: true; storagePath: string; contentType: string }
-  | {
-      ok: false;
-      error: string;
-    }
-> {
+  storagePath: string;
+  logTag?: string;
+}): Promise<{ ok: true; contentType: string } | { ok: false; error: string }> {
   const extension = safeFileExtension(params.asset);
   const contentType = safeContentType(params.asset, extension);
-  const storagePath = buildCafePhotoStoragePath({
-    userId: params.userId,
-    cafeId: params.cafeId,
-    extension,
-  });
+  const logTag = params.logTag ?? 'uploadImageAssetToStorageBucket';
 
   try {
     let uploadResult:
@@ -76,7 +67,7 @@ export async function uploadCafePhotoAssetToStorage(params: {
         const response = await fetch(params.asset.uri);
         blob = await response.blob();
       } catch (error) {
-        console.error('[uploadCafePhotoAssetToStorage] web blob conversion failed:', error);
+        console.error(`[${logTag}] web blob conversion failed:`, error);
         throw new Error(
           `Failed to read selected image on web: ${error instanceof Error ? error.message : 'Unknown error'}`
         );
@@ -86,7 +77,7 @@ export async function uploadCafePhotoAssetToStorage(params: {
       }
       uploadResult = await supabase.storage
         .from(CAFE_USER_PHOTO_BUCKET)
-        .upload(storagePath, blob, {
+        .upload(params.storagePath, blob, {
           contentType,
           upsert: false,
         });
@@ -117,7 +108,7 @@ export async function uploadCafePhotoAssetToStorage(params: {
 
       uploadResult = await supabase.storage
         .from(CAFE_USER_PHOTO_BUCKET)
-        .upload(storagePath, arrayBuffer, {
+        .upload(params.storagePath, arrayBuffer, {
           contentType,
           upsert: false,
         });
@@ -127,13 +118,42 @@ export async function uploadCafePhotoAssetToStorage(params: {
       throw new Error(`Upload failed: ${uploadResult.error.message}`);
     }
 
-    return { ok: true, storagePath, contentType };
+    return { ok: true, contentType };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : 'Photo upload failed.',
-    };
+    const message = error instanceof Error ? error.message : 'Photo upload failed.';
+    console.error(`[${logTag}]`, message, error);
+    return { ok: false, error: message };
   }
+}
+
+export async function uploadCafePhotoAssetToStorage(params: {
+  userId: string;
+  cafeId: string;
+  asset: UploadableImageAsset;
+}): Promise<
+  | { ok: true; storagePath: string; contentType: string }
+  | {
+      ok: false;
+      error: string;
+    }
+> {
+  const extension = safeFileExtension(params.asset);
+  const storagePath = buildCafePhotoStoragePath({
+    userId: params.userId,
+    cafeId: params.cafeId,
+    extension,
+  });
+
+  const upload = await uploadImageAssetToStorageBucket({
+    asset: params.asset,
+    storagePath,
+    logTag: 'uploadCafePhotoAssetToStorage',
+  });
+  if (!upload.ok) {
+    return upload;
+  }
+
+  return { ok: true, storagePath, contentType: upload.contentType };
 }
 
 export async function submitCafePhoto(input: {

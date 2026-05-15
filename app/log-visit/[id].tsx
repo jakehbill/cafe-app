@@ -26,6 +26,11 @@ import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { POINTS } from '@/lib/profileGamification';
+import {
+  formatCoffeeRatingOutOf5,
+  normalizeCoffeeRatingInput,
+  quantizeCoffeeRatingForStorage,
+} from '@/lib/coffeeRating';
 import { getUserCafeVisitById, saveUserCafeVisit, updateUserCafeVisit } from '@/lib/userCafeVisits';
 
 export default function LogVisitScreen() {
@@ -81,7 +86,7 @@ export default function LogVisitScreen() {
         if (!cancelled) setLoadingExisting(false);
         return;
       }
-      setRating(existing.rating);
+      setRating(normalizeCoffeeRatingInput(existing.rating));
       setSelectedTags(existing.tags);
       setNote(existing.note);
       setExistingPendingName(existing.submissionCafeName);
@@ -300,13 +305,13 @@ export default function LogVisitScreen() {
 
           {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>How was it?</Text>
-            <Text style={styles.ratingValue}>{rating == null ? 'Not rated' : `${Math.round(rating)} / 5`}</Text>
+            <Text style={styles.ratingValue}>{formatCoffeeRatingOutOf5(rating)}</Text>
             <Slider
               value={rating ?? 3}
-              onValueChange={(v) => setRating(v)}
+              onValueChange={(v) => setRating(quantizeCoffeeRatingForStorage(v))}
               minimumValue={1}
               maximumValue={5}
-              step={1}
+              step={0.5}
               minimumTrackTintColor={COLORS.accent}
               maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
               thumbTintColor={COLORS.accent}

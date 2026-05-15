@@ -1,3 +1,4 @@
+import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { rateCafe, supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { uploadCafePhotoAssetToStorage } from '@/lib/cafePhotoSubmissions';
 
@@ -207,15 +208,6 @@ async function removeVisitFromPendingPublicPool(visitId: string) {
   await supabase.from('cafe_photos').delete().eq('source_visit_id', visitId).eq('status', 'pending');
 }
 
-function normalizeRating(rating: number | null | undefined): number | null {
-  if (typeof rating !== 'number') return null;
-  return Math.min(5, Math.max(1, Math.round(rating)));
-}
-
-function toCoffeeRatingIntScale(rating: number): number {
-  return Math.min(10, Math.max(2, Math.round(rating * 2)));
-}
-
 function normalizeTags(tags: string[] | undefined): string[] {
   return Array.from(new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean)));
 }
@@ -265,7 +257,7 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
     return { ok: false, error: 'A cafe or submission id is required.' };
   }
 
-  const rating = normalizeRating(input.rating);
+  const rating = normalizeCoffeeRatingInput(input.rating);
   const tags = normalizeTags(input.tags);
   const note = String(input.note ?? '').trim();
 
@@ -341,7 +333,7 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
 
     if (rating != null && cafeId) {
       const rateRes = await rateCafe(cafeId, {
-        coffee: toCoffeeRatingIntScale(rating),
+        coffee: rating,
         tags,
         notes: note,
       });
@@ -434,7 +426,7 @@ export async function updateUserCafeVisit(
     nextStoragePath = await getLatestVisitPhotoStoragePath(visitId);
   }
 
-  const nextRating = normalizeRating(input.rating ?? existing.rating);
+  const nextRating = normalizeCoffeeRatingInput(input.rating ?? existing.rating);
   const nextTags = normalizeTags(input.tags ?? existing.tags);
   const nextNote = String(input.note ?? existing.note).trim();
 

@@ -2,6 +2,7 @@ import {
   placeHasValidCoordinates,
   type GooglePlaceDetailsForSubmission,
 } from '@/lib/googlePlaces';
+import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 
 export type CafeSubmissionStatus = 'pending' | 'approved' | 'rejected';
@@ -158,9 +159,8 @@ export type GooglePlacesCafeSubmissionExtras = {
  * Google fields: place.id → google_place_id, displayName.text → cafe_name, formattedAddress → address_text, etc.
  */
 function clampCoffeeRatingForSubmission(value: number): number {
-  const v = Number.isFinite(value) ? value : 3;
-  const clamped = Math.min(5, Math.max(1, v));
-  return Math.round(clamped * 10) / 10;
+  if (!Number.isFinite(value)) return quantizeCoffeeRatingForStorage(3);
+  return quantizeCoffeeRatingForStorage(value);
 }
 
 export function buildGooglePlacesCafeSubmissionPayload(

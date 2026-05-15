@@ -9,6 +9,7 @@ import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafeImageUrls } from '@/lib/cafeLiveImages';
+import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import {
   getCafeCommunityTagInsight,
@@ -557,7 +558,7 @@ export default function CafeDetailScreen() {
                   const reviewDate = formatReviewDate(review.createdAt);
                   const ratingText =
                     typeof review.rating === 'number' && Number.isFinite(review.rating)
-                      ? `${review.rating.toFixed(1)} ★`
+                      ? `${formatCoffeeRatingValue(review.rating)} ★`
                       : null;
                   const tagsText = review.tags.length > 0 ? review.tags.map((tag) => formatTagLabel(tag)).join(' · ') : null;
                   const metaLine = [ratingText, tagsText].filter((part): part is string => Boolean(part)).join(' · ');

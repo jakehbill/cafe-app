@@ -26,6 +26,7 @@ import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
 import { submitCafePhoto } from '@/lib/cafePhotoSubmissions';
+import { formatCoffeeRatingValue, quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { getUserCoffeeRating, rateCafe } from '@/lib/supabase';
 
 function rateDebug(label: string, payload: Record<string, unknown>) {
@@ -48,12 +49,12 @@ function RatingSliderRow({
   return (
     <View style={styles.ratingSliderBlock}>
       <View style={styles.ratingSliderMetaRow}>
-        <Text style={styles.ratingSliderValue}>{current.toFixed(1)}</Text>
+        <Text style={styles.ratingSliderValue}>{formatCoffeeRatingValue(current)}</Text>
         <Text style={styles.ratingSliderHint}>out of 5</Text>
       </View>
       <Slider
         value={current}
-        onValueChange={(v) => onSelect(v)}
+        onValueChange={(v) => onSelect(quantizeCoffeeRatingForStorage(v))}
         minimumValue={1}
         maximumValue={5}
         step={0.5}
@@ -103,9 +104,12 @@ export default function RateCafeScreen() {
     });
   }, [cafe?.name, navigation]);
 
-  const [coffeeScore, setCoffeeScore] = useState<number | null>(
-    typeof existingRating?.coffee === 'number' ? existingRating.coffee : null
-  );
+  const [coffeeScore, setCoffeeScore] = useState<number | null>(() => {
+    if (typeof existingRating?.coffee === 'number' && existingRating.coffee > 0) {
+      return quantizeCoffeeRatingForStorage(existingRating.coffee);
+    }
+    return null;
+  });
   const [selectedTags, setSelectedTags] = useState<string[]>(
     (existingRating?.tags ?? []).filter((tag) =>
       ALL_RATING_TAGS.includes(tag as (typeof ALL_RATING_TAGS)[number])
@@ -141,7 +145,6 @@ export default function RateCafeScreen() {
     let cancelled = false;
 
     async function loadPreviousRating() {
-      // Prefill coffee from `user_cafe_ratings.coffee` only (aligned with `ratings.coffee_rating`).
       const numericCafeId = Number.parseInt(targetCafeId, 10);
       if (!Number.isFinite(numericCafeId)) return;
 
@@ -151,8 +154,7 @@ export default function RateCafeScreen() {
       if (coffeeScore != null) return;
       if (existingRating) return;
 
-      const v = Math.min(5, Math.max(1, Math.round(prev)));
-      setCoffeeScore(v);
+      setCoffeeScore(prev);
     }
 
     void loadPreviousRating();

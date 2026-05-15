@@ -1,5 +1,6 @@
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { generateUniqueCafeSlug } from '@/lib/cafeSlug';
+import { promoteSubmitterContributionOnCafeApproval } from '@/lib/submissionContributorPromotion';
 import { resolveToCanonicalTagSlug } from '@/lib/tagRegistry';
 
 const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
@@ -491,6 +492,11 @@ export async function createCafeAndApproveSubmission(
     .from('user_cafe_visits')
     .update({ cafe_id: createdCafeId, submission_id: null })
     .eq('submission_id', input.submissionId);
+
+  await promoteSubmitterContributionOnCafeApproval({
+    submissionId: input.submissionId,
+    cafeId: createdCafeId,
+  });
 
   const linkedPublicVisits = await supabase
     .from('user_cafe_visits')
