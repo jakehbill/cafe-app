@@ -88,6 +88,75 @@ export function rankCafesForTrending(list: Cafe[]): Cafe[] {
   return copy;
 }
 
+/** Share of nearby picks that should be cafés the user has not engaged with yet (logged in). */
+export const TRENDING_NEARBY_UNVISITED_SHARE = 0.75;
+
+export function isKnownCafeForTrendingNearby(cafeId: string, knownCafeIds: Set<string>): boolean {
+  const key = String(cafeId ?? '').trim();
+  return key.length > 0 && knownCafeIds.has(key);
+}
+
+/**
+ * Same distance + trending sort used on Home “Trending nearby” (quality preserved within each bucket).
+ */
+export function rankNearbyPoolForTrending(pool: Cafe[], activeRadiusMiles: number): Cafe[] {
+  const copy = [...pool];
+  copy.sort((a, b) => {
+    const aDistBonus =
+      a.distanceMiles == null ? 0 : Math.max(0, activeRadiusMiles - a.distanceMiles) * 1.8;
+    const bDistBonus =
+      b.distanceMiles == null ? 0 : Math.max(0, activeRadiusMiles - b.distanceMiles) * 1.8;
+    const aScore = computeTrendingScore(a) + aDistBonus;
+    const bScore = computeTrendingScore(b) + bDistBonus;
+    return bScore - aScore;
+  });
+  return copy;
+}
+
+/**
+ * Compose final carousel: ~75% unvisited/unrated, ~25% known (visited/rated/saved/logged).
+ * When `knownCafeIds` is empty (logged out), returns the ranked pool unchanged.
+ */
+export function composeTrendingNearbyForUser(
+  rankedPool: Cafe[],
+  options: {
+    limit?: number;
+    knownCafeIds?: Set<string>;
+    unvisitedShare?: number;
+  } = {}
+): Cafe[] {
+  const limit = options.limit ?? 5;
+  const known = options.knownCafeIds;
+  if (!known || known.size === 0) {
+    return rankedPool.slice(0, limit);
+  }
+
+  const unvisitedShare = options.unvisitedShare ?? TRENDING_NEARBY_UNVISITED_SHARE;
+  const fresh: Cafe[] = [];
+  const knownList: Cafe[] = [];
+  for (const cafe of rankedPool) {
+    if (isKnownCafeForTrendingNearby(cafe.id, known)) {
+      knownList.push(cafe);
+    } else {
+      fresh.push(cafe);
+    }
+  }
+
+  const freshTarget = Math.ceil(limit * unvisitedShare);
+  const picks: Cafe[] = [...fresh.slice(0, freshTarget)];
+
+  const knownSlots = limit - picks.length;
+  if (knownSlots > 0) {
+    picks.push(...knownList.slice(0, knownSlots));
+  }
+
+  if (picks.length < limit) {
+    picks.push(...fresh.slice(freshTarget, freshTarget + (limit - picks.length)));
+  }
+
+  return picks.slice(0, limit);
+}
+
 /**
  * Search screen: same nearby pool + trending sort as Home when query is empty.
  * With a query, reorders by trending score + a light text-relevance term (no personalization).

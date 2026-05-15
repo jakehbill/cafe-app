@@ -31,7 +31,11 @@ import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getRecentPublicVisitNotes, resolveCafeDisplayTags, supabase, type PublicVisitNote } from '@/lib/supabase';
 import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
-import { computeTrendingScore, rankCafesForTrending } from '@/lib/cafeTrending';
+import {
+  composeTrendingNearbyForUser,
+  rankCafesForTrending,
+  rankNearbyPoolForTrending,
+} from '@/lib/cafeTrending';
 import { withCafeDistances } from '@/lib/cafeDistance';
 import { useUserLocation } from '@/contexts/UserLocationContext';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
@@ -415,17 +419,43 @@ export default function HomeScreen() {
     return copy.slice(0, 5);
   }, [cafesWithDistance]);
 
+  const knownCafeIdsForTrending = useMemo(() => {
+    const known = new Set<string>();
+    for (const id of visitedCafeIds) {
+      const key = String(id).trim();
+      if (key) known.add(key);
+    }
+    for (const id of visitedFromVisitLogs) {
+      const key = String(id).trim();
+      if (key) known.add(key);
+    }
+    for (const id of savedCafeIds) {
+      const key = String(id).trim();
+      if (key) known.add(key);
+    }
+    for (const id of Object.keys(ratingsByCafeId)) {
+      const key = String(id).trim();
+      if (key) known.add(key);
+    }
+    return known;
+  }, [visitedCafeIds, visitedFromVisitLogs, savedCafeIds, ratingsByCafeId]);
+
   const trendingNearby = useMemo(() => {
+    const targetCount = 5;
     if (!userLocation) {
       // Permission denied/unavailable path: keep Home usable with non-distance fallback.
+      const ranked = rankCafesForTrending([...cafesWithDistance]);
       return {
-        cafes: rankCafesForTrending([...cafesWithDistance]).slice(0, 5),
+        cafes: composeTrendingNearbyForUser(ranked, {
+          limit: targetCount,
+          knownCafeIds: knownCafeIdsForTrending,
+        }),
         activeRadiusMiles: null as number | null,
+        prefersDiscovery: knownCafeIdsForTrending.size > 0,
       };
     }
 
     const radiusSteps = [1, 2, 3];
-    const targetCount = 5;
     let pool: Cafe[] = [];
     let activeRadius = radiusSteps[radiusSteps.length - 1];
     for (const radius of radiusSteps) {
@@ -439,24 +469,39 @@ export default function HomeScreen() {
       activeRadius = radius;
     }
     if (pool.length === 0) {
-      return { cafes: fallbackHighRatedCafes, activeRadiusMiles: null as number | null };
+      return {
+        cafes: composeTrendingNearbyForUser(fallbackHighRatedCafes, {
+          limit: targetCount,
+          knownCafeIds: knownCafeIdsForTrending,
+        }),
+        activeRadiusMiles: null as number | null,
+        prefersDiscovery: knownCafeIdsForTrending.size > 0,
+      };
     }
 
-    const rankedNearby = [...pool].sort((a, b) => {
-      const aDistBonus = a.distanceMiles == null ? 0 : Math.max(0, activeRadius - a.distanceMiles) * 1.8;
-      const bDistBonus = b.distanceMiles == null ? 0 : Math.max(0, activeRadius - b.distanceMiles) * 1.8;
-      const aScore = computeTrendingScore(a) + aDistBonus;
-      const bScore = computeTrendingScore(b) + bDistBonus;
-      return bScore - aScore;
-    });
-    return { cafes: rankedNearby.slice(0, 5), activeRadiusMiles: activeRadius };
-  }, [cafesWithDistance, fallbackHighRatedCafes, userLocation]);
+    const rankedNearby = rankNearbyPoolForTrending(pool, activeRadius);
+    return {
+      cafes: composeTrendingNearbyForUser(rankedNearby, {
+        limit: targetCount,
+        knownCafeIds: knownCafeIdsForTrending,
+      }),
+      activeRadiusMiles: activeRadius,
+      prefersDiscovery: knownCafeIdsForTrending.size > 0,
+    };
+  }, [cafesWithDistance, fallbackHighRatedCafes, knownCafeIdsForTrending, userLocation]);
 
   const trendingSubtitle = useMemo(() => {
-    if (!userLocation) return 'Popular right now';
-    if (trendingNearby.activeRadiusMiles == null) return 'Popular around you';
-    return `Popular around you · Within ${trendingNearby.activeRadiusMiles} mi`;
-  }, [trendingNearby.activeRadiusMiles, userLocation]);
+    if (!userLocation) {
+      return trendingNearby.prefersDiscovery ? 'Mostly new spots for you' : 'Popular right now';
+    }
+    if (trendingNearby.activeRadiusMiles == null) {
+      return trendingNearby.prefersDiscovery ? 'Mostly new spots near you' : 'Popular around you';
+    }
+    const radius = `Within ${trendingNearby.activeRadiusMiles} mi`;
+    return trendingNearby.prefersDiscovery
+      ? `Mostly new spots near you · ${radius}`
+      : `Popular around you · ${radius}`;
+  }, [trendingNearby.activeRadiusMiles, trendingNearby.prefersDiscovery, userLocation]);
 
   const noticeBoardRows = useMemo(() => {
     const cafeById = new Map(cafeCatalog.map((cafe) => [String(cafe.id).trim(), cafe]));
@@ -566,7 +611,7 @@ export default function HomeScreen() {
 
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
-              <Text style={styles.secondarySectionTitle}>Trending nearby</Text>
+              <Text style={styles.secondarySectionTitle}>Worth trying nearby</Text>
               <Text style={styles.secondarySectionSubtitle}>{trendingSubtitle}</Text>
             </View>
             <ScrollView
