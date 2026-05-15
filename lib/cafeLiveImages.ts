@@ -1,4 +1,5 @@
 import { getCafePhotoUrls, type Cafe } from '@/data/cafes';
+import { isUnusableCafePhotoImageUrl } from '@/lib/cafePhotoSubmissions';
 
 export const CAFE_PLACEHOLDER_IMAGE_URL =
   'https://fhmtmibghmjuurzyncyh.supabase.co/storage/v1/object/public/cafe-images/Beaned%20Image%20Placeholder.png';
@@ -16,6 +17,7 @@ function isValidCafeImageUrl(url: unknown): url is string {
   // Treat "broken-looking storage paths" (e.g. relative storage paths) as invalid.
   // Our UI expects fully-qualified HTTP(S) image URLs.
   if (!/^https?:\/\//i.test(s)) return false;
+  if (isUnusableCafePhotoImageUrl(s)) return false;
   return true;
 }
 

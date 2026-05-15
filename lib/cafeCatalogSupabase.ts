@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 
 /** Set to false to silence temporary catalog debug logs after fixing Supabase. */
 const DEBUG_CAFE_CATALOG = true;
-const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
+import { fetchApprovedCafePhotoUrlsByCafeIds, isUnusableCafePhotoImageUrl } from '@/lib/cafePhotoSubmissions';
 
 function debugCatalog(label: string, payload: Record<string, unknown>) {
   if (!DEBUG_CAFE_CATALOG || !__DEV__) return;
@@ -52,7 +52,14 @@ function uniqueValidUrls(urls: Array<string | undefined | null>): string[] {
 function imageUrlsFromRow(row: Record<string, unknown>): string[] {
   const raw = row.image_urls ?? row.gallery_urls ?? row.photo_urls ?? row.photos;
   if (Array.isArray(raw)) {
-    return raw.map((x) => str(x).trim()).filter((s) => s.length > 0);
+    return raw
+      .map((x) => str(x).trim())
+      .filter(
+        (s) =>
+          s.length > 0 &&
+          !isUnusableCafePhotoImageUrl(s) &&
+          !s.includes('submission-photos/')
+      );
   }
   if (typeof raw === 'string' && raw.trim().length > 0) {
     try {
@@ -66,7 +73,7 @@ function imageUrlsFromRow(row: Record<string, unknown>): string[] {
     return raw
       .split(',')
       .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+      .filter((s) => s.length > 0 && !isUnusableCafePhotoImageUrl(s));
   }
   return [];
 }
@@ -76,87 +83,11 @@ function tagsFromRow(row: Record<string, unknown>): string[] {
   return parseCafeTagsField(t);
 }
 
-async function fetchApprovedPhotoUrlsByCafeId(cafeIds: string[]): Promise<Map<string, string[]>> {
-  const numericCafeIds = Array.from(
-    new Set(
-      cafeIds
-        .map((id) => Number(id))
-        .filter((id) => Number.isFinite(id))
-    )
-  );
-  if (numericCafeIds.length === 0) return new Map();
-
-  const res = await supabase
-    .from('cafe_photos')
-    .select('*')
-    .in('cafe_id', numericCafeIds)
-    .eq('status', 'approved')
-    .order('created_at', { ascending: true });
-  if (res.error) {
-    return new Map();
-  }
-
-  const rows = (res.data ?? []) as {
-    cafe_id: number | string;
-    image_url: string | null;
-    storage_path: string | null;
-    sort_order?: number | null;
-    is_primary?: boolean | null;
-    created_at: string | null;
-  }[];
-  rows.sort((a, b) => {
-    const aPrimary = a.is_primary === true ? 1 : 0;
-    const bPrimary = b.is_primary === true ? 1 : 0;
-    if (aPrimary !== bPrimary) return bPrimary - aPrimary;
-
-    const aOrder = typeof a.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
-    const bOrder = typeof b.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
-    if (aOrder !== bOrder) return aOrder - bOrder;
-
-    const aTime = a.created_at ? Date.parse(a.created_at) : 0;
-    const bTime = b.created_at ? Date.parse(b.created_at) : 0;
-    return aTime - bTime;
-  });
-
-  const mappedRows = await Promise.all(
-    rows.map(async (row) => {
-      const cafeId = str(row.cafe_id).trim();
-      if (!cafeId) return null;
-
-      const directUrl = str(row.image_url).trim();
-      if (directUrl.length > 0) {
-        return { cafeId, url: directUrl };
-      }
-
-      const storagePath = str(row.storage_path).trim();
-      if (!storagePath) return null;
-      const signed = await supabase.storage
-        .from(CAFE_USER_PHOTO_BUCKET)
-        .createSignedUrl(storagePath, 60 * 20);
-      const signedUrl = signed.data?.signedUrl ? str(signed.data.signedUrl).trim() : '';
-      if (!signedUrl) return null;
-      return { cafeId, url: signedUrl };
-    })
-  );
-
-  const out = new Map<string, string[]>();
-  for (const item of mappedRows) {
-    if (!item) continue;
-    const current = out.get(item.cafeId) ?? [];
-    current.push(item.url);
-    out.set(item.cafeId, current);
-  }
-  for (const [key, urls] of out.entries()) {
-    out.set(key, uniqueValidUrls(urls));
-  }
-  return out;
-}
-
 async function applyApprovedPhotosPriority(cafes: Cafe[]): Promise<Cafe[]> {
   // Defensive guard: this helper only accepts a cafe array.
   const safeCafes = Array.isArray(cafes) ? cafes : [];
   if (safeCafes.length === 0) return safeCafes;
-  const approvedByCafeId = await fetchApprovedPhotoUrlsByCafeId(safeCafes.map((cafe) => cafe.id));
+  const approvedByCafeId = await fetchApprovedCafePhotoUrlsByCafeIds(safeCafes.map((cafe) => cafe.id));
   return safeCafes.map((cafe) => {
     const approved = approvedByCafeId.get(cafe.id) ?? [];
     if (approved.length > 0) {

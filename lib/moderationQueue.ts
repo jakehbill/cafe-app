@@ -1,5 +1,6 @@
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { generateUniqueCafeSlug } from '@/lib/cafeSlug';
+import { promoteSubmissionPhotosToLiveCafe } from '@/lib/promoteCafeSubmissionPhotos';
 import { promoteSubmitterContributionOnCafeApproval } from '@/lib/submissionContributorPromotion';
 import { resolveToCanonicalTagSlug } from '@/lib/tagRegistry';
 
@@ -401,14 +402,6 @@ export async function createCafeAndApproveSubmission(
     }
     return out;
   })();
-  const selectedPhotoUrls = validSelectedPhotos
-    .map((photo) => {
-      const path = photo.storage_path?.trim();
-      if (!path) return '';
-      return supabase.storage.from(CAFE_USER_PHOTO_BUCKET).getPublicUrl(path).data.publicUrl ?? '';
-    })
-    .filter((url) => url.length > 0);
-  const imageUrls = Array.from(new Set(selectedPhotoUrls));
   let slug: string;
   try {
     slug = await generateUniqueCafeSlug(input.name, input.area);
@@ -430,7 +423,7 @@ export async function createCafeAndApproveSubmission(
     google_maps_url: input.googleMapsUrl?.trim() || null,
     short_description: input.shortDescription?.trim() || null,
     tags,
-    image_urls: imageUrls,
+    image_urls: [],
   };
 
   const insertRes = await supabase.from('cafes').insert(insertPayload).select('id, slug').single();
@@ -444,29 +437,44 @@ export async function createCafeAndApproveSubmission(
   const createdCafeId = String(insertRes.data.id);
   const createdCafeIdNum = Number(createdCafeId);
 
-  // Promote selected submission photos into live cafe photos (approved), without re-uploading.
-  if (validSelectedPhotos.length > 0 && Number.isFinite(createdCafeIdNum) && moderatorUserId.length > 0) {
-    const photoRows = validSelectedPhotos
-      .map((photo, index) => ({
-        cafe_id: createdCafeIdNum,
+  if (validSelectedPhotos.length > 0 && Number.isFinite(createdCafeIdNum)) {
+    const promoted = await promoteSubmissionPhotosToLiveCafe({
+      cafeId: createdCafeId,
+      photos: validSelectedPhotos.map((photo) => ({
+        id: photo.id,
         user_id: String(photo.user_id ?? '').trim(),
         storage_path: String(photo.storage_path ?? '').trim(),
-        image_url: null as string | null,
-        sort_order: index,
-        status: 'approved' as const,
-      }))
-      .filter((row) => Number.isFinite(row.cafe_id) && row.user_id.length > 0 && row.storage_path.length > 0);
+      })),
+    });
 
-    if (photoRows.length > 0) {
-      // Temporary debug aid during moderation-photo hardening:
-      // console.log('[createCafeAndApproveSubmission] final photoRows', photoRows);
-      const photoInsertRes = await supabase.from('cafe_photos').insert(photoRows);
+    if (promoted.imageUrls.length > 0) {
+      const cafeUpdateRes = await supabase
+        .from('cafes')
+        .update({ image_urls: promoted.imageUrls })
+        .eq('id', createdCafeId);
+      if (cafeUpdateRes.error) {
+        console.warn(
+          '[createCafeAndApproveSubmission] cafe created but image_urls update failed:',
+          cafeUpdateRes.error.message
+        );
+      }
+    }
+
+    if (promoted.cafePhotoRows.length > 0) {
+      const photoInsertRes = await supabase.from('cafe_photos').insert(promoted.cafePhotoRows);
       if (photoInsertRes.error) {
         console.warn(
-          '[createCafeAndApproveSubmission] cafe created but photo promotion failed:',
+          '[createCafeAndApproveSubmission] cafe created but cafe_photos insert failed:',
           photoInsertRes.error.message
         );
       }
+    }
+
+    if (promoted.errors.length > 0 && promoted.imageUrls.length === 0) {
+      console.warn(
+        '[createCafeAndApproveSubmission] no photos promoted to live café:',
+        promoted.errors
+      );
     }
   }
 

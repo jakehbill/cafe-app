@@ -11,6 +11,15 @@ export type UploadableImageAsset = {
 
 export const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
 
+/** Public bucket used for live café card/detail images (same as placeholder + editorial cafés). */
+export const CAFE_IMAGES_BUCKET = 'cafe-images';
+
+export function getCafeImagesPublicUrl(storagePath: string): string {
+  const path = String(storagePath ?? '').trim();
+  if (!path) return '';
+  return supabase.storage.from(CAFE_IMAGES_BUCKET).getPublicUrl(path).data.publicUrl ?? '';
+}
+
 function safeFileExtension(asset: UploadableImageAsset): string {
   const fromMime = asset.mimeType?.toLowerCase().trim();
   if (fromMime === 'image/png') return 'png';
@@ -208,42 +217,166 @@ export async function submitCafePhoto(input: {
   }
 }
 
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+export type CafePhotoRowForDisplay = {
+  image_url?: string | null;
+  storage_path?: string | null;
+  sort_order?: number | null;
+  is_primary?: boolean | null;
+  created_at?: string | null;
+};
+
+/** `getPublicUrl` on the private `cafe-user-photos` bucket 403s — never use as a live image src. */
+export function isUnusableCafePhotoImageUrl(url: unknown): boolean {
+  const s = String(url ?? '').trim();
+  if (!s) return true;
+  const lower = s.toLowerCase();
+  if (lower === 'null' || lower === 'undefined') return true;
+  if (lower.startsWith('blob:') || lower.startsWith('file:')) return true;
+  if (/localhost|127\.0\.0\.1/i.test(s)) return true;
+  if (!/^https?:\/\//i.test(s)) return true;
+  if (/\/storage\/v1\/object\/public\/cafe-user-photos\//i.test(s)) return true;
+  return false;
+}
+
+export function parseCafeIdForPhotoQuery(cafeId: string): number | string {
+  const trimmed = String(cafeId ?? '').trim();
+  const numeric = Number(trimmed);
+  return Number.isFinite(numeric) ? numeric : trimmed;
+}
+
+export async function resolveCafePhotoStoragePathToDisplayUrl(
+  storagePath: string
+): Promise<string | null> {
+  const path = String(storagePath ?? '').trim();
+  if (!path) return null;
+
+  const signed = await supabase.storage
+    .from(CAFE_USER_PHOTO_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+  if (signed.error) {
+    console.warn('[resolveCafePhotoStoragePathToDisplayUrl] signed URL failed:', {
+      path,
+      message: signed.error.message,
+    });
+    return null;
+  }
+  const url = String(signed.data?.signedUrl ?? '').trim();
+  return url.length > 0 ? url : null;
+}
+
+export async function resolveCafePhotoRowToDisplayUrl(
+  row: CafePhotoRowForDisplay
+): Promise<string | null> {
+  const directUrl = String(row.image_url ?? '').trim();
+  if (directUrl.length > 0 && !isUnusableCafePhotoImageUrl(directUrl)) {
+    return directUrl;
+  }
+
+  const storagePath = String(row.storage_path ?? '').trim();
+  if (!storagePath) return null;
+
+  // Promoted / editorial live paths live in the public `cafe-images` bucket.
+  if (storagePath.startsWith('cafes/')) {
+    const publicUrl = getCafeImagesPublicUrl(storagePath);
+    if (publicUrl.length > 0 && !isUnusableCafePhotoImageUrl(publicUrl)) {
+      return publicUrl;
+    }
+  }
+
+  // Legacy user uploads in private bucket (signed URL).
+  if (storagePath.includes('submission-photos/')) {
+    return resolveCafePhotoStoragePathToDisplayUrl(storagePath);
+  }
+
+  return resolveCafePhotoStoragePathToDisplayUrl(storagePath);
+}
+
+function sortCafePhotoRows<T extends CafePhotoRowForDisplay>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => {
+    const aPrimary = a.is_primary === true ? 1 : 0;
+    const bPrimary = b.is_primary === true ? 1 : 0;
+    if (aPrimary !== bPrimary) return bPrimary - aPrimary;
+
+    const aOrder = typeof a.sort_order === 'number' ? a.sort_order : Number.MAX_SAFE_INTEGER;
+    const bOrder = typeof b.sort_order === 'number' ? b.sort_order : Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+
+    const aTime = a.created_at ? Date.parse(a.created_at) : 0;
+    const bTime = b.created_at ? Date.parse(b.created_at) : 0;
+    return aTime - bTime;
+  });
+}
+
 export async function getApprovedCafePhotoUrls(cafeId: string): Promise<string[]> {
   const normalizedCafeId = String(cafeId).trim();
   if (!normalizedCafeId) return [];
 
   const res = await supabase
     .from('cafe_photos')
-    .select('image_url, storage_path')
-    .eq('cafe_id', Number(normalizedCafeId))
-    .eq('status', 'approved')
-    .order('created_at', { ascending: false });
+    .select('image_url, storage_path, sort_order, is_primary, created_at')
+    .eq('cafe_id', parseCafeIdForPhotoQuery(normalizedCafeId))
+    .eq('status', 'approved');
 
   if (res.error) {
+    console.error('[getApprovedCafePhotoUrls] select failed:', res.error.message, {
+      cafeId: normalizedCafeId,
+    });
     return [];
   }
 
   const urls: string[] = [];
-  for (const row of res.data ?? []) {
-    const imageUrl = typeof row.image_url === 'string' ? row.image_url.trim() : '';
-    if (imageUrl.length > 0) {
-      urls.push(imageUrl);
-      continue;
-    }
-
-    const storagePath = typeof row.storage_path === 'string' ? row.storage_path.trim() : '';
-    if (!storagePath) continue;
-
-    const signed = await supabase.storage
-      .from(CAFE_USER_PHOTO_BUCKET)
-      .createSignedUrl(storagePath, 60 * 20);
-    if (signed.error) {
-      continue;
-    }
-    if (signed.data?.signedUrl) {
-      urls.push(signed.data.signedUrl);
-    }
+  for (const row of sortCafePhotoRows((res.data ?? []) as CafePhotoRowForDisplay[])) {
+    const url = await resolveCafePhotoRowToDisplayUrl(row);
+    if (url) urls.push(url);
   }
 
   return Array.from(new Set(urls));
+}
+
+/** Batch loader for café catalog cards (same signed-URL path as detail). */
+export async function fetchApprovedCafePhotoUrlsByCafeIds(
+  cafeIds: string[]
+): Promise<Map<string, string[]>> {
+  const keys = Array.from(
+    new Set(cafeIds.map((id) => String(id).trim()).filter((id) => id.length > 0))
+  );
+  const numericIds = keys
+    .map((id) => Number(id))
+    .filter((id) => Number.isFinite(id));
+  if (numericIds.length === 0) return new Map();
+
+  const res = await supabase
+    .from('cafe_photos')
+    .select('cafe_id, image_url, storage_path, sort_order, is_primary, created_at')
+    .in('cafe_id', numericIds)
+    .eq('status', 'approved');
+
+  if (res.error) {
+    console.error('[fetchApprovedCafePhotoUrlsByCafeIds] select failed:', res.error.message);
+    return new Map();
+  }
+
+  const rows = (res.data ?? []) as (CafePhotoRowForDisplay & { cafe_id: number | string })[];
+  const sorted = sortCafePhotoRows(rows);
+
+  const mapped = await Promise.all(
+    sorted.map(async (row) => {
+      const cafeId = String(row.cafe_id ?? '').trim();
+      if (!cafeId) return null;
+      const url = await resolveCafePhotoRowToDisplayUrl(row);
+      if (!url) return null;
+      return { cafeId, url };
+    })
+  );
+
+  const out = new Map<string, string[]>();
+  for (const item of mapped) {
+    if (!item) continue;
+    const current = out.get(item.cafeId) ?? [];
+    current.push(item.url);
+    out.set(item.cafeId, current);
+  }
+  return out;
 }
