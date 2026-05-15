@@ -58,6 +58,9 @@ export default function ModerationCreateCafeScreen() {
   const [tagsText, setTagsText] = React.useState('');
   const [latitudeText, setLatitudeText] = React.useState('');
   const [longitudeText, setLongitudeText] = React.useState('');
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = React.useState(false);
+  const [createdCafeId, setCreatedCafeId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const id = String(submissionId ?? '').trim();
@@ -198,39 +201,46 @@ export default function ModerationCreateCafeScreen() {
       }
     }
 
+    setSaveError(null);
+    setSaveSuccess(false);
+    setCreatedCafeId(null);
     setSaving(true);
-    const photoById = new Map(submissionPhotos.map((photo) => [photo.id, photo] as const));
-    const orderedSelectedSubmissionPhotos = photoOrderIds
-      .filter((photoId) => selectedPhotoIds.has(photoId))
-      .map((photoId) => photoById.get(photoId))
-      .filter((photo): photo is SubmissionPhotoForModeration => Boolean(photo));
 
-    const res = await createCafeAndApproveSubmission({
-      submissionId: submissionIdValue,
-      name: cleanedName,
-      area: cleanedArea,
-      latitude,
-      longitude,
-      addressLine,
-      googleMapsUrl,
-      shortDescription,
-      tags: parseTags(tagsText),
-      moderatorUserId: user?.id ?? '',
-      selectedSubmissionPhotos: orderedSelectedSubmissionPhotos,
-    });
-    setSaving(false);
+    try {
+      const photoById = new Map(submissionPhotos.map((photo) => [photo.id, photo] as const));
+      const orderedSelectedSubmissionPhotos = photoOrderIds
+        .filter((photoId) => selectedPhotoIds.has(photoId))
+        .map((photoId) => photoById.get(photoId))
+        .filter((photo): photo is SubmissionPhotoForModeration => Boolean(photo));
 
-    if (!res.ok) {
-      Alert.alert('Could not create cafe', res.error);
-      return;
+      const res = await createCafeAndApproveSubmission({
+        submissionId: submissionIdValue,
+        name: cleanedName,
+        area: cleanedArea,
+        latitude,
+        longitude,
+        addressLine,
+        googleMapsUrl,
+        shortDescription,
+        tags: parseTags(tagsText),
+        moderatorUserId: user?.id ?? '',
+        selectedSubmissionPhotos: orderedSelectedSubmissionPhotos,
+      });
+
+      if (!res.ok) {
+        console.error('[moderation-create-cafe] createCafeAndApproveSubmission failed:', res.error);
+        setSaveError("Couldn't create café. Please try again.");
+        return;
+      }
+
+      setSaveSuccess(true);
+      setCreatedCafeId(res.cafeId);
+    } catch (e) {
+      console.error('[moderation-create-cafe] createCafeAndApproveSubmission threw:', e);
+      setSaveError("Couldn't create café. Please try again.");
+    } finally {
+      setSaving(false);
     }
-
-    Alert.alert('Success', 'Cafe created and submission approved', [
-      {
-        text: 'OK',
-        onPress: () => router.back(),
-      },
-    ]);
   }
 
   return (
@@ -403,14 +413,57 @@ export default function ModerationCreateCafeScreen() {
                 </View>
               ) : null}
 
-              <TouchableOpacity
-                activeOpacity={0.88}
-                style={[styles.primaryButton, saving && styles.disabledButton]}
-                disabled={saving}
-                onPress={() => void continueSave(false)}
-              >
-                <Text style={styles.primaryButtonText}>{saving ? 'Saving…' : 'Create cafe & approve'}</Text>
-              </TouchableOpacity>
+              {saveError ? (
+                <View style={styles.feedbackBannerError}>
+                  <Text style={styles.feedbackErrorText}>{saveError}</Text>
+                </View>
+              ) : null}
+
+              {saveSuccess ? (
+                <View style={styles.feedbackBannerSuccess}>
+                  <Text style={styles.feedbackSuccessText}>Café created successfully.</Text>
+                  <Text style={styles.feedbackSuccessSubtext}>
+                    This submission is marked approved and will no longer appear in the pending queue.
+                  </Text>
+                </View>
+              ) : null}
+
+              {saveSuccess ? (
+                <View style={styles.postSuccessActions}>
+                  {createdCafeId ? (
+                    <TouchableOpacity
+                      activeOpacity={0.88}
+                      style={styles.primaryButton}
+                      onPress={() => router.push(`/cafe/${createdCafeId}`)}
+                    >
+                      <Text style={styles.primaryButtonText}>View café</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    style={styles.secondaryButton}
+                    onPress={() => router.back()}
+                  >
+                    <Text style={styles.secondaryButtonText}>Back to moderation queue</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  style={[styles.primaryButton, (saving || saveSuccess) && styles.disabledButton]}
+                  disabled={saving || saveSuccess}
+                  onPress={() => void continueSave(false)}
+                >
+                  {saving ? (
+                    <View style={styles.primaryButtonInner}>
+                      <ActivityIndicator color="#ffffff" size="small" />
+                      <Text style={styles.primaryButtonText}>Creating...</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Create café</Text>
+                  )}
+                </TouchableOpacity>
+              )}
             </>
           )}
         </ScrollView>
@@ -495,6 +548,53 @@ const styles = StyleSheet.create({
     borderColor: COLORS.accentSubtleBorder,
     backgroundColor: COLORS.accent,
     alignItems: 'center',
+  },
+  primaryButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  postSuccessActions: {
+    gap: 10,
+  },
+  feedbackBannerError: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(180, 80, 80, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(180, 80, 80, 0.24)',
+  },
+  feedbackErrorText: {
+    fontSize: 14,
+    lineHeight: 19,
+    color: '#8B4A4A',
+    fontFamily: FONTS.sans.medium,
+    textAlign: 'center',
+  },
+  feedbackBannerSuccess: {
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(163, 177, 138, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(163, 177, 138, 0.45)',
+    gap: 4,
+  },
+  feedbackSuccessText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#4A5A49',
+    fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
+  },
+  feedbackSuccessSubtext: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+    textAlign: 'center',
   },
   primaryButtonText: {
     fontSize: 14,
