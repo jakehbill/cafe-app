@@ -150,7 +150,7 @@ export type GooglePlacesCafeSubmissionInsertRow = {
 export type GooglePlacesCafeSubmissionExtras = {
   notes?: string | null;
   selectedTags?: string[];
-  /** User’s Beaned coffee rating (1–5, half steps); persisted when `coffee_rating` column exists. */
+  /** User’s Beaned coffee rating (integer 1–5); persisted when `coffee_rating` column exists. */
   coffeeRating?: number | null;
 };
 

@@ -24,7 +24,7 @@ const BADGE_BORDER_WIDTH = 1.5;
 export type CoffeeScoreDisplayVariant = 'badge' | 'text';
 
 export type CoffeeScoreBadgeProps = {
-  /** Output of `formatPublicCoffeeOutOf5` — one decimal or em dash when absent. */
+  /** Output of `formatPublicCoffeeOutOf5` — always one decimal (e.g. 5.0) or em dash when absent. */
   scoreLabel: string;
   /**
    * `badge` — outlined circle (default everywhere except cafe detail).

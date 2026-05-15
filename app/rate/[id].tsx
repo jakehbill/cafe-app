@@ -57,7 +57,7 @@ function RatingSliderRow({
         onValueChange={(v) => onSelect(quantizeCoffeeRatingForStorage(v))}
         minimumValue={1}
         maximumValue={5}
-        step={0.5}
+        step={1}
         minimumTrackTintColor={COLORS.accent}
         maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
         thumbTintColor={COLORS.accent}

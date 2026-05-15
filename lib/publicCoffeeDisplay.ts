@@ -1,4 +1,4 @@
-import { formatCoffeeRatingValue, quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
+import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 
 /**
  * Format `public_coffee_score` (from `cafe_public_scores`) for display out of 5.
@@ -12,15 +12,15 @@ export function rawPublicCoffeeToOutOf5(raw: number | null | undefined): number 
   return quantizeCoffeeRatingForStorage(clamped);
 }
 
-/** Half-step aware label, or em dash when no score. */
+/** Public café score for cards/detail — always one decimal (5.0, 4.0). */
 export function formatPublicCoffeeOutOf5(raw: number | null | undefined): string {
   const n = rawPublicCoffeeToOutOf5(raw);
   if (n == null) return '—';
-  return formatCoffeeRatingValue(n);
+  return Number(n).toFixed(1);
 }
 
 /** User-entered coffee (1–5) for detail “your rating” line. */
 export function formatPrivateCoffeeOneDecimal(raw: number): string {
   if (!Number.isFinite(raw) || raw <= 0) return '—';
-  return formatCoffeeRatingValue(raw);
+  return Number(raw).toFixed(1);
 }

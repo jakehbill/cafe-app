@@ -67,7 +67,7 @@ function formatDate(dateIso: string): string {
   });
 }
 
-/** Same behaviour as `app/rate/[id].tsx` coffee slider (half steps 1–5). */
+/** Same behaviour as `app/rate/[id].tsx` coffee slider (integers 1–5). */
 function SuggestCoffeeRatingSlider({
   value,
   onChange,
@@ -89,7 +89,7 @@ function SuggestCoffeeRatingSlider({
         onValueChange={(v) => onChange(quantizeCoffeeRatingForStorage(v))}
         minimumValue={1}
         maximumValue={5}
-        step={0.5}
+        step={1}
         minimumTrackTintColor={COLORS.accent}
         maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
         thumbTintColor={COLORS.accent}
@@ -708,7 +708,7 @@ export default function SuggestCafeScreen() {
                     onValueChange={(v) => setVisitRating(quantizeCoffeeRatingForStorage(v))}
                     minimumValue={1}
                     maximumValue={5}
-                    step={0.5}
+                    step={1}
                     minimumTrackTintColor={COLORS.accent}
                     maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
                     thumbTintColor={COLORS.accent}
