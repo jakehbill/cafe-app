@@ -222,16 +222,8 @@ export default function ModerationScreen() {
                       }
                     >
                       <Text style={[styles.actionButtonText, styles.createButtonText]}>
-                        Create cafe
+                        Create café
                       </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      activeOpacity={0.88}
-                      style={[styles.actionButton, styles.approveButton]}
-                      disabled={workingItemId === item.id}
-                      onPress={() => void handleCafeDecision(item.id, 'approved')}
-                    >
-                      <Text style={[styles.actionButtonText, styles.approveButtonText]}>Approve only</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       activeOpacity={0.88}
