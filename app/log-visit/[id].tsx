@@ -1,5 +1,4 @@
 import * as ImagePicker from 'expo-image-picker';
-import Slider from '@react-native-community/slider';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
@@ -17,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
@@ -26,11 +26,7 @@ import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { POINTS } from '@/lib/profileGamification';
-import {
-  formatCoffeeRatingOutOf5,
-  normalizeCoffeeRatingInput,
-  quantizeCoffeeRatingForStorage,
-} from '@/lib/coffeeRating';
+import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { getUserCafeVisitById, saveUserCafeVisit, updateUserCafeVisit } from '@/lib/userCafeVisits';
 
 export default function LogVisitScreen() {
@@ -303,23 +299,17 @@ export default function LogVisitScreen() {
             </TouchableOpacity>
           </View> : null}
 
-          {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>How was it?</Text>
-            <Text style={styles.ratingValue}>{formatCoffeeRatingOutOf5(rating)}</Text>
-            <Slider
-              value={rating ?? 3}
-              onValueChange={(v) => setRating(quantizeCoffeeRatingForStorage(v))}
-              minimumValue={1}
-              maximumValue={5}
-              step={1}
-              minimumTrackTintColor={COLORS.accent}
-              maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
-              thumbTintColor={COLORS.accent}
-            />
-            <TouchableOpacity onPress={() => setRating(null)}>
-              <Text style={styles.clearRatingText}>Clear rating</Text>
-            </TouchableOpacity>
-          </View> : null}
+          {!successState && canRenderVisitForm ? (
+            <View style={styles.sectionCard}>
+              <CoffeeRatingPicker
+                value={rating}
+                onChange={setRating}
+                onClear={() => setRating(null)}
+                showClear
+                disabled={saving}
+              />
+            </View>
+          ) : null}
 
           {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
             <Text style={styles.sectionTitle}>What stood out?</Text>

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import Slider from '@react-native-community/slider';
 import {
   ActivityIndicator,
   Image,
@@ -20,6 +19,7 @@ import {
   View,
 } from 'react-native';
 
+import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
@@ -41,11 +41,7 @@ import {
   type GooglePlaceDetailsForSubmission,
   type PlacesSearchListItem,
 } from '@/lib/googlePlaces';
-import {
-  formatCoffeeRatingOutOf5,
-  normalizeCoffeeRatingInput,
-  quantizeCoffeeRatingForStorage,
-} from '@/lib/coffeeRating';
+import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
 import { saveUserCafeVisit } from '@/lib/userCafeVisits';
 
@@ -65,38 +61,6 @@ function formatDate(dateIso: string): string {
     month: 'short',
     year: 'numeric',
   });
-}
-
-/** Same behaviour as `app/rate/[id].tsx` coffee slider (integers 1–5). */
-function SuggestCoffeeRatingSlider({
-  value,
-  onChange,
-}: {
-  value: number | null;
-  onChange: (rating: number) => void;
-}) {
-  const current = value ?? 3;
-  return (
-    <View style={styles.suggestRatingSliderBlock}>
-      <View style={styles.suggestRatingSliderMetaRow}>
-        <Text style={styles.visitRatingValue}>
-          {formatCoffeeRatingOutOf5(value)}
-        </Text>
-        <Text style={styles.suggestRatingSliderHint}>out of 5</Text>
-      </View>
-      <Slider
-        value={current}
-        onValueChange={(v) => onChange(quantizeCoffeeRatingForStorage(v))}
-        minimumValue={1}
-        maximumValue={5}
-        step={1}
-        minimumTrackTintColor={COLORS.accent}
-        maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
-        thumbTintColor={COLORS.accent}
-        accessibilityLabel="Coffee rating slider"
-      />
-    </View>
-  );
 }
 
 export default function SuggestCafeScreen() {
@@ -699,19 +663,12 @@ export default function SuggestCafeScreen() {
                     <Image source={{ uri: visitPhoto.uri }} style={styles.photoPreview} resizeMode="cover" />
                   ) : null}
 
-                  <Text style={styles.fieldLabel}>How was it?</Text>
-                  <Text style={styles.visitRatingValue}>
-                    {formatCoffeeRatingOutOf5(visitRating)}
-                  </Text>
-                  <Slider
-                    value={visitRating ?? 3}
-                    onValueChange={(v) => setVisitRating(quantizeCoffeeRatingForStorage(v))}
-                    minimumValue={1}
-                    maximumValue={5}
-                    step={1}
-                    minimumTrackTintColor={COLORS.accent}
-                    maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
-                    thumbTintColor={COLORS.accent}
+                  <CoffeeRatingPicker
+                    value={visitRating}
+                    onChange={setVisitRating}
+                    onClear={() => setVisitRating(null)}
+                    showClear
+                    disabled={submitting || redirecting}
                   />
 
                   <Text style={styles.fieldLabel}>What stood out?</Text>
@@ -903,20 +860,14 @@ export default function SuggestCafeScreen() {
               {hasPlacesApiKey && publicSuggestStep === 'beaned_extras' ? (
                 <>
                   <View style={styles.sectionCard}>
-                    <Text style={styles.fieldLabel}>Coffee rating</Text>
-                    <Text style={styles.tagHelperText}>Your score for this café (optional). Not from Google.</Text>
-                    <SuggestCoffeeRatingSlider
+                    <CoffeeRatingPicker
                       value={suggestCoffeeRating}
-                      onChange={(v) => setSuggestCoffeeRating(v)}
-                    />
-                    <TouchableOpacity
-                      activeOpacity={0.88}
-                      onPress={() => setSuggestCoffeeRating(null)}
+                      onChange={setSuggestCoffeeRating}
+                      onClear={() => setSuggestCoffeeRating(null)}
+                      showClear
                       disabled={submitting || redirecting}
-                      style={styles.suggestClearRating}
-                    >
-                      <Text style={styles.suggestClearRatingText}>Clear rating</Text>
-                    </TouchableOpacity>
+                      helperText="Your score for this café (optional). Not from Google."
+                    />
                   </View>
 
                   <View style={styles.sectionCard}>

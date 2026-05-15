@@ -3,7 +3,6 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Slider from '@react-native-community/slider';
 import {
   Image,
   Keyboard,
@@ -23,10 +22,11 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { type Cafe } from '@/data/cafes';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
+import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
 import { submitCafePhoto } from '@/lib/cafePhotoSubmissions';
-import { formatCoffeeRatingValue, quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
+import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { getUserCoffeeRating, rateCafe } from '@/lib/supabase';
 
 function rateDebug(label: string, payload: Record<string, unknown>) {
@@ -36,35 +36,6 @@ function rateDebug(label: string, payload: Record<string, unknown>) {
   } catch {
     console.log(`[RATE DEBUG] ${label}`, payload);
   }
-}
-
-function RatingSliderRow({
-  value,
-  onSelect,
-}: {
-  value: number | null;
-  onSelect: (rating: number) => void;
-}) {
-  const current = value ?? 3;
-  return (
-    <View style={styles.ratingSliderBlock}>
-      <View style={styles.ratingSliderMetaRow}>
-        <Text style={styles.ratingSliderValue}>{formatCoffeeRatingValue(current)}</Text>
-        <Text style={styles.ratingSliderHint}>out of 5</Text>
-      </View>
-      <Slider
-        value={current}
-        onValueChange={(v) => onSelect(quantizeCoffeeRatingForStorage(v))}
-        minimumValue={1}
-        maximumValue={5}
-        step={1}
-        minimumTrackTintColor={COLORS.accent}
-        maximumTrackTintColor="rgba(92, 86, 80, 0.22)"
-        thumbTintColor={COLORS.accent}
-        accessibilityLabel="Coffee rating slider"
-      />
-    </View>
-  );
 }
 
 export default function RateCafeScreen() {
@@ -378,15 +349,11 @@ export default function RateCafeScreen() {
         </View>
 
         <View style={styles.sectionCard}>
-          <Text style={styles.ratingPrompt}>How was it?</Text>
-          <View style={styles.ratingRowsWrap}>
-            <RatingSliderRow
-              value={coffeeScore}
-              onSelect={(value) => {
-                setCoffeeScore(value);
-              }}
-            />
-          </View>
+          <CoffeeRatingPicker
+            value={coffeeScore}
+            onChange={setCoffeeScore}
+            disabled={submitting || submitted}
+          />
         </View>
 
         <View style={styles.sectionCard}>
