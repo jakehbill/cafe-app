@@ -37,6 +37,7 @@ import {
   fetchPlaceDetailsForSubmission,
   fetchPlacesTextSearch,
   getGooglePlacesApiKeyOrEmpty,
+  placeHasValidCoordinates,
   type GooglePlaceDetailsForSubmission,
   type PlacesSearchListItem,
 } from '@/lib/googlePlaces';
@@ -416,7 +417,18 @@ export default function SuggestCafeScreen() {
     setPlaceDetailsError(null);
     setPlaceDetailsLoading(true);
     try {
-      const details = await fetchPlaceDetailsForSubmission(item.placeId, placesSessionToken);
+      const fallbackCoords =
+        typeof item.latitude === 'number' &&
+        Number.isFinite(item.latitude) &&
+        typeof item.longitude === 'number' &&
+        Number.isFinite(item.longitude)
+          ? { latitude: item.latitude, longitude: item.longitude }
+          : undefined;
+      const details = await fetchPlaceDetailsForSubmission(
+        item.placeId,
+        placesSessionToken,
+        fallbackCoords
+      );
       rotatePlacesSession();
       setSelectedPlace(details);
       setPublicSuggestStep('place_confirm');
@@ -466,6 +478,12 @@ export default function SuggestCafeScreen() {
     if (!fromVisitLog) {
       if (!selectedPlace || publicSuggestStep !== 'beaned_extras') {
         setSubmitError('Select a place and continue to add details before submitting.');
+        return;
+      }
+      if (!placeHasValidCoordinates(selectedPlace)) {
+        setSubmitError(
+          'This café is missing map coordinates from Google Places. Go back and choose the place again.'
+        );
         return;
       }
       setSubmitting(true);

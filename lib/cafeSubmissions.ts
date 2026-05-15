@@ -1,4 +1,7 @@
-import type { GooglePlaceDetailsForSubmission } from '@/lib/googlePlaces';
+import {
+  placeHasValidCoordinates,
+  type GooglePlaceDetailsForSubmission,
+} from '@/lib/googlePlaces';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 
 export type CafeSubmissionStatus = 'pending' | 'approved' | 'rejected';
@@ -176,14 +179,17 @@ export function buildGooglePlacesCafeSubmissionPayload(
     new Set((extras?.selectedTags ?? []).map((tag) => tag.trim()).filter(Boolean))
   );
 
+  const latitude = Number(place.latitude);
+  const longitude = Number(place.longitude);
+
   const row: GooglePlacesCafeSubmissionInsertRow = {
     user_id: userId,
     google_place_id,
     cafe_name,
     address_text,
     google_maps_url,
-    latitude: place.latitude,
-    longitude: place.longitude,
+    latitude,
+    longitude,
     website: website || null,
     phone_number: phone_number || null,
     notes,
@@ -333,6 +339,14 @@ export async function submitGooglePlacesCafeSuggestion(
   const googlePlaceId = place.placeId.trim();
   if (!googlePlaceId) {
     return { ok: false, error: 'Missing place id.' };
+  }
+
+  if (!placeHasValidCoordinates(place)) {
+    return {
+      ok: false,
+      error:
+        'This café is missing map coordinates from Google Places. Go back, pick the place again, or try another result.',
+    };
   }
 
   const { rows: dupRows, error: dupFetchError } = await fetchSubmissionsForGooglePlaceDuplicateCheck(googlePlaceId);

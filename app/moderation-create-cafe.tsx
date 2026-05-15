@@ -83,6 +83,12 @@ export default function ModerationCreateCafeScreen() {
         setGoogleMapsUrl(row.google_maps_url ?? '');
         setShortDescription(row.notes ?? '');
         setTagsText((row.selected_tags ?? []).join(', '));
+        if (typeof row.latitude === 'number' && Number.isFinite(row.latitude)) {
+          setLatitudeText(String(row.latitude));
+        }
+        if (typeof row.longitude === 'number' && Number.isFinite(row.longitude)) {
+          setLongitudeText(String(row.longitude));
+        }
       }
       setLoading(false);
     })();

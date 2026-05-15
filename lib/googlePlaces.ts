@@ -49,15 +49,55 @@ export type PlacesSearchListItem = {
   placeId: string;
   title: string;
   subtitle: string;
+  /** From Text Search `places.location` when present; Place Details remains source of truth after selection. */
+  latitude?: number;
+  longitude?: number;
 };
 
 type TextSearchPlaceRow = {
   id?: string;
   displayName?: { text?: string };
   formattedAddress?: string;
+  location?: unknown;
   types?: string[];
   primaryType?: string;
 };
+
+/** Parses Places API `location` (direct lat/lng or nested `latLng`). */
+export function parseGooglePlaceLocation(location: unknown): { latitude: number; longitude: number } | null {
+  if (location == null || typeof location !== 'object') return null;
+  const loc = location as Record<string, unknown>;
+
+  const readPair = (obj: Record<string, unknown>): { latitude: number; longitude: number } | null => {
+    const latRaw = obj.latitude ?? obj.lat;
+    const lngRaw = obj.longitude ?? obj.lng;
+    const latitude = typeof latRaw === 'number' ? latRaw : Number(latRaw);
+    const longitude = typeof lngRaw === 'number' ? lngRaw : Number(lngRaw);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+    return { latitude, longitude };
+  };
+
+  const direct = readPair(loc);
+  if (direct) return direct;
+
+  const nested = loc.latLng;
+  if (nested != null && typeof nested === 'object') {
+    return readPair(nested as Record<string, unknown>);
+  }
+
+  return null;
+}
+
+export function placeHasValidCoordinates(place: {
+  latitude: unknown;
+  longitude: unknown;
+}): boolean {
+  const lat = typeof place.latitude === 'number' ? place.latitude : Number(place.latitude);
+  const lng = typeof place.longitude === 'number' ? place.longitude : Number(place.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+}
 
 function normalizePlaceId(raw: string): string {
   const s = raw.trim();
@@ -126,14 +166,19 @@ export async function fetchPlacesTextSearch(textQuery: string): Promise<PlacesSe
     throw new Error(msg);
   }
 
-  const rows = (json.places ?? []).map((p, index) => ({
-    index,
-    placeId: normalizePlaceId(typeof p.id === 'string' ? p.id : ''),
-    title: p.displayName?.text?.trim() ?? '',
-    subtitle: p.formattedAddress?.trim() ?? '',
-    primaryType: p.primaryType,
-    types: p.types,
-  }));
+  const rows = (json.places ?? []).map((p, index) => {
+    const coords = parseGooglePlaceLocation(p.location);
+    return {
+      index,
+      placeId: normalizePlaceId(typeof p.id === 'string' ? p.id : ''),
+      title: p.displayName?.text?.trim() ?? '',
+      subtitle: p.formattedAddress?.trim() ?? '',
+      latitude: coords?.latitude,
+      longitude: coords?.longitude,
+      primaryType: p.primaryType,
+      types: p.types,
+    };
+  });
 
   const filtered = rows.filter((r) => r.placeId.length > 0 && r.title.length > 0);
 
@@ -148,6 +193,12 @@ export async function fetchPlacesTextSearch(textQuery: string): Promise<PlacesSe
     placeId: r.placeId,
     title: r.title,
     subtitle: r.subtitle.length > 0 ? r.subtitle : 'Address not listed',
+    ...(typeof r.latitude === 'number' &&
+    Number.isFinite(r.latitude) &&
+    typeof r.longitude === 'number' &&
+    Number.isFinite(r.longitude)
+      ? { latitude: r.latitude, longitude: r.longitude }
+      : {}),
   }));
 }
 
@@ -165,7 +216,9 @@ export type GooglePlaceDetailsForSubmission = {
 
 export async function fetchPlaceDetailsForSubmission(
   placeId: string,
-  sessionToken: string
+  sessionToken: string,
+  /** Text Search coords when Place Details omits `location` (Place Details preferred). */
+  fallbackCoords?: { latitude: number; longitude: number }
 ): Promise<GooglePlaceDetailsForSubmission> {
   const apiKey = getApiKey();
   if (!apiKey) {
@@ -191,7 +244,7 @@ export async function fetchPlaceDetailsForSubmission(
     id?: string;
     displayName?: { text?: string };
     formattedAddress?: string;
-    location?: { latitude?: number; longitude?: number };
+    location?: unknown;
     websiteUri?: string;
     nationalPhoneNumber?: string;
     googleMapsUri?: string;
@@ -205,8 +258,9 @@ export async function fetchPlaceDetailsForSubmission(
   const rawId = typeof json.id === 'string' ? normalizePlaceId(json.id) : id;
   const cafeName = json.displayName?.text?.trim() ?? '';
   const formattedAddress = json.formattedAddress?.trim() ?? '';
-  const lat = json.location?.latitude;
-  const lng = json.location?.longitude;
+  const coords =
+    parseGooglePlaceLocation(json.location) ??
+    (fallbackCoords && placeHasValidCoordinates(fallbackCoords) ? fallbackCoords : null);
 
   if (!cafeName) {
     throw new Error('This place has no display name.');
@@ -214,9 +268,10 @@ export async function fetchPlaceDetailsForSubmission(
   if (!formattedAddress) {
     throw new Error('This place has no formatted address.');
   }
-  if (typeof lat !== 'number' || !Number.isFinite(lat) || typeof lng !== 'number' || !Number.isFinite(lng)) {
-    throw new Error('This place has no usable coordinates.');
+  if (!coords) {
+    throw new Error('This place has no usable coordinates from Google Places.');
   }
+  const { latitude: lat, longitude: lng } = coords;
 
   const websiteUri = json.websiteUri?.trim() || null;
   const nationalPhoneNumber = json.nationalPhoneNumber?.trim() || null;

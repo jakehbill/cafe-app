@@ -10,6 +10,8 @@ export type PendingCafeSuggestion = {
   address_text: string | null;
   area: string | null;
   google_maps_url: string | null;
+  latitude: number | null;
+  longitude: number | null;
   notes: string | null;
   selected_tags: string[] | null;
   status?: string;
@@ -47,7 +49,9 @@ export type PendingPhotoSubmission = {
 export async function fetchPendingCafeSuggestions(): Promise<PendingCafeSuggestion[]> {
   const res = await supabase
     .from('cafe_submissions')
-    .select('id, created_at, cafe_name, address_text, area, google_maps_url, notes, selected_tags')
+    .select(
+      'id, created_at, cafe_name, address_text, area, google_maps_url, latitude, longitude, notes, selected_tags'
+    )
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
 
@@ -134,7 +138,7 @@ export async function fetchCafeSubmissionById(id: string): Promise<PendingCafeSu
   const res = await supabase
     .from('cafe_submissions')
     .select(
-      'id, created_at, cafe_name, address_text, area, google_maps_url, notes, selected_tags, status'
+      'id, created_at, cafe_name, address_text, area, google_maps_url, latitude, longitude, notes, selected_tags, status'
     )
     .eq('id', id)
     .maybeSingle();
