@@ -29,7 +29,7 @@ import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking'
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
-import { getRecentPublicVisitNotes, getTopCafeTags, supabase, type PublicVisitNote } from '@/lib/supabase';
+import { getRecentPublicVisitNotes, resolveCafeDisplayTags, supabase, type PublicVisitNote } from '@/lib/supabase';
 import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
 import { computeTrendingScore, rankCafesForTrending } from '@/lib/cafeTrending';
 import { withCafeDistances } from '@/lib/cafeDistance';
@@ -112,13 +112,13 @@ function HomeCafeCard({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const fetched = await getTopCafeTags(cafe.id, MAX_VISIBLE_TAGS);
+      const fetched = await resolveCafeDisplayTags(cafe, MAX_VISIBLE_TAGS);
       if (!cancelled) setTopTags(fetched);
     })();
     return () => {
       cancelled = true;
     };
-  }, [cafe.id]);
+  }, [cafe.id, cafe.tags]);
 
   const isCarousel = layout === 'carousel';
   const primaryPhoto = resolveLiveCafePrimaryImageUrl({ cafe });

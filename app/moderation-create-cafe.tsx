@@ -222,7 +222,10 @@ export default function ModerationCreateCafeScreen() {
         addressLine,
         googleMapsUrl,
         shortDescription,
-        tags: parseTags(tagsText),
+        tags:
+          parseTags(tagsText).length > 0
+            ? parseTags(tagsText)
+            : (submission?.selected_tags ?? []),
         moderatorUserId: user?.id ?? '',
         selectedSubmissionPhotos: orderedSelectedSubmissionPhotos,
       });

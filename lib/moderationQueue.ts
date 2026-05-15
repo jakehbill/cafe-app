@@ -1,5 +1,6 @@
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { generateUniqueCafeSlug } from '@/lib/cafeSlug';
+import { resolveToCanonicalTagSlug } from '@/lib/tagRegistry';
 
 const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
 
@@ -347,6 +348,31 @@ export type CreateCafeFromSubmissionInput = {
   selectedSubmissionPhotos?: SubmissionPhotoForModeration[];
 };
 
+/** Same canonical slugs as ratings/search (`cafes.tags` text[]). */
+export function normalizeTagsForCafeColumn(rawTags: string[] | null | undefined): string[] {
+  const slugs: string[] = [];
+  for (const raw of rawTags ?? []) {
+    const slug = resolveToCanonicalTagSlug(String(raw ?? '').trim());
+    if (slug && !slugs.includes(slug)) slugs.push(slug);
+  }
+  return slugs;
+}
+
+async function resolveTagsForApprovedCafe(input: CreateCafeFromSubmissionInput): Promise<string[]> {
+  const fromModerator = normalizeTagsForCafeColumn(input.tags);
+  if (fromModerator.length > 0) return fromModerator;
+
+  const subRes = await supabase
+    .from('cafe_submissions')
+    .select('selected_tags')
+    .eq('id', input.submissionId)
+    .maybeSingle();
+  if (subRes.error) {
+    return [];
+  }
+  return normalizeTagsForCafeColumn((subRes.data?.selected_tags ?? null) as string[] | null);
+}
+
 export async function createCafeAndApproveSubmission(
   input: CreateCafeFromSubmissionInput
 ): Promise<{ ok: true; cafeId: string } | { ok: false; error: string }> {
@@ -354,7 +380,7 @@ export async function createCafeAndApproveSubmission(
     return { ok: false, error: 'Moderator user id is required.' };
   }
 
-  const tags = Array.from(new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean)));
+  const tags = await resolveTagsForApprovedCafe(input);
   const selectedPhotos = input.selectedSubmissionPhotos ?? [];
   const moderatorUserId = input.moderatorUserId.trim();
   const validSelectedPhotos = (() => {

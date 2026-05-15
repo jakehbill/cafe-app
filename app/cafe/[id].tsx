@@ -13,7 +13,7 @@ import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import {
   getCafeCommunityTagInsight,
   getRecentCafeReviews,
-  getTopCafeTags,
+  resolveCafeDisplayTags,
   type CafeCommunityTagInsight,
   type CafeRecentReview,
 } from '@/lib/supabase';
@@ -204,7 +204,7 @@ export default function CafeDetailScreen() {
       const c = cafe;
       if (!c) return;
       const [popular, insight, reviews] = await Promise.all([
-        getTopCafeTags(c.id, FEATURE_TAG_COUNT),
+        resolveCafeDisplayTags(c, FEATURE_TAG_COUNT),
         getCafeCommunityTagInsight(c.id),
         getRecentCafeReviews(c.id, 3),
       ]);
@@ -216,7 +216,7 @@ export default function CafeDetailScreen() {
     return () => {
       cancelled = true;
     };
-  }, [cafe?.id]);
+  }, [cafe?.id, cafe?.tags]);
 
   useEffect(() => {
     if (!cafe?.id) {

@@ -1,4 +1,5 @@
 import type { Cafe } from '@/data/cafes';
+import { parseCafeTagsField } from '@/lib/cafeTags';
 import { rawPublicCoffeeToOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { supabase } from '@/lib/supabase';
 
@@ -72,16 +73,7 @@ function imageUrlsFromRow(row: Record<string, unknown>): string[] {
 
 function tagsFromRow(row: Record<string, unknown>): string[] {
   const t = row.tags ?? row.tag_list ?? row.tag_slugs;
-  if (Array.isArray(t)) return t.map((x) => String(x));
-  if (typeof t === 'string' && t.trim().length > 0) {
-    try {
-      const p = JSON.parse(t) as unknown;
-      if (Array.isArray(p)) return p.map((x) => String(x));
-    } catch {
-      /* not JSON — ignore */
-    }
-  }
-  return [];
+  return parseCafeTagsField(t);
 }
 
 async function fetchApprovedPhotoUrlsByCafeId(cafeIds: string[]): Promise<Map<string, string[]>> {

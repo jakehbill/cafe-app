@@ -17,6 +17,40 @@ export function formatTagLabel(tag: string): string {
   return getTagDisplayLabel(tag);
 }
 
+/**
+ * Normalizes `cafes.tags` from Supabase (JS array, JSON string, or Postgres `{a,b}` text[] literal).
+ * Single parser for catalog mapping and tag display fallbacks.
+ */
+export function parseCafeTagsField(raw: unknown): string[] {
+  if (raw == null) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((x) => String(x).trim()).filter(Boolean);
+  }
+  if (typeof raw !== 'string') return [];
+  const s = raw.trim();
+  if (!s) return [];
+  try {
+    const parsed = JSON.parse(s) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed.map((x) => String(x).trim()).filter(Boolean);
+    }
+  } catch {
+    /* not JSON */
+  }
+  if (s.startsWith('{') && s.endsWith('}')) {
+    const inner = s.slice(1, -1).trim();
+    if (!inner) return [];
+    return inner
+      .split(',')
+      .map((part) => part.trim().replace(/^"|"$/g, ''))
+      .filter(Boolean);
+  }
+  return s
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 /** Resolve any raw tag (slug/label/legacy) to a canonical slug. */
 export function resolveCafeTagStringToCanonicalSlug(raw: string): string | null {
   return resolveToCanonicalTagSlug(raw);

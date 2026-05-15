@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
+import type { Cafe } from '@/data/cafes';
+import { parseCafeTagsField } from '@/lib/cafeTags';
+
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -278,12 +281,39 @@ export async function getUserCoffeeRating(cafeId: number | string): Promise<numb
  * Returns top tags for one cafe, aggregated from `rating_tags` joined through `ratings`.
  * Caches the full popularity-ordered list so different callers can request up to N tags.
  */
+function isNumericCafeId(cafeId: string): boolean {
+  return /^\d+$/.test(String(cafeId ?? '').trim());
+}
+
+async function getCafeTagsFromCatalogRow(cafeId: string, limit: number): Promise<string[]> {
+  const res = await supabase.from('cafes').select('tags').eq('id', cafeId).maybeSingle();
+  if (res.error || !res.data) {
+    const fallback = await supabase.from('cafes').select('*').eq('id', cafeId).maybeSingle();
+    if (fallback.error || !fallback.data) return [];
+    const row = fallback.data as Record<string, unknown>;
+    return parseCafeTagsField(row.tags ?? row.tag_slugs ?? row.tag_list).slice(0, limit);
+  }
+  return parseCafeTagsField((res.data as { tags?: unknown }).tags).slice(0, limit);
+}
+
+/**
+ * Tags for café cards/detail: editorial `cafes.tags` first (approved submissions), then community ratings.
+ */
+export async function resolveCafeDisplayTags(cafe: Cafe, limit = 3): Promise<string[]> {
+  const fromCatalog = parseCafeTagsField(cafe.tags).slice(0, limit);
+  if (fromCatalog.length > 0) return fromCatalog;
+  return getTopCafeTags(cafe.id, limit);
+}
+
 export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[]> {
   const cached = topTagsCache.get(cafeId);
   if (cached) return cached.slice(0, limit);
 
+  if (!isNumericCafeId(cafeId)) {
+    return getCafeTagsFromCatalogRow(cafeId, limit);
+  }
+
   const numericCafeId = Number.parseInt(cafeId, 10);
-  if (!Number.isFinite(numericCafeId)) return [];
 
   const ratingsRes = await supabase
     .from('ratings')
@@ -291,11 +321,15 @@ export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[
     .eq('cafe_id', numericCafeId);
   if (ratingsRes.error) {
     console.error('getTopCafeTags: ratings fetch failed:', ratingsRes.error);
-    return [];
+    return getCafeTagsFromCatalogRow(cafeId, limit);
   }
 
   const ratingIds = (ratingsRes.data ?? []).map((row) => row.id).filter((id): id is number => typeof id === 'number');
-  if (ratingIds.length === 0) return [];
+  if (ratingIds.length === 0) {
+    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, limit);
+    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    return catalogTags;
+  }
 
   const tagsRes = await supabase
     .from('rating_tags')
@@ -303,7 +337,7 @@ export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[
     .in('rating_id', ratingIds);
   if (tagsRes.error) {
     console.error('getTopCafeTags: rating_tags fetch failed:', tagsRes.error);
-    return [];
+    return getCafeTagsFromCatalogRow(cafeId, limit);
   }
 
   const counts = new Map<string, number>();
@@ -316,6 +350,12 @@ export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[
   const sortedTags = [...counts.entries()]
     .sort((a, b) => (b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])))
     .map(([tag]) => tag);
+
+  if (sortedTags.length === 0) {
+    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, limit);
+    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    return catalogTags;
+  }
 
   topTagsCache.set(cafeId, sortedTags);
   return sortedTags.slice(0, limit);
