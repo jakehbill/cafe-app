@@ -296,21 +296,44 @@ export async function promoteApprovedCafePhotoToLive(params: {
   const sortOrder = shouldSetPrimary ? 0 : approvedRows.length;
   const now = new Date().toISOString();
 
-  const photoUpdateRes = await supabase
+  const baseApprovePayload = {
+    status: 'approved' as const,
+    reviewed_at: now,
+    storage_path: liveStoragePath,
+    image_url: publicUrl,
+  };
+
+  let photoUpdateRes = await supabase
     .from('cafe_photos')
     .update({
-      status: 'approved',
-      reviewed_at: now,
-      storage_path: liveStoragePath,
-      image_url: publicUrl,
+      ...baseApprovePayload,
       is_primary: shouldSetPrimary,
       sort_order: sortOrder,
     })
     .eq('id', photoId)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('id')
+    .maybeSingle();
+
+  if (photoUpdateRes.error && /column|schema cache/i.test(photoUpdateRes.error.message)) {
+    photoUpdateRes = await supabase
+      .from('cafe_photos')
+      .update(baseApprovePayload)
+      .eq('id', photoId)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
+  }
 
   if (photoUpdateRes.error) {
     return { ok: false, error: photoUpdateRes.error.message };
+  }
+  if (!photoUpdateRes.data?.id) {
+    return {
+      ok: false,
+      error:
+        'Photo could not be marked approved. It may already be reviewed, or moderator database permissions are missing.',
+    };
   }
 
   let nextImageUrls: string[];

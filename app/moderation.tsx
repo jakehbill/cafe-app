@@ -112,15 +112,35 @@ export default function ModerationScreen() {
   }
 
   async function handlePhotoDecision(id: string, decision: 'approved' | 'rejected') {
-    if (workingItemId) return;
-    setWorkingItemId(id);
-    const res = await reviewPhotoSubmission(id, decision);
-    setWorkingItemId(null);
-    if (!res.ok) {
-      Alert.alert('Could not update photo submission', res.error);
+    if (workingItemId === id) return;
+    if (workingItemId) {
+      Alert.alert('Please wait', 'Another moderation action is still in progress.');
       return;
     }
-    setPhotoItems((prev) => prev.filter((item) => item.id !== id));
+
+    setWorkingItemId(id);
+    try {
+      const res = await reviewPhotoSubmission(id, decision);
+      if (!res.ok) {
+        Alert.alert(
+          decision === 'approved' ? 'Could not approve photo' : 'Could not reject photo',
+          res.error
+        );
+        return;
+      }
+      setPhotoItems((prev) => prev.filter((item) => item.id !== id));
+      Alert.alert(
+        decision === 'approved' ? 'Photo approved' : 'Photo rejected',
+        decision === 'approved'
+          ? 'This photo is now live on the café page and cards (refresh home to see it).'
+          : 'This photo will not appear on the café.'
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Something went wrong.';
+      Alert.alert('Could not update photo submission', message);
+    } finally {
+      setWorkingItemId(null);
+    }
   }
 
   if (!allowed) {
@@ -276,15 +296,19 @@ export default function ModerationScreen() {
                     <TouchableOpacity
                       activeOpacity={0.88}
                       style={[styles.actionButton, styles.approveButton]}
-                      disabled={workingItemId === item.id}
+                      disabled={workingItemId != null}
                       onPress={() => void handlePhotoDecision(item.id, 'approved')}
                     >
-                      <Text style={[styles.actionButtonText, styles.approveButtonText]}>Approve</Text>
+                      {workingItemId === item.id ? (
+                        <ActivityIndicator color={COLORS.accent} size="small" />
+                      ) : (
+                        <Text style={[styles.actionButtonText, styles.approveButtonText]}>Approve</Text>
+                      )}
                     </TouchableOpacity>
                     <TouchableOpacity
                       activeOpacity={0.88}
                       style={[styles.actionButton, styles.rejectButton]}
-                      disabled={workingItemId === item.id}
+                      disabled={workingItemId != null}
                       onPress={() => void handlePhotoDecision(item.id, 'rejected')}
                     >
                       <Text style={styles.actionButtonText}>Reject</Text>
