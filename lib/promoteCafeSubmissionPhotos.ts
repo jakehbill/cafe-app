@@ -160,3 +160,170 @@ export async function promoteSubmissionPhotosToLiveCafe(params: {
     errors,
   };
 }
+
+function parseCafeRowImageUrls(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((x) => String(x ?? '').trim())
+      .filter((s) => s.length > 0 && !isUnusableCafePhotoImageUrl(s) && !s.includes('submission-photos/'));
+  }
+  if (typeof raw === 'string' && raw.trim().length > 0) {
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((x) => String(x ?? '').trim())
+          .filter((s) => s.length > 0 && !isUnusableCafePhotoImageUrl(s));
+      }
+    } catch {
+      /* not JSON */
+    }
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !isUnusableCafePhotoImageUrl(s));
+  }
+  return [];
+}
+
+/**
+ * On moderator approval: copy private upload → public `cafe-images`, update row + `cafes.image_urls`.
+ */
+export async function promoteApprovedCafePhotoToLive(params: {
+  photoId: string;
+  setAsPrimary?: boolean;
+}): Promise<{ ok: true; publicUrl: string } | { ok: false; error: string }> {
+  const photoId = String(params.photoId ?? '').trim();
+  if (!photoId) {
+    return { ok: false, error: 'Photo id is required.' };
+  }
+
+  const rowRes = await supabase
+    .from('cafe_photos')
+    .select('id, user_id, cafe_id, storage_path, image_url, status')
+    .eq('id', photoId)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (rowRes.error) {
+    return { ok: false, error: rowRes.error.message };
+  }
+  const row = rowRes.data as {
+    id: string;
+    user_id: string;
+    cafe_id: number | string;
+    storage_path: string | null;
+    image_url: string | null;
+  } | null;
+  if (!row) {
+    return { ok: false, error: 'Pending photo not found or already reviewed.' };
+  }
+
+  const cafeId = String(row.cafe_id ?? '').trim();
+  const cafeIdNum = Number(cafeId);
+  if (!cafeId || !Number.isFinite(cafeIdNum)) {
+    return { ok: false, error: 'Photo is missing a valid café id.' };
+  }
+
+  const sourcePath = String(row.storage_path ?? '').trim();
+  if (!sourcePath) {
+    return { ok: false, error: 'Photo is missing a storage path.' };
+  }
+
+  let publicUrl = String(row.image_url ?? '').trim();
+  let liveStoragePath = sourcePath;
+
+  const alreadyLive =
+    sourcePath.startsWith('cafes/') && publicUrl.length > 0 && !isUnusableCafePhotoImageUrl(publicUrl);
+
+  if (!alreadyLive) {
+    const copied = await copySubmissionPhotoToPublicCafeImages({
+      sourcePath,
+      cafeId,
+      index: Date.now(),
+    });
+    if (!copied.ok) {
+      return { ok: false, error: copied.error };
+    }
+    publicUrl = copied.publicUrl;
+    liveStoragePath = copied.storagePath;
+  }
+
+  const cafeRowRes = await supabase.from('cafes').select('image_urls').eq('id', cafeId).maybeSingle();
+  if (cafeRowRes.error) {
+    return { ok: false, error: cafeRowRes.error.message };
+  }
+  const cafeImageUrls = parseCafeRowImageUrls(cafeRowRes.data?.image_urls);
+
+  const approvedRes = await supabase
+    .from('cafe_photos')
+    .select('id, image_url, storage_path, is_primary')
+    .eq('cafe_id', cafeIdNum)
+    .eq('status', 'approved');
+
+  const approvedRows = (approvedRes.data ?? []) as {
+    id: string;
+    image_url: string | null;
+    storage_path: string | null;
+    is_primary: boolean | null;
+  }[];
+
+  const hasLivePrimary =
+    cafeImageUrls.length > 0 ||
+    approvedRows.some((photo) => {
+      const url = String(photo.image_url ?? '').trim();
+      const path = String(photo.storage_path ?? '').trim();
+      return (
+        photo.is_primary === true ||
+        (url.length > 0 && !isUnusableCafePhotoImageUrl(url)) ||
+        path.startsWith('cafes/')
+      );
+    });
+
+  const shouldSetPrimary = params.setAsPrimary === true || !hasLivePrimary;
+
+  if (shouldSetPrimary) {
+    const clearPrimaryRes = await supabase
+      .from('cafe_photos')
+      .update({ is_primary: false })
+      .eq('cafe_id', cafeIdNum)
+      .neq('id', photoId);
+    if (clearPrimaryRes.error) {
+      console.warn('[promoteApprovedCafePhotoToLive] clear is_primary failed:', clearPrimaryRes.error.message);
+    }
+  }
+
+  const sortOrder = shouldSetPrimary ? 0 : approvedRows.length;
+  const now = new Date().toISOString();
+
+  const photoUpdateRes = await supabase
+    .from('cafe_photos')
+    .update({
+      status: 'approved',
+      reviewed_at: now,
+      storage_path: liveStoragePath,
+      image_url: publicUrl,
+      is_primary: shouldSetPrimary,
+      sort_order: sortOrder,
+    })
+    .eq('id', photoId)
+    .eq('status', 'pending');
+
+  if (photoUpdateRes.error) {
+    return { ok: false, error: photoUpdateRes.error.message };
+  }
+
+  let nextImageUrls: string[];
+  if (shouldSetPrimary) {
+    nextImageUrls = [publicUrl, ...cafeImageUrls.filter((url) => url !== publicUrl)];
+  } else {
+    nextImageUrls = cafeImageUrls.includes(publicUrl) ? cafeImageUrls : [...cafeImageUrls, publicUrl];
+  }
+
+  const cafeUpdateRes = await supabase.from('cafes').update({ image_urls: nextImageUrls }).eq('id', cafeId);
+  if (cafeUpdateRes.error) {
+    console.warn('[promoteApprovedCafePhotoToLive] cafes.image_urls update failed:', cafeUpdateRes.error.message);
+  }
+
+  return { ok: true, publicUrl };
+}

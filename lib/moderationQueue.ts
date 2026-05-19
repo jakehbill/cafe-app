@@ -1,6 +1,9 @@
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { generateUniqueCafeSlug } from '@/lib/cafeSlug';
-import { promoteSubmissionPhotosToLiveCafe } from '@/lib/promoteCafeSubmissionPhotos';
+import {
+  promoteApprovedCafePhotoToLive,
+  promoteSubmissionPhotosToLiveCafe,
+} from '@/lib/promoteCafeSubmissionPhotos';
 import { promoteSubmitterContributionOnCafeApproval } from '@/lib/submissionContributorPromotion';
 import { resolveToCanonicalTagSlug } from '@/lib/tagRegistry';
 
@@ -560,16 +563,28 @@ export async function createCafeAndApproveSubmission(
 
 export async function reviewPhotoSubmission(
   id: string,
-  decision: 'approved' | 'rejected'
+  decision: 'approved' | 'rejected',
+  options?: { setAsPrimary?: boolean }
 ): Promise<SupabaseActionResult> {
-  const res = await supabase
-    .from('cafe_photos')
-    .update({ status: decision, reviewed_at: new Date().toISOString() })
-    .eq('id', id)
-    .eq('status', 'pending');
+  if (decision === 'rejected') {
+    const res = await supabase
+      .from('cafe_photos')
+      .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+      .eq('id', id)
+      .eq('status', 'pending');
 
-  if (res.error) {
-    return { ok: false, error: res.error.message };
+    if (res.error) {
+      return { ok: false, error: res.error.message };
+    }
+    return { ok: true };
+  }
+
+  const promoted = await promoteApprovedCafePhotoToLive({
+    photoId: id,
+    setAsPrimary: options?.setAsPrimary === true,
+  });
+  if (!promoted.ok) {
+    return { ok: false, error: promoted.error };
   }
 
   return { ok: true };

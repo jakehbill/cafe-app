@@ -202,6 +202,7 @@ export async function submitCafePhoto(input: {
       storage_path: storagePath,
       image_url: null,
       caption: input.caption?.trim() || null,
+      status: 'pending',
     });
 
     if (insertRes.error) {
