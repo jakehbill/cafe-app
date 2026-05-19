@@ -17,6 +17,7 @@ import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { useCafesWithApprovedPhotos } from '@/hooks/useCafesWithApprovedPhotos';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { buildTasteProfileFromState, rankCafesForSearch } from '@/lib/cafeRanking';
@@ -63,6 +64,7 @@ export default function SearchScreen() {
   const router = useRouter();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
   const { cafes: cafeCatalog } = useCafeCatalog();
+  const cafesWithApprovedPhotos = useCafesWithApprovedPhotos(cafeCatalog);
   const { coords: userLocation, refreshLocation } = useUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
   const {
@@ -134,10 +136,10 @@ export default function SearchScreen() {
 
   const focusCafe = useMemo(() => {
     if (!focusCafeId) return null;
-    const found = cafeCatalog.find((cafe) => cafe.id === focusCafeId);
+    const found = cafesWithApprovedPhotos.find((cafe) => cafe.id === focusCafeId);
     if (!found) return null;
     return hasValidCafeCoordinates(found) ? found : null;
-  }, [focusCafeId, cafeCatalog]);
+  }, [focusCafeId, cafesWithApprovedPhotos]);
 
   const focusRegion = useMemo(() => {
     const selected =
@@ -182,8 +184,8 @@ export default function SearchScreen() {
   }, [sortMode, radiusFilter, refreshLocation]);
 
   const cafesWithDistance = useMemo(
-    () => withCafeDistances(cafeCatalog, userLocation),
-    [cafeCatalog, userLocation]
+    () => withCafeDistances(cafesWithApprovedPhotos, userLocation),
+    [cafesWithApprovedPhotos, userLocation]
   );
 
   const tasteProfile = useMemo(

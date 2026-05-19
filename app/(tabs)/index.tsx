@@ -23,6 +23,7 @@ import { BrandTopBar } from '@/components/BrandTopBar';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { useCafesWithApprovedPhotos } from '@/hooks/useCafesWithApprovedPhotos';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
@@ -287,6 +288,7 @@ export default function HomeScreen() {
     }
   }, [navigation, segments]);
   const { cafes: cafeCatalog, refetch: refetchCafeCatalog } = useCafeCatalog();
+  const cafesWithApprovedPhotos = useCafesWithApprovedPhotos(cafeCatalog);
   const { coords: userLocation, refreshLocation } = useUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
   const [homeBannerVisible, setHomeBannerVisible] = useState(false);
@@ -377,8 +379,8 @@ export default function HomeScreen() {
   );
 
   const cafesWithDistance = useMemo(
-    () => withCafeDistances(cafeCatalog, userLocation),
-    [cafeCatalog, userLocation]
+    () => withCafeDistances(cafesWithApprovedPhotos, userLocation),
+    [cafesWithApprovedPhotos, userLocation]
   );
 
   const tasteProfile = useMemo(
@@ -504,7 +506,7 @@ export default function HomeScreen() {
   }, [trendingNearby.activeRadiusMiles, trendingNearby.prefersDiscovery, userLocation]);
 
   const noticeBoardRows = useMemo(() => {
-    const cafeById = new Map(cafeCatalog.map((cafe) => [String(cafe.id).trim(), cafe]));
+    const cafeById = new Map(cafesWithApprovedPhotos.map((cafe) => [String(cafe.id).trim(), cafe]));
     return noticeBoardNotes.map((row) => {
       const cafe = row.cafeId ? cafeById.get(String(row.cafeId).trim()) : null;
       const thumbnailUrl = cafe
@@ -515,7 +517,7 @@ export default function HomeScreen() {
         thumbnailUrl: thumbnailUrl || CAFE_PLACEHOLDER_IMAGE_URL,
       };
     });
-  }, [noticeBoardNotes, cafeCatalog]);
+  }, [noticeBoardNotes, cafesWithApprovedPhotos]);
 
   const { width: windowWidth } = useWindowDimensions();
   const picksCarousel = useMemo(() => {

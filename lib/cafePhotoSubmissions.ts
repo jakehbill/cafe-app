@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { Platform } from 'react-native';
+import type { Cafe } from '@/data/cafes';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 
 export type UploadableImageAsset = {
@@ -247,6 +248,46 @@ export function parseCafeIdForPhotoQuery(cafeId: string): number | string {
   return Number.isFinite(numeric) ? numeric : trimmed;
 }
 
+/** Normalized map key for `cafe.id` ↔ `cafe_photos.cafe_id` lookups. */
+export function normalizeCafePhotoMapKey(cafeId: string | number): string {
+  return String(cafeId ?? '').trim();
+}
+
+function uniquePublicImageUrls(urls: string[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of urls) {
+    const url = String(raw ?? '').trim();
+    if (!url || isUnusableCafePhotoImageUrl(url)) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    out.push(url);
+  }
+  return out;
+}
+
+/** Merge batch-loaded approved photo URLs onto café rows (catalog / list cards). */
+export function mergeApprovedPhotosIntoCafes(
+  cafes: Cafe[],
+  approvedByCafeId: Map<string, string[]>
+): Cafe[] {
+  return cafes.map((cafe) => {
+    const key = normalizeCafePhotoMapKey(cafe.id);
+    const approved = approvedByCafeId.get(key) ?? [];
+    if (approved.length > 0) {
+      return { ...cafe, imageUrls: approved, imageUrl: approved[0] };
+    }
+
+    const fallback = uniquePublicImageUrls(
+      cafe.imageUrls ?? (cafe.imageUrl ? [cafe.imageUrl] : [])
+    );
+    if (fallback.length > 0) {
+      return { ...cafe, imageUrls: fallback, imageUrl: fallback[0] };
+    }
+    return { ...cafe, imageUrls: [], imageUrl: undefined };
+  });
+}
+
 export async function resolveCafePhotoStoragePathToDisplayUrl(
   storagePath: string
 ): Promise<string | null> {
@@ -336,35 +377,56 @@ export async function getApprovedCafePhotoUrls(cafeId: string): Promise<string[]
   return Array.from(new Set(urls));
 }
 
-/** Batch loader for café catalog cards (same signed-URL path as detail). */
+/** Batch loader for café catalog cards (same resolver path as detail page). */
 export async function fetchApprovedCafePhotoUrlsByCafeIds(
   cafeIds: string[]
 ): Promise<Map<string, string[]>> {
   const keys = Array.from(
-    new Set(cafeIds.map((id) => String(id).trim()).filter((id) => id.length > 0))
+    new Set(cafeIds.map((id) => normalizeCafePhotoMapKey(id)).filter((id) => id.length > 0))
   );
-  const numericIds = keys
-    .map((id) => Number(id))
-    .filter((id) => Number.isFinite(id));
-  if (numericIds.length === 0) return new Map();
+  if (keys.length === 0) return new Map();
 
-  const res = await supabase
-    .from('cafe_photos')
-    .select('cafe_id, image_url, storage_path, sort_order, is_primary, created_at')
-    .in('cafe_id', numericIds)
-    .eq('status', 'approved');
+  const keySet = new Set(keys);
+  const numericKeys = keys.map((id) => Number(id)).filter((id) => Number.isFinite(id));
 
-  if (res.error) {
-    console.error('[fetchApprovedCafePhotoUrlsByCafeIds] select failed:', res.error.message);
-    return new Map();
+  const queries = [];
+  if (numericKeys.length > 0) {
+    queries.push(
+      supabase
+        .from('cafe_photos')
+        .select('cafe_id, image_url, storage_path, sort_order, is_primary, created_at')
+        .in('cafe_id', numericKeys)
+        .eq('status', 'approved')
+    );
+  }
+  if (keys.some((id) => !Number.isFinite(Number(id)))) {
+    queries.push(
+      supabase
+        .from('cafe_photos')
+        .select('cafe_id, image_url, storage_path, sort_order, is_primary, created_at')
+        .in('cafe_id', keys)
+        .eq('status', 'approved')
+    );
   }
 
-  const rows = (res.data ?? []) as (CafePhotoRowForDisplay & { cafe_id: number | string })[];
-  const sorted = sortCafePhotoRows(rows);
+  const results = await Promise.all(queries);
+  const rows: (CafePhotoRowForDisplay & { cafe_id: number | string })[] = [];
+  for (const res of results) {
+    if (res.error) {
+      console.error('[fetchApprovedCafePhotoUrlsByCafeIds] select failed:', res.error.message);
+      continue;
+    }
+    for (const row of res.data ?? []) {
+      const cafeKey = normalizeCafePhotoMapKey((row as { cafe_id: number | string }).cafe_id);
+      if (!keySet.has(cafeKey)) continue;
+      rows.push(row as CafePhotoRowForDisplay & { cafe_id: number | string });
+    }
+  }
 
+  const sorted = sortCafePhotoRows(rows);
   const mapped = await Promise.all(
     sorted.map(async (row) => {
-      const cafeId = String(row.cafe_id ?? '').trim();
+      const cafeId = normalizeCafePhotoMapKey(row.cafe_id);
       if (!cafeId) return null;
       const url = await resolveCafePhotoRowToDisplayUrl(row);
       if (!url) return null;

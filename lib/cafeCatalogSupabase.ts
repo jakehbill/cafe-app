@@ -5,7 +5,11 @@ import { supabase } from '@/lib/supabase';
 
 /** Set to false to silence temporary catalog debug logs after fixing Supabase. */
 const DEBUG_CAFE_CATALOG = true;
-import { fetchApprovedCafePhotoUrlsByCafeIds, isUnusableCafePhotoImageUrl } from '@/lib/cafePhotoSubmissions';
+import {
+  fetchApprovedCafePhotoUrlsByCafeIds,
+  isUnusableCafePhotoImageUrl,
+  mergeApprovedPhotosIntoCafes,
+} from '@/lib/cafePhotoSubmissions';
 
 function debugCatalog(label: string, payload: Record<string, unknown>) {
   if (!DEBUG_CAFE_CATALOG || !__DEV__) return;
@@ -84,21 +88,10 @@ function tagsFromRow(row: Record<string, unknown>): string[] {
 }
 
 async function applyApprovedPhotosPriority(cafes: Cafe[]): Promise<Cafe[]> {
-  // Defensive guard: this helper only accepts a cafe array.
   const safeCafes = Array.isArray(cafes) ? cafes : [];
   if (safeCafes.length === 0) return safeCafes;
   const approvedByCafeId = await fetchApprovedCafePhotoUrlsByCafeIds(safeCafes.map((cafe) => cafe.id));
-  return safeCafes.map((cafe) => {
-    const approved = approvedByCafeId.get(cafe.id) ?? [];
-    if (approved.length > 0) {
-      return { ...cafe, imageUrls: approved, imageUrl: approved[0] };
-    }
-    const fallback = uniqueValidUrls(cafe.imageUrls ?? (cafe.imageUrl ? [cafe.imageUrl] : []));
-    if (fallback.length > 0) {
-      return { ...cafe, imageUrls: fallback, imageUrl: fallback[0] };
-    }
-    return { ...cafe, imageUrls: [], imageUrl: undefined };
-  });
+  return mergeApprovedPhotosIntoCafes(safeCafes, approvedByCafeId);
 }
 
 /**
