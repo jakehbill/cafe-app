@@ -478,6 +478,21 @@ export async function updateUserCafeVisit(
     });
     return { ok: false, error: `Visit updated, but moderation routing failed: ${message}` };
   }
+
+  if (existing.cafeId && nextRating != null) {
+    const rateRes = await rateCafe(existing.cafeId, {
+      coffee: nextRating,
+      tags: nextTags,
+      notes: nextNote,
+    });
+    if (!rateRes.ok) {
+      return {
+        ok: false,
+        error: `Visit updated, but public rating sync failed: ${rateRes.error}`,
+      };
+    }
+  }
+
   return { ok: true };
 }
 

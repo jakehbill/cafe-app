@@ -189,6 +189,11 @@ function parsePublicScoreRow(row: unknown): CafePublicScoreRow | null {
   const coffeeRatingCount =
     typeof cntRaw === 'number' && Number.isFinite(cntRaw) ? Math.max(0, Math.floor(cntRaw)) : 0;
 
+  // Ignore stale view rows that expose a score with zero contributing ratings.
+  if (coffeeRatingCount <= 0) {
+    return { publicCoffeeScore: null, coffeeRatingCount: 0 };
+  }
+
   return { publicCoffeeScore, coffeeRatingCount };
 }
 

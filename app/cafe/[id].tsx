@@ -24,7 +24,7 @@ import {
 } from '@/lib/supabase';
 import { getMostRecentUserVisitForCafe } from '@/lib/userCafeVisits';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
@@ -159,26 +159,28 @@ export default function CafeDetailScreen() {
     void refreshLocation();
   }, [refreshLocation]);
 
-  useEffect(() => {
+  const loadCafeDetail = useCallback(async (showLoading: boolean) => {
     if (!cafeId) {
       setCafe(null);
       setCafeLoading(false);
       setMostRecentVisitId(null);
       return;
     }
-    let cancelled = false;
-    setCafeLoading(true);
-    void (async () => {
-      const row = await fetchCafeByIdFromSupabase(String(cafeId));
-      if (!cancelled) {
-        setCafe(row);
-        setCafeLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    if (showLoading) setCafeLoading(true);
+    const row = await fetchCafeByIdFromSupabase(String(cafeId));
+    setCafe(row);
+    setCafeLoading(false);
   }, [cafeId]);
+
+  useEffect(() => {
+    void loadCafeDetail(true);
+  }, [loadCafeDetail]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadCafeDetail(false);
+    }, [loadCafeDetail])
+  );
 
   useEffect(() => {
     let cancelled = false;
