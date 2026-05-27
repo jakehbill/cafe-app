@@ -7,11 +7,11 @@ import {
   useFonts,
 } from '@expo-google-fonts/inter';
 import { PlayfairDisplay_600SemiBold, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { SafeAreaView, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -22,12 +22,9 @@ import { CafeStateProvider } from '@/contexts/CafeStateContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProfileGateProvider, useProfileGate } from '@/contexts/ProfileGateContext';
 import { UserLocationProvider } from '@/contexts/UserLocationContext';
+import { shouldMountSignedInStackDuringAuthLoad } from '@/lib/webRouteBootstrap';
 
 SplashScreen.preventAutoHideAsync();
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -80,26 +77,36 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const router = useRouter();
+  const pathname = usePathname();
   const segments = useSegments();
+  const rootNavigationState = useRootNavigationState();
+  const navigationReady = rootNavigationState?.key != null;
   const { user, session, loading } = useAuth();
   const { profileLoading, needsOnboarding } = useProfileGate();
   const prevSessionRef = useRef<typeof session>(null);
 
+  const showSignedInStack = shouldMountSignedInStackDuringAuthLoad({
+    loading,
+    hasUser: Boolean(user),
+    pathname,
+  });
+  const showBootstrapOverlay = loading || (user != null && profileLoading);
+
   useEffect(() => {
-    if (loading) return;
+    if (!navigationReady || loading) return;
     const hadSession = prevSessionRef.current != null;
     prevSessionRef.current = session;
     if (hadSession && session == null) {
       router.replace('/onboarding');
     }
-  }, [loading, session, router]);
+  }, [navigationReady, loading, session, router]);
 
   /**
    * Route signed-in users through taste preferences until `onboarding_completed` is true.
    * When complete, leave the preferences screen for the tab root.
    */
   useEffect(() => {
-    if (loading) return;
+    if (!navigationReady || loading) return;
     if (!user) return;
     if (profileLoading) return;
 
@@ -114,15 +121,7 @@ function RootNavigator() {
     if (!needsOnboarding && onPreferences) {
       router.replace('/(tabs)');
     }
-  }, [loading, user, profileLoading, needsOnboarding, segments, router]);
-
-  if (loading || (user != null && profileLoading)) {
-    return (
-      <SafeAreaView style={styles.loadingSafeArea}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </SafeAreaView>
-    );
-  }
+  }, [navigationReady, loading, user, profileLoading, needsOnboarding, segments, router]);
 
   /**
    * Default: no stack header. Expo Router + nested Tabs otherwise inherit `headerShown: true`
@@ -151,8 +150,9 @@ function RootNavigator() {
   const stackHeaderOn = { headerShown: true as const };
 
   return (
+    <View style={styles.root}>
     <Stack
-      key={user ? 'signed-in' : 'signed-out'}
+      key={showSignedInStack ? 'signed-in' : 'signed-out'}
       screenOptions={({ navigation }) => ({
         ...stackScreenBase,
         headerLeft: ({ canGoBack, tintColor }) => (
@@ -164,7 +164,7 @@ function RootNavigator() {
         ),
       })}
     >
-      {user ? (
+      {showSignedInStack ? (
         <>
           <Stack.Screen
             name="(tabs)"
@@ -272,12 +272,21 @@ function RootNavigator() {
         </>
       )}
     </Stack>
+    {showBootstrapOverlay ? (
+      <View style={styles.bootstrapOverlay} pointerEvents="auto">
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingSafeArea: {
+  root: {
     flex: 1,
+  },
+  bootstrapOverlay: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.background,

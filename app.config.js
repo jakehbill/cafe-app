@@ -40,6 +40,11 @@ module.exports = ({ config }) => {
   const googlePlaces = resolveGooglePlacesApiKeyForExtra();
   return {
     ...config,
+    web: {
+      ...(typeof config.web === 'object' && config.web ? config.web : {}),
+      // SPA: refresh /cafe/:id and shared links resolve client-side (static export 404s dynamic paths).
+      output: 'single',
+    },
     extra: {
       ...(typeof config.extra === 'object' && config.extra ? config.extra : {}),
       EXPO_PUBLIC_GOOGLE_PLACES_API_KEY: googlePlaces,

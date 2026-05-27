@@ -249,9 +249,10 @@ export default function CafeDetailScreen() {
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.goBack();
-    } else {
-      router.replace('/');
+      return;
     }
+    // Deep-linked web entry has no history; return to Home tab without clobbering the URL stack awkwardly.
+    router.replace('/(tabs)');
   }, [navigation, router]);
 
   useLayoutEffect(() => {

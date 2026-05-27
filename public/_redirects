@@ -1,0 +1,3 @@
+# SPA fallback for hosts that serve the `dist` folder (Netlify, etc.).
+# With `web.output: "single"` this is usually redundant but safe for deep links.
+/*    /index.html   200

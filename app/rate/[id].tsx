@@ -63,10 +63,10 @@ export default function RateCafeScreen() {
   const handleBack = useCallback(() => {
     if (navigation.canGoBack()) {
       navigation.goBack();
-    } else {
-      router.replace('/');
+      return;
     }
-  }, [navigation, router]);
+    router.replace(`/cafe/${targetCafeId}`);
+  }, [navigation, router, targetCafeId]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
