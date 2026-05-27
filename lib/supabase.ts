@@ -348,6 +348,8 @@ export type CafeRecentReview = {
 };
 
 export type PublicVisitNote = {
+  /** Present when RPC returns `visit_id` (needed for moderator hide). */
+  visitId?: string | null;
   cafeId: string | null;
   cafeSlug: string | null;
   cafeName: string;
@@ -355,6 +357,11 @@ export type PublicVisitNote = {
   note: string;
   createdAt: string;
 };
+
+function isBulletinRowHidden(row: Record<string, unknown>): boolean {
+  const hidden = (row as { hidden_from_bulletin?: unknown }).hidden_from_bulletin;
+  return hidden === true;
+}
 
 /**
  * Best tag for “X% of people rate this for Y” — uses the most common tag among
@@ -462,14 +469,25 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
  */
 export async function getRecentPublicVisitNotes(limit = 5): Promise<PublicVisitNote[]> {
   const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
-  const rpcRes = await supabase.rpc('get_recent_public_visit_notes', { p_limit: 10 });
+  const rpcRes = await supabase.rpc('get_recent_public_visit_notes', { p_limit: safeLimit });
   if (rpcRes.error) {
-    console.error('getRecentPublicVisitNotes RPC failed:', rpcRes.error);
+    console.error(
+      '[getRecentPublicVisitNotes] RPC get_recent_public_visit_notes failed:',
+      rpcRes.error.message,
+      rpcRes.error
+    );
     return [];
   }
 
-  const rows = ((rpcRes.data ?? []) as Array<Record<string, unknown>>)
+  const rawRows = (rpcRes.data ?? []) as Array<Record<string, unknown>>;
+  if (rawRows.length === 0 && __DEV__) {
+    console.log('[getRecentPublicVisitNotes] RPC returned 0 rows');
+  }
+
+  const rows = rawRows
+    .filter((row) => !isBulletinRowHidden(row))
     .map((row: Record<string, unknown>) => {
+      const visitIdRaw = String((row as { visit_id?: unknown }).visit_id ?? '').trim();
       const cafeIdRaw = String((row as { cafe_id?: unknown }).cafe_id ?? '').trim();
       const cafeSlug = String((row as { cafe_slug?: unknown }).cafe_slug ?? '').trim();
       const cafeName = String((row as { cafe_name?: unknown }).cafe_name ?? '').trim();
@@ -477,17 +495,20 @@ export async function getRecentPublicVisitNotes(limit = 5): Promise<PublicVisitN
       const note = String((row as { note?: unknown }).note ?? '').trim();
       const createdAt = String((row as { created_at?: unknown }).created_at ?? '').trim();
       if (!note || !createdAt) return null;
-      return {
+      const item: PublicVisitNote = {
         cafeId: cafeIdRaw || null,
         cafeSlug: cafeSlug || null,
         cafeName: cafeName || 'Cafe',
         cafeArea: cafeArea || null,
         note,
         createdAt,
-      } satisfies PublicVisitNote;
+      };
+      if (visitIdRaw) item.visitId = visitIdRaw;
+      return item;
     })
     .filter((row: PublicVisitNote | null): row is PublicVisitNote => row != null)
     .slice(0, safeLimit);
+
   return rows;
 }
 

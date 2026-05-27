@@ -32,6 +32,8 @@ import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { getRecentPublicVisitNotes, resolveCafeDisplayTags, supabase, type PublicVisitNote } from '@/lib/supabase';
 import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
+import { useAuth } from '@/contexts/AuthContext';
+import { isModerator } from '@/lib/moderator';
 import {
   composeTrendingNearbyForUser,
   rankCafesForTrending,
@@ -271,6 +273,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const segments = useSegments();
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds, isSaved, toggleSaved } = useCafeState();
 
   useEffect(() => {
@@ -297,12 +300,43 @@ export default function HomeScreen() {
   const [visitedFromVisitLogs, setVisitedFromVisitLogs] = useState<Set<string>>(new Set());
 
   const loadNoticeBoard = React.useCallback(async () => {
-    const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
-    if (__DEV__) {
-      console.log('[NoticeBoard] home load rows:', rows.length);
+    try {
+      const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
+      if (__DEV__) {
+        console.log('[NoticeBoard] home load rows:', rows.length);
+      }
+      setNoticeBoardNotes(rows);
+    } catch (error) {
+      console.error('[NoticeBoard] load failed:', error);
+      setNoticeBoardNotes([]);
     }
-    setNoticeBoardNotes(rows);
   }, []);
+
+  const canHideBulletin = isModerator(user?.id);
+
+  const hideBulletinItem = React.useCallback(
+    async (visitId: string) => {
+      const key = String(visitId ?? '').trim();
+      if (!key) return;
+      if (!canHideBulletin) return;
+
+      // Optimistic remove.
+      setNoticeBoardNotes((prev) => prev.filter((row) => row.visitId !== key));
+
+      const res = await supabase
+        .from('user_cafe_visits')
+        .update({ hidden_from_bulletin: true })
+        .eq('id', key);
+
+      if (res.error) {
+        console.error('[Bulletin] hide failed:', res.error.message);
+        // Simple rollback: reload.
+        const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
+        setNoticeBoardNotes(rows);
+      }
+    },
+    [canHideBulletin]
+  );
 
   const loadVisitedCafeIdsFromVisitLogs = React.useCallback(async () => {
     const auth = await supabase.auth.getUser();
@@ -660,7 +694,7 @@ export default function HomeScreen() {
                   const cafeTarget = row.cafeId ?? row.cafeSlug;
                   return (
                     <Pressable
-                      key={`${row.cafeId ?? 'pending'}-${row.createdAt}`}
+                      key={row.visitId ?? `${row.cafeId ?? 'pending'}-${row.createdAt}`}
                       accessibilityRole={cafeTarget ? 'button' : undefined}
                       accessibilityLabel={cafeTarget ? `Open ${row.cafeName}` : row.cafeName}
                       onPress={cafeTarget ? () => router.push(`/cafe/${cafeTarget}`) : undefined}
@@ -673,6 +707,21 @@ export default function HomeScreen() {
                         resizeMode="cover"
                       />
                       <View style={styles.noticeContent}>
+                        {canHideBulletin && row.visitId ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Hide from Bulletin"
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              const vid = row.visitId?.trim();
+                              if (vid) void hideBulletinItem(vid);
+                            }}
+                            hitSlop={10}
+                            style={styles.noticeHideButton}
+                          >
+                            <Text style={styles.noticeHideButtonText}>×</Text>
+                          </Pressable>
+                        ) : null}
                         <Text style={styles.noticeQuote} numberOfLines={4}>
                           {'\u201C'}
                           {row.note}
@@ -1004,6 +1053,25 @@ const styles = StyleSheet.create({
   noticeContent: {
     flex: 1,
     gap: 7,
+  },
+  noticeHideButton: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10,10,10,0.55)',
+    zIndex: 2,
+  },
+  noticeHideButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    lineHeight: 18,
+    fontFamily: FONTS.sans.semibold,
+    marginTop: -1,
   },
   noticeCardPressed: {
     opacity: 0.92,

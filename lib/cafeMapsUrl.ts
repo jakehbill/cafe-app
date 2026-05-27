@@ -56,3 +56,21 @@ export function resolveCafeMapsUrl(cafe: Cafe): string | null {
 
   return null;
 }
+
+/**
+ * Google Maps link for web cafe detail (no in-app Beaned map).
+ * 1. Stored `googleMapsUrl` from Supabase
+ * 2. Search URL from cafe name + street address
+ */
+export function resolveCafeGoogleMapsWebUrl(cafe: Cafe): string | null {
+  const direct = cafe.googleMapsUrl?.trim();
+  if (direct) return normalizeExternalMapsUrl(direct);
+
+  const addr = (cafe.addressLine ?? '').trim();
+  const name = (cafe.name ?? '').trim();
+  if (addr.length > 0 && name.length > 0) {
+    return `${MAPS_SEARCH_BASE}${encodeURIComponent(`${name} ${addr}`)}`;
+  }
+
+  return null;
+}

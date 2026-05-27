@@ -4,7 +4,11 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { useUserLocation } from '@/contexts/UserLocationContext';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { withCafeDistances } from '@/lib/cafeDistance';
-import { hasValidCafeCoordinates, resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
+import {
+  hasValidCafeCoordinates,
+  resolveCafeGoogleMapsWebUrl,
+  resolveCafeMapsUrl,
+} from '@/lib/cafeMapsUrl';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatTagLabel } from '@/lib/cafeTags';
 import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
@@ -29,6 +33,7 @@ import {
   FlatList,
   Image,
   Linking,
+  Platform,
   Pressable,
   ScrollView,
   Share,
@@ -330,6 +335,17 @@ export default function CafeDetailScreen() {
     });
   }
 
+  function handleShowOnGoogleMapsWeb() {
+    if (!cafe) return;
+    const url = resolveCafeGoogleMapsWebUrl(cafe);
+    if (!url) return;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    void Linking.openURL(url);
+  }
+
   async function handleSavePress() {
     if (!cafe) return;
     if (__DEV__) {
@@ -356,6 +372,8 @@ export default function CafeDetailScreen() {
       /* dismissed */
     }
   };
+
+  const webGoogleMapsUrl = Platform.OS === 'web' ? resolveCafeGoogleMapsWebUrl(cafe) : null;
 
   const insightBubbleText = (() => {
     if (tagInsight) {
@@ -506,7 +524,14 @@ export default function CafeDetailScreen() {
             <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
 
               <View style={styles.identityActionsRow}>
-                {hasValidCafeCoordinates(cafe) ? (
+                {Platform.OS === 'web' ? (
+                  webGoogleMapsUrl ? (
+                    <CompactActionButton
+                      label="Show on Google Maps"
+                      onPress={handleShowOnGoogleMapsWeb}
+                    />
+                  ) : null
+                ) : hasValidCafeCoordinates(cafe) ? (
                   <CompactActionButton label="Show on Beaned map" onPress={handleShowOnBeanedMap} />
                 ) : null}
               </View>
