@@ -1,5 +1,6 @@
+import { buildLoginPath, navigateAfterAuth, parseReturnToParam } from '@/lib/authGate';
 import { supabase } from '@/lib/supabase';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -12,6 +13,8 @@ import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
  * Log in lives at `/login` — no duplicate `app/auth/` folder.
  */
 export default function AuthScreen() {
+  const { returnTo: returnToParam } = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const returnTo = parseReturnToParam(returnToParam);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,6 +33,7 @@ export default function AuthScreen() {
       }
 
       if (data.session) {
+        navigateAfterAuth(router, returnTo);
         return;
       }
 
@@ -49,11 +53,20 @@ export default function AuthScreen() {
       brandAccent
       title="Create your account"
       subtitle="Start discovering cafes that fit how you work and unwind"
-      onBackPress={() => router.replace('/onboarding')}
+      onBackPress={() => {
+        if (router.canGoBack()) {
+          router.back();
+          return;
+        }
+        router.replace('/(tabs)');
+      }}
       footer={
         <View style={authStyles.footerRow}>
           <Text style={authStyles.footerText}>Already have an account?</Text>
-          <TouchableOpacity onPress={() => router.push('/login')} disabled={loading}>
+          <TouchableOpacity
+            onPress={() => router.push(buildLoginPath(returnTo) as never)}
+            disabled={loading}
+          >
             <Text style={authStyles.footerLink}>{loading ? 'Please wait…' : 'Log in'}</Text>
           </TouchableOpacity>
         </View>

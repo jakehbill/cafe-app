@@ -43,6 +43,7 @@ import {
 } from '@/lib/googlePlaces';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
+import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
 import { saveUserCafeVisit } from '@/lib/userCafeVisits';
 
 const PLACES_SEARCH_DEBOUNCE_MS = 350;
@@ -83,6 +84,7 @@ export default function SuggestCafeScreen() {
   const existingCafeId = String(routeCafeId).trim();
   const isExistingCafeFlow = fromVisitLog && existingCafeId.length > 0;
   const isMissingCafeFlow = fromVisitLog && !isExistingCafeFlow;
+  const { authReady, authLoading } = useAuthRedirectIfNeeded('/suggest-cafe');
   const initialNameParam = Array.isArray(params.prefillName) ? params.prefillName[0] : params.prefillName;
   const initialName = (() => {
     const candidate = String(initialNameParam ?? '').trim();
@@ -583,6 +585,16 @@ export default function SuggestCafeScreen() {
     }
   }
 
+  if (authLoading || !authReady) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.authLoading}>
+          <ActivityIndicator color={COLORS.accent} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
@@ -1079,6 +1091,11 @@ export default function SuggestCafeScreen() {
 }
 
 const styles = StyleSheet.create({
+  authLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

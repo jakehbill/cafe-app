@@ -2,6 +2,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import { Platform } from 'react-native';
 import type { Cafe } from '@/data/cafes';
+import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 
 export type UploadableImageAsset = {
@@ -173,12 +174,12 @@ export async function submitCafePhoto(input: {
 }): Promise<SupabaseActionResult> {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   if (authError) {
-    return { ok: false, error: authError.message };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const userId = authData.user?.id;
   if (!userId) {
-    return { ok: false, error: 'You must be signed in to add a photo.' };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const cafeId = String(input.cafeId).trim();

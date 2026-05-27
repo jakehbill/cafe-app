@@ -1,5 +1,6 @@
+import { buildAuthPath, navigateAfterAuth, parseReturnToParam } from '@/lib/authGate';
 import { supabase } from '@/lib/supabase';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState } from 'react';
 import { Alert, Platform, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -17,6 +18,8 @@ function authDebug(label: string, payload: Record<string, unknown>) {
 }
 
 export default function LogInScreen() {
+  const { returnTo: returnToParam } = useLocalSearchParams<{ returnTo?: string | string[] }>();
+  const returnTo = parseReturnToParam(returnToParam);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -67,7 +70,8 @@ export default function LogInScreen() {
         return;
       }
 
-      authDebug('navigating after login', { to: '/(tabs) (via root layout after session)' });
+      navigateAfterAuth(router, returnTo);
+      authDebug('navigating after login', { returnTo: returnTo ?? '/(tabs)' });
     } catch (e) {
       console.error('[WEB AUTH DEBUG] handleLogIn threw:', e);
       Alert.alert(
@@ -84,11 +88,20 @@ export default function LogInScreen() {
       brandAccent
       title="Welcome back"
       subtitle="Sign in to pick up where you left off"
-      onBackPress={() => router.push('/auth')}
+      onBackPress={() => {
+        if (router.canGoBack()) {
+          router.back();
+          return;
+        }
+        router.replace(buildAuthPath(returnTo) as never);
+      }}
       footer={
         <View style={authStyles.footerRow}>
           <Text style={authStyles.footerText}>{"Don't have an account?"}</Text>
-          <TouchableOpacity onPress={() => router.push('/auth')} disabled={loading}>
+          <TouchableOpacity
+            onPress={() => router.push(buildAuthPath(returnTo) as never)}
+            disabled={loading}
+          >
             <Text style={authStyles.footerLink}>{loading ? 'Please wait…' : 'Sign up'}</Text>
           </TouchableOpacity>
         </View>

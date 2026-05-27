@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, {
   createContext,
   useCallback,
@@ -8,6 +9,7 @@ import React, {
   useState,
 } from 'react';
 
+import { AUTH_REQUIRED_MESSAGE, buildLoginPath } from '@/lib/authGate';
 import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { supabase } from '@/lib/supabase';
 
@@ -67,6 +69,7 @@ function sortVisitedRows(
 }
 
 export function CafeStateProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const { user } = useAuth();
   const userId = user?.id;
 
@@ -125,7 +128,7 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
       console.log('current logged-in user id (toggleSaved):', userId ?? '(none)');
 
       if (!userId) {
-        console.warn('Save: no logged-in user — cannot write to user_saved_cafes');
+        router.push(buildLoginPath(`/cafe/${id}`) as never);
         return;
       }
 
@@ -162,7 +165,7 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
 
       await refreshUserCafeData();
     },
-    [userId, refreshUserCafeData]
+    [userId, refreshUserCafeData, router]
   );
 
   const toggleVisited = useCallback(
@@ -230,7 +233,8 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
   const setCafeRating = useCallback(
     async (id: string, ratingData: CafeRating) => {
       if (!userId) {
-        throw new Error('You must be signed in to save a rating');
+        router.push(buildLoginPath(`/rate/${id}`) as never);
+        throw new Error(AUTH_REQUIRED_MESSAGE);
       }
 
       const coffee = quantizeCoffeeRatingForStorage(ratingData.coffee);
@@ -255,7 +259,7 @@ export function CafeStateProvider({ children }: { children: React.ReactNode }) {
 
       await refreshUserCafeData();
     },
-    [userId, refreshUserCafeData]
+    [userId, refreshUserCafeData, router]
   );
 
   function getCafeRating(id: string) {

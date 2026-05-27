@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { buildAuthPath, buildLoginPath } from '@/lib/authGate';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { GamificationHelpModal } from '@/components/profile/GamificationHelpModal';
 import {
@@ -151,6 +153,7 @@ function emailLocalPart(email: string): string {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { requireAuth } = useRequireAuth();
   const { ratingsByCafeId, savedCafeIds, visitedCafeIds } = useCafeState();
   const email = user?.email ?? '';
 
@@ -346,7 +349,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      router.replace('/onboarding');
+      router.replace('/(tabs)');
     } catch (e) {
       console.error('Log out failed (unexpected):', e);
       Alert.alert(
@@ -439,6 +442,22 @@ export default function ProfileScreen() {
               {!countsLoading ? (
                 <Text style={styles.levelSubtitle}>{levelProgress.currentTitle}</Text>
               ) : null}
+              <View style={styles.authCtaRow}>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.authPrimaryButton}
+                  onPress={() => router.push(buildLoginPath('/profile') as never)}
+                >
+                  <Text style={styles.authPrimaryButtonText}>Log in</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.authSecondaryButton}
+                  onPress={() => router.push(buildAuthPath('/profile') as never)}
+                >
+                  <Text style={styles.authSecondaryButtonText}>Sign up</Text>
+                </TouchableOpacity>
+              </View>
             </>
           )}
         </View>
@@ -542,7 +561,10 @@ export default function ProfileScreen() {
             <TouchableOpacity
               activeOpacity={0.88}
               style={styles.activityRow}
-              onPress={() => router.push('/my-cafes')}
+              onPress={() => {
+                if (!requireAuth('/my-cafes')) return;
+                router.push('/my-cafes');
+              }}
             >
               <View style={styles.activityTextWrap}>
                 <Text style={styles.activityTitle}>Visited</Text>
@@ -573,7 +595,10 @@ export default function ProfileScreen() {
           <TouchableOpacity
             activeOpacity={0.88}
             style={styles.activityRow}
-            onPress={() => router.push('/suggest-cafe')}
+            onPress={() => {
+              if (!requireAuth('/suggest-cafe')) return;
+              router.push('/suggest-cafe');
+            }}
           >
             <View style={styles.activityTextWrap}>
               <Text style={styles.activityTitle}>Suggest a cafe</Text>
@@ -647,15 +672,17 @@ export default function ProfileScreen() {
 
         <Text style={styles.leaderboardHint}>Leaderboards may come later — for now, this is your journey.</Text>
 
-        <View style={styles.logoutBlock}>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.logOutButton}
-            onPress={() => void handleLogOut()}
-          >
-            <Text style={styles.logOutButtonText}>Log out</Text>
-          </TouchableOpacity>
-        </View>
+        {email ? (
+          <View style={styles.logoutBlock}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.logOutButton}
+              onPress={() => void handleLogOut()}
+            >
+              <Text style={styles.logOutButtonText}>Log out</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
       <GamificationHelpModal
         visible={showGamificationHelp}
@@ -744,6 +771,37 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#B5A89A',
     lineHeight: 22,
+  },
+  authCtaRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  authPrimaryButton: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: COLORS.accent,
+  },
+  authPrimaryButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontFamily: FONTS.sans.semibold,
+  },
+  authSecondaryButton: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+  },
+  authSecondaryButtonText: {
+    color: COLORS.text,
+    fontSize: 15,
+    fontFamily: FONTS.sans.semibold,
   },
   pointsCard: {
     backgroundColor: COLORS.cardBackground,

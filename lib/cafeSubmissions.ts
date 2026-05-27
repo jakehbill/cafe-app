@@ -2,6 +2,7 @@ import {
   placeHasValidCoordinates,
   type GooglePlaceDetailsForSubmission,
 } from '@/lib/googlePlaces';
+import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 
@@ -58,12 +59,12 @@ export async function createCafeSuggestionWithId(
 ): Promise<CafeSubmissionCreateResult> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
-    return { ok: false, error: authError.message };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const userId = data.user?.id;
   if (!userId) {
-    return { ok: false, error: 'You must be signed in to suggest a cafe.' };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const cafeName = input.cafeName.trim();
@@ -330,11 +331,11 @@ export async function submitGooglePlacesCafeSuggestion(
 ): Promise<GooglePlacesCafeSubmissionResult> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
-    return { ok: false, error: authError.message };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
   const userId = data.user?.id;
   if (!userId) {
-    return { ok: false, error: 'You must be signed in to suggest a cafe.' };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const googlePlaceId = place.placeId.trim();

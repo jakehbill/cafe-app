@@ -17,6 +17,7 @@ import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useCafesWithApprovedPhotos } from '@/hooks/useCafesWithApprovedPhotos';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
@@ -62,6 +63,7 @@ function regionForCafes(cafeList: Cafe[]) {
 
 export default function SearchScreen() {
   const router = useRouter();
+  const { requireAuth } = useRequireAuth();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
   const { cafes: cafeCatalog } = useCafeCatalog();
   const cafesWithApprovedPhotos = useCafesWithApprovedPhotos(cafeCatalog);
@@ -314,6 +316,8 @@ export default function SearchScreen() {
   function openLogMissingCafeFlow() {
     const prefillName = query.trim();
     if (!prefillName) return;
+    const returnTo = `/suggest-cafe?prefillName=${encodeURIComponent(prefillName)}&fromVisitLog=1`;
+    if (!requireAuth(returnTo)) return;
     router.push({
       pathname: '/suggest-cafe',
       params: {
@@ -326,6 +330,8 @@ export default function SearchScreen() {
   function openSuggestCafeFlow() {
     const initialSearch = query.trim();
     if (!initialSearch) return;
+    const returnTo = `/suggest-cafe?initialSearch=${encodeURIComponent(initialSearch)}`;
+    if (!requireAuth(returnTo)) return;
     router.push({
       pathname: '/suggest-cafe',
       params: { initialSearch },

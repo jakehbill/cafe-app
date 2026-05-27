@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
+import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { normalizeCoffeeRatingInput, quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { parseCafeTagsField } from '@/lib/cafeTags';
 
@@ -58,12 +59,12 @@ export async function saveCafe(cafeId: number): Promise<SupabaseActionResult> {
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
     console.error('saveCafe: auth getUser failed:', authError);
-    return { ok: false, error: authError.message };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const userId = data.user?.id;
   if (!userId) {
-    return { ok: false, error: 'You must be signed in to save a cafe.' };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const res = await supabase.from('saves').insert({ cafe_id: cafeId, user_id: userId });
@@ -83,12 +84,12 @@ export async function unsaveCafe(cafeId: number): Promise<SupabaseActionResult> 
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
     console.error('unsaveCafe: auth getUser failed:', authError);
-    return { ok: false, error: authError.message };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const userId = data.user?.id;
   if (!userId) {
-    return { ok: false, error: 'You must be signed in to unsave a cafe.' };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const res = await supabase.from('saves').delete().eq('user_id', userId).eq('cafe_id', cafeId);
@@ -186,12 +187,12 @@ export async function rateCafe(
   const { data, error: authError } = await supabase.auth.getUser();
   if (authError) {
     console.error('rateCafe: auth getUser failed:', authError);
-    return { ok: false, error: authError.message };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const userId = data.user?.id;
   if (!userId) {
-    return { ok: false, error: 'You must be signed in to rate a cafe.' };
+    return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   }
 
   const normalizedCafeId = Number.parseInt(String(cafeId), 10);

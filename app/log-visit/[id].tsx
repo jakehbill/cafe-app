@@ -27,6 +27,7 @@ import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { POINTS } from '@/lib/profileGamification';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
+import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
 import { getUserCafeVisitById, saveUserCafeVisit, updateUserCafeVisit } from '@/lib/userCafeVisits';
 
 export default function LogVisitScreen() {
@@ -36,6 +37,10 @@ export default function LogVisitScreen() {
   const cafeId = Array.isArray(id) ? id[0] : id;
   const editingVisitId = Array.isArray(visitId) ? visitId[0] : visitId;
   const targetCafeId = cafeId ?? '';
+  const visitReturnTo = editingVisitId
+    ? `/log-visit/${targetCafeId}?visitId=${encodeURIComponent(editingVisitId)}`
+    : `/log-visit/${targetCafeId}`;
+  const { authReady, authLoading } = useAuthRedirectIfNeeded(visitReturnTo);
   const { isSaved } = useCafeState();
   const guessedCafeName = decodeURIComponent(targetCafeId).replace(/[-_]+/g, ' ').trim();
 
@@ -199,6 +204,16 @@ export default function LogVisitScreen() {
     setRedirectingMissingCafe(true);
     openSuggestPrefilled();
   }, [successState, editingVisitId, cafeId]);
+
+  if (authLoading || !authReady) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={COLORS.accent} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
@@ -374,6 +389,11 @@ export default function LogVisitScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   keyboardAvoid: { flex: 1 },
   heroBackRow: { marginBottom: 8, paddingHorizontal: 20 },

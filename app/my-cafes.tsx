@@ -2,6 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,6 +15,7 @@ import { CompactCafeCard } from '@/components/CompactCafeCard';
 import type { Cafe } from '@/data/cafes';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
+import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
 import {
   getUserCafeVisitTimeline,
   type UserCafeVisit,
@@ -50,6 +52,7 @@ function formatVisitedDateLabel(createdAtIso: string): string | null {
 
 export default function MyCafesScreen() {
   const router = useRouter();
+  const { authReady, authLoading } = useAuthRedirectIfNeeded('/my-cafes');
   const { movedFromSaved } = useLocalSearchParams<{ movedFromSaved?: string | string[] }>();
   const navigation = useNavigation();
   const [visitLogs, setVisitLogs] = useState<UserCafeVisit[]>([]);
@@ -144,6 +147,16 @@ export default function MyCafesScreen() {
 
   const hasVisits = compactRows.length > 0;
 
+  if (authLoading || !authReady) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+        <View style={styles.authLoading}>
+          <ActivityIndicator color={COLORS.accent} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       {!hasVisits ? (
@@ -217,6 +230,11 @@ export default function MyCafesScreen() {
 }
 
 const styles = StyleSheet.create({
+  authLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

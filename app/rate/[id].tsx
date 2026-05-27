@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -27,6 +28,7 @@ import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
 import { submitCafePhoto } from '@/lib/cafePhotoSubmissions';
 import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
+import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
 import { getUserCoffeeRating, rateCafe } from '@/lib/supabase';
 
 function rateDebug(label: string, payload: Record<string, unknown>) {
@@ -45,6 +47,7 @@ export default function RateCafeScreen() {
   const { setCafeRating, getCafeRating } = useCafeState();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const targetCafeId = cafeId ?? '1';
+  const { authReady, authLoading } = useAuthRedirectIfNeeded(`/rate/${targetCafeId}`);
   const [cafe, setCafe] = useState<Cafe | null>(null);
 
   React.useEffect(() => {
@@ -282,6 +285,16 @@ export default function RateCafeScreen() {
       ? cafe.addressLine.trim()
       : cafe?.neighborhood?.trim()) || 'Neighborhood';
 
+  if (authLoading || !authReady) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+        <View style={styles.authLoading}>
+          <ActivityIndicator color={COLORS.accent} size="large" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <KeyboardAvoidingView
@@ -449,6 +462,11 @@ export default function RateCafeScreen() {
 }
 
 const styles = StyleSheet.create({
+  authLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,

@@ -7,7 +7,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/inter';
 import { PlayfairDisplay_600SemiBold, PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
-import { Stack, usePathname, useRootNavigationState, useRouter, useSegments } from 'expo-router';
+import { Stack, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
@@ -22,7 +22,6 @@ import { CafeStateProvider } from '@/contexts/CafeStateContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ProfileGateProvider, useProfileGate } from '@/contexts/ProfileGateContext';
 import { UserLocationProvider } from '@/contexts/UserLocationContext';
-import { shouldMountSignedInStackDuringAuthLoad } from '@/lib/webRouteBootstrap';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -77,7 +76,6 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const router = useRouter();
-  const pathname = usePathname();
   const segments = useSegments();
   const rootNavigationState = useRootNavigationState();
   const navigationReady = rootNavigationState?.key != null;
@@ -85,11 +83,6 @@ function RootNavigator() {
   const { profileLoading, needsOnboarding } = useProfileGate();
   const prevSessionRef = useRef<typeof session>(null);
 
-  const showSignedInStack = shouldMountSignedInStackDuringAuthLoad({
-    loading,
-    hasUser: Boolean(user),
-    pathname,
-  });
   const showBootstrapOverlay = loading || (user != null && profileLoading);
 
   useEffect(() => {
@@ -97,7 +90,7 @@ function RootNavigator() {
     const hadSession = prevSessionRef.current != null;
     prevSessionRef.current = session;
     if (hadSession && session == null) {
-      router.replace('/onboarding');
+      router.replace('/(tabs)');
     }
   }, [navigationReady, loading, session, router]);
 
@@ -152,7 +145,6 @@ function RootNavigator() {
   return (
     <View style={styles.root}>
     <Stack
-      key={showSignedInStack ? 'signed-in' : 'signed-out'}
       screenOptions={({ navigation }) => ({
         ...stackScreenBase,
         headerLeft: ({ canGoBack, tintColor }) => (
@@ -164,113 +156,106 @@ function RootNavigator() {
         ),
       })}
     >
-      {showSignedInStack ? (
-        <>
-          <Stack.Screen
-            name="(tabs)"
-            options={{
-              headerShown: false,
-              title: '',
-              headerTitle: '',
-            }}
-          />
-          <Stack.Screen
-            name="cafe/[id]"
-            options={{
-              ...stackHeaderOn,
-              title: 'Cafe',
-              headerTitle: 'Cafe',
-            }}
-          />
-          <Stack.Screen
-            name="rate/[id]"
-            options={{
-              ...stackHeaderOn,
-              title: 'Rate Cafe',
-              headerTitle: 'Rate Cafe',
-            }}
-          />
-          <Stack.Screen
-            name="log-visit/[id]"
-            options={{
-              ...stackHeaderOn,
-              title: 'Log visit',
-              headerTitle: 'Log visit',
-            }}
-          />
-          <Stack.Screen
-            name="saved"
-            options={{
-              ...stackHeaderOn,
-              title: 'Saved',
-              headerTitle: 'Saved',
-            }}
-          />
-          <Stack.Screen
-            name="ratings"
-            options={{
-              ...stackHeaderOn,
-              title: 'Ratings',
-              headerTitle: 'Ratings',
-            }}
-          />
-          <Stack.Screen
-            name="my-cafes"
-            options={{
-              ...stackHeaderOn,
-              title: 'Visit log',
-              headerTitle: 'Visit log',
-            }}
-          />
-          <Stack.Screen
-            name="suggest-cafe"
-            options={{
-              ...stackHeaderOn,
-              title: 'Suggest a cafe',
-              headerTitle: 'Suggest a cafe',
-            }}
-          />
-          <Stack.Screen
-            name="moderation"
-            options={{
-              ...stackHeaderOn,
-              title: 'Moderation',
-              headerTitle: 'Moderation',
-            }}
-          />
-          <Stack.Screen
-            name="moderation-create-cafe"
-            options={{
-              ...stackHeaderOn,
-              title: 'Create cafe',
-              headerTitle: 'Create cafe',
-            }}
-          />
-          <Stack.Screen
-            name="onboarding-preferences"
-            options={{
-              headerShown: false,
-              title: '',
-              headerTitle: '',
-            }}
-          />
-          <Stack.Screen
-            name="modal"
-            options={{
-              presentation: 'modal',
-              ...stackHeaderOn,
-              title: 'Modal',
-              headerTitle: 'Modal',
-            }}
-          />
-        </>
-      ) : (
-        <>
-          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-          <Stack.Screen name="auth" options={{ headerShown: false }} />
-          <Stack.Screen name="login" options={{ headerShown: false }} />
-        </>
-      )}
+      <Stack.Screen
+        name="(tabs)"
+        options={{
+          headerShown: false,
+          title: '',
+          headerTitle: '',
+        }}
+      />
+      <Stack.Screen
+        name="cafe/[id]"
+        options={{
+          ...stackHeaderOn,
+          title: 'Cafe',
+          headerTitle: 'Cafe',
+        }}
+      />
+      <Stack.Screen
+        name="rate/[id]"
+        options={{
+          ...stackHeaderOn,
+          title: 'Rate Cafe',
+          headerTitle: 'Rate Cafe',
+        }}
+      />
+      <Stack.Screen
+        name="log-visit/[id]"
+        options={{
+          ...stackHeaderOn,
+          title: 'Log visit',
+          headerTitle: 'Log visit',
+        }}
+      />
+      <Stack.Screen
+        name="saved"
+        options={{
+          ...stackHeaderOn,
+          title: 'Saved',
+          headerTitle: 'Saved',
+        }}
+      />
+      <Stack.Screen
+        name="ratings"
+        options={{
+          ...stackHeaderOn,
+          title: 'Ratings',
+          headerTitle: 'Ratings',
+        }}
+      />
+      <Stack.Screen
+        name="my-cafes"
+        options={{
+          ...stackHeaderOn,
+          title: 'Visit log',
+          headerTitle: 'Visit log',
+        }}
+      />
+      <Stack.Screen
+        name="suggest-cafe"
+        options={{
+          ...stackHeaderOn,
+          title: 'Suggest a cafe',
+          headerTitle: 'Suggest a cafe',
+        }}
+      />
+      <Stack.Screen
+        name="moderation"
+        options={{
+          ...stackHeaderOn,
+          title: 'Moderation',
+          headerTitle: 'Moderation',
+        }}
+      />
+      <Stack.Screen
+        name="moderation-create-cafe"
+        options={{
+          ...stackHeaderOn,
+          title: 'Create cafe',
+          headerTitle: 'Create cafe',
+        }}
+      />
+      <Stack.Screen
+        name="onboarding-preferences"
+        options={{
+          headerShown: false,
+          title: '',
+          headerTitle: '',
+        }}
+      />
+      <Stack.Screen
+        name="modal"
+        options={{
+          presentation: 'modal',
+          ...stackHeaderOn,
+          title: 'Modal',
+          headerTitle: 'Modal',
+        }}
+      />
+      <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+      <Stack.Screen name="auth" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
     </Stack>
     {showBootstrapOverlay ? (
       <View style={styles.bootstrapOverlay} pointerEvents="auto">

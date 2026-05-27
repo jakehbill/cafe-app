@@ -9,7 +9,9 @@ import {
 } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { buildLoginPath } from '@/lib/authGate';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
 import { CompactCafeCard } from '@/components/CompactCafeCard';
@@ -59,6 +61,7 @@ type Props = {
  */
 export function SavedCafesContent({ showPageTitle = true }: Props) {
   const router = useRouter();
+  const { user } = useAuth();
   const { savedCafeIds } = useCafeState();
   const [savedCafes, setSavedCafes] = useState<Cafe[]>([]);
   const [locationFilter, setLocationFilter] = useState<string | null>(null);
@@ -96,7 +99,24 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
     <ScrollView contentContainerStyle={styles.content}>
       {showPageTitle ? <Text style={styles.title}>Saved for later</Text> : null}
 
-      {savedCafes.length === 0 ? (
+      {!user ? (
+        <View style={styles.emptyWrap}>
+          <View style={styles.emptyIconWrap}>
+            <Text style={styles.emptyIcon}>☆</Text>
+          </View>
+          <Text style={styles.emptyTitle}>Sign in to save cafes</Text>
+          <Text style={styles.subtitle}>
+            Please log in to save cafés and add reviews.
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={styles.ctaButton}
+            onPress={() => router.push(buildLoginPath('/bookmarks') as never)}
+          >
+            <Text style={styles.ctaButtonText}>Log in</Text>
+          </TouchableOpacity>
+        </View>
+      ) : savedCafes.length === 0 ? (
         <View style={styles.emptyWrap}>
           <View style={styles.emptyIconWrap}>
             <Text style={styles.emptyIcon}>☆</Text>

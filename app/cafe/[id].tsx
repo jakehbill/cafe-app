@@ -22,6 +22,7 @@ import {
   type CafeCommunityTagInsight,
   type CafeRecentReview,
 } from '@/lib/supabase';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { getMostRecentUserVisitForCafe } from '@/lib/userCafeVisits';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -131,6 +132,7 @@ export default function CafeDetailScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { toggleSaved, isSaved } = useCafeState();
+  const { requireAuth } = useRequireAuth();
   const cafeId = Array.isArray(id) ? id[0] : id;
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [cafeLoading, setCafeLoading] = useState(true);
@@ -620,7 +622,11 @@ export default function CafeDetailScreen() {
             <ActionButton
               label={mostRecentVisitId ? 'Edit rating' : 'Log this cafe'}
               accentActive
-              onPress={() =>
+              onPress={() => {
+                const logPath = mostRecentVisitId
+                  ? `/log-visit/${cafe.id}?visitId=${encodeURIComponent(mostRecentVisitId)}`
+                  : `/log-visit/${cafe.id}`;
+                if (!requireAuth(logPath)) return;
                 router.push(
                   mostRecentVisitId
                     ? ({
@@ -628,8 +634,8 @@ export default function CafeDetailScreen() {
                         params: { visitId: mostRecentVisitId },
                       } as never)
                     : (`/log-visit/${cafe.id}` as never)
-                )
-              }
+                );
+              }}
             />
           </View>
         </View>

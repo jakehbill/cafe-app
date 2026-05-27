@@ -1,3 +1,4 @@
+import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { rateCafe, supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { uploadCafePhotoAssetToStorage } from '@/lib/cafePhotoSubmissions';
@@ -249,7 +250,7 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
   const { data, error } = await supabase.auth.getUser();
   if (error) return { ok: false, error: error.message };
   const userId = data.user?.id;
-  if (!userId) return { ok: false, error: 'You must be signed in to log a visit.' };
+  if (!userId) return { ok: false, error: AUTH_REQUIRED_MESSAGE };
 
   const cafeId = String(input.cafeId ?? '').trim();
   const submissionId = String(input.submissionId ?? '').trim();
@@ -409,7 +410,7 @@ export async function updateUserCafeVisit(
   const existing = await getUserCafeVisitById(visitId);
   if (!existing) return { ok: false, error: 'Visit not found.' };
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user?.id) return { ok: false, error: 'You must be signed in to edit a visit.' };
+  if (error || !data.user?.id) return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   const userId = data.user.id;
 
   let nextStoragePath: string | null = null;
