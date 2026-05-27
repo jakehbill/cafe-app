@@ -30,7 +30,13 @@ import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking'
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
-import { getRecentPublicVisitNotes, resolveCafeDisplayTags, supabase, type PublicVisitNote } from '@/lib/supabase';
+import {
+  getRecentPublicVisitNotes,
+  hideBulletinVisit,
+  resolveCafeDisplayTags,
+  supabase,
+  type PublicVisitNote,
+} from '@/lib/supabase';
 import { getNearbyCafesWithinRadius } from '@/lib/cafeNearby';
 import { useAuth } from '@/contexts/AuthContext';
 import { isModerator } from '@/lib/moderator';
@@ -316,24 +322,24 @@ export default function HomeScreen() {
 
   const hideBulletinItem = React.useCallback(
     async (visitId: string) => {
-      const key = String(visitId ?? '').trim();
+      const key = String(visitId ?? '').trim().toLowerCase();
       if (!key) return;
       if (!canHideBulletin) return;
 
-      // Optimistic remove.
-      setNoticeBoardNotes((prev) => prev.filter((row) => row.visitId !== key));
+      // Optimistic remove (same row id as user_cafe_visits.id on the card).
+      setNoticeBoardNotes((prev) =>
+        prev.filter((row) => String(row.visitId ?? '').trim().toLowerCase() !== key)
+      );
 
-      const res = await supabase
-        .from('user_cafe_visits')
-        .update({ hidden_from_bulletin: true })
-        .eq('id', key);
-
-      if (res.error) {
-        console.error('[Bulletin] hide failed:', res.error.message);
-        // Simple rollback: reload.
+      const result = await hideBulletinVisit(visitId);
+      if (!result.ok) {
         const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
         setNoticeBoardNotes(rows);
+        return;
       }
+
+      const rows = await getRecentPublicVisitNotes(NOTICE_BOARD_LIMIT);
+      setNoticeBoardNotes(rows);
     },
     [canHideBulletin]
   );
@@ -541,16 +547,18 @@ export default function HomeScreen() {
 
   const noticeBoardRows = useMemo(() => {
     const cafeById = new Map(cafesWithApprovedPhotos.map((cafe) => [String(cafe.id).trim(), cafe]));
-    return noticeBoardNotes.map((row) => {
-      const cafe = row.cafeId ? cafeById.get(String(row.cafeId).trim()) : null;
-      const thumbnailUrl = cafe
-        ? resolveLiveCafePrimaryImageUrl({ cafe })
-        : CAFE_PLACEHOLDER_IMAGE_URL;
-      return {
-        ...row,
-        thumbnailUrl: thumbnailUrl || CAFE_PLACEHOLDER_IMAGE_URL,
-      };
-    });
+    return noticeBoardNotes
+      .filter((row) => row.hiddenFromBulletin !== true)
+      .map((row) => {
+        const cafe = row.cafeId ? cafeById.get(String(row.cafeId).trim()) : null;
+        const thumbnailUrl = cafe
+          ? resolveLiveCafePrimaryImageUrl({ cafe })
+          : CAFE_PLACEHOLDER_IMAGE_URL;
+        return {
+          ...row,
+          thumbnailUrl: thumbnailUrl || CAFE_PLACEHOLDER_IMAGE_URL,
+        };
+      });
   }, [noticeBoardNotes, cafesWithApprovedPhotos]);
 
   const { width: windowWidth } = useWindowDimensions();

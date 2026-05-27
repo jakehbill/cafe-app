@@ -356,11 +356,157 @@ export type PublicVisitNote = {
   cafeArea: string | null;
   note: string;
   createdAt: string;
+  /** Resolved from RPC row and/or `get_hidden_bulletin_entries`; used for final filtering. */
+  hiddenFromBulletin?: boolean;
 };
 
-function isBulletinRowHidden(row: Record<string, unknown>): boolean {
-  const hidden = (row as { hidden_from_bulletin?: unknown }).hidden_from_bulletin;
-  return hidden === true;
+type HiddenBulletinEntry = {
+  visitId: string;
+  cafeId: string;
+  note: string;
+  createdAt: string;
+};
+
+/** Session cache of hidden visit ids (filled from RPC and after successful X hide). */
+let bulletinHiddenVisitIdCache = new Set<string>();
+
+export type HideBulletinVisitPayload = {
+  table: 'user_cafe_visits';
+  id: string;
+  hidden_from_bulletin: true;
+};
+
+/**
+ * Same path as the Bulletin X button: sets `user_cafe_visits.hidden_from_bulletin = true`.
+ */
+export async function hideBulletinVisit(visitId: string): Promise<SupabaseActionResult> {
+  const id = String(visitId ?? '').trim();
+  if (!id) {
+    return { ok: false, error: 'Missing visit id.' };
+  }
+
+  const payload: HideBulletinVisitPayload = {
+    table: 'user_cafe_visits',
+    id,
+    hidden_from_bulletin: true,
+  };
+
+  if (__DEV__) {
+    console.log('[Bulletin hide] update payload:', payload);
+  }
+
+  const res = await supabase.from(payload.table).update({ hidden_from_bulletin: true }).eq('id', id);
+
+  if (res.error) {
+    console.error('[Bulletin hide] update failed:', res.error.message, { payload, error: res.error });
+    return { ok: false, error: res.error.message };
+  }
+
+  bulletinHiddenVisitIdCache.add(parseBulletinVisitId({ id, visit_id: id }));
+  if (__DEV__) {
+    console.log('[Bulletin hide] update ok — row hidden in user_cafe_visits', payload);
+  }
+  return { ok: true };
+}
+
+/** Hide only when explicitly true (false and null stay visible). */
+export function isBulletinHiddenFlag(value: unknown): boolean {
+  if (value === true || value === 1) return true;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    return normalized === 'true' || normalized === 't' || normalized === '1';
+  }
+  return false;
+}
+
+function parseBulletinVisitId(row: Record<string, unknown>): string {
+  return String((row as { visit_id?: unknown }).visit_id ?? (row as { id?: unknown }).id ?? '')
+    .trim()
+    .toLowerCase();
+}
+
+function parseBulletinHiddenFlag(row: Record<string, unknown>): boolean {
+  const rowAny = row as { hidden_from_bulletin?: unknown; hiddenFromBulletin?: unknown };
+  return isBulletinHiddenFlag(rowAny.hidden_from_bulletin ?? rowAny.hiddenFromBulletin);
+}
+
+function normalizeBulletinTimestamp(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toISOString();
+}
+
+async function loadHiddenBulletinVisitIds(): Promise<{
+  visitIds: Set<string>;
+  entries: HiddenBulletinEntry[];
+  hiddenRpcAvailable: boolean;
+}> {
+  const hiddenRes = await supabase.rpc('get_hidden_bulletin_entries');
+  if (hiddenRes.error) {
+    console.error(
+      '[Bulletin] RPC get_hidden_bulletin_entries missing — manual Supabase hides will not apply until you run supabase/bulletin_hide_from_bulletin.sql:',
+      hiddenRes.error.message
+    );
+    return {
+      visitIds: new Set(bulletinHiddenVisitIdCache),
+      entries: [],
+      hiddenRpcAvailable: false,
+    };
+  }
+
+  const entries = ((hiddenRes.data ?? []) as Array<Record<string, unknown>>)
+    .map((row) => {
+      const visitId = parseBulletinVisitId(row);
+      const cafeId = String((row as { cafe_id?: unknown }).cafe_id ?? '').trim();
+      const note = String((row as { note?: unknown }).note ?? '').trim();
+      const createdAt = normalizeBulletinTimestamp((row as { created_at?: unknown }).created_at);
+      if (!visitId || !note) return null;
+      return { visitId, cafeId, note, createdAt } satisfies HiddenBulletinEntry;
+    })
+    .filter((row): row is HiddenBulletinEntry => row != null);
+
+  const visitIds = new Set(entries.map((entry) => entry.visitId));
+  for (const cachedId of bulletinHiddenVisitIdCache) {
+    visitIds.add(cachedId);
+  }
+  bulletinHiddenVisitIdCache = visitIds;
+
+  if (__DEV__) {
+    console.log('[Bulletin] hidden visit ids from DB:', [...visitIds]);
+  }
+
+  return { visitIds, entries, hiddenRpcAvailable: true };
+}
+
+function feedRpcLooksLegacy(rows: Array<Record<string, unknown>>): boolean {
+  if (rows.length === 0) return false;
+  const first = rows[0]!;
+  const hasLegacyId = parseBulletinVisitId(first).length > 0 && first.visit_id == null;
+  const lacksHiddenColumn = !Object.prototype.hasOwnProperty.call(first, 'hidden_from_bulletin');
+  return hasLegacyId && lacksHiddenColumn;
+}
+
+function isPublicVisitNoteHidden(
+  item: Pick<PublicVisitNote, 'visitId' | 'cafeId' | 'note' | 'createdAt' | 'hiddenFromBulletin'>,
+  hiddenEntries: HiddenBulletinEntry[]
+): boolean {
+  if (item.hiddenFromBulletin === true) return true;
+
+  const visitId = parseBulletinVisitId({ visit_id: item.visitId, id: item.visitId });
+  const cafeId = String(item.cafeId ?? '').trim();
+  const note = String(item.note ?? '').trim();
+  const createdAt = normalizeBulletinTimestamp(item.createdAt);
+
+  return hiddenEntries.some((hidden) => {
+    const hiddenVisitId = parseBulletinVisitId({ visit_id: hidden.visitId, id: hidden.visitId });
+    if (visitId && hiddenVisitId && visitId === hiddenVisitId) return true;
+    if (!note || note !== hidden.note) return false;
+    if (!cafeId || !hidden.cafeId || cafeId !== hidden.cafeId) return false;
+    if (!createdAt || !hidden.createdAt || createdAt !== hidden.createdAt) return false;
+    return true;
+  });
 }
 
 /**
@@ -464,15 +610,23 @@ export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<C
 }
 
 /**
- * Recent anonymous community notes from public visit logs.
- * Source of truth: `get_recent_public_visit_notes` RPC.
+ * Public Beaned Bulletin feed.
+ *
+ * Source (live Supabase, verified):
+ * - RPC `get_recent_public_visit_notes` → `user_cafe_visits` (+ `cafes` join in newer SQL)
+ * - Legacy RPC rows use `id` (not `visit_id`) and omit `hidden_from_bulletin`
+ * - Backup filter RPC `get_hidden_bulletin_entries` (security definer; required for legacy feed)
+ *
+ * Not used for Home: `lib/bulletinItems.ts`, `bulletin_items`, `get_recent_bulletin_feed`.
  */
 export async function getRecentPublicVisitNotes(limit = 5): Promise<PublicVisitNote[]> {
   const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
-  const rpcRes = await supabase.rpc('get_recent_public_visit_notes', { p_limit: safeLimit });
+  const rpcFetchLimit = Math.min(30, Math.max(safeLimit * 4, safeLimit + 5));
+
+  const rpcRes = await supabase.rpc('get_recent_public_visit_notes', { p_limit: rpcFetchLimit });
   if (rpcRes.error) {
     console.error(
-      '[getRecentPublicVisitNotes] RPC get_recent_public_visit_notes failed:',
+      '[Bulletin] RPC get_recent_public_visit_notes failed:',
       rpcRes.error.message,
       rpcRes.error
     );
@@ -480,21 +634,36 @@ export async function getRecentPublicVisitNotes(limit = 5): Promise<PublicVisitN
   }
 
   const rawRows = (rpcRes.data ?? []) as Array<Record<string, unknown>>;
-  if (rawRows.length === 0 && __DEV__) {
-    console.log('[getRecentPublicVisitNotes] RPC returned 0 rows');
+  const legacyFeedRpc = feedRpcLooksLegacy(rawRows);
+  if (legacyFeedRpc) {
+    console.warn(
+      '[Bulletin] Feed RPC is legacy (returns `id`, not `visit_id`; no hidden_from_bulletin). Run supabase/bulletin_hide_from_bulletin.sql to filter at source.'
+    );
   }
 
-  const rows = rawRows
-    .filter((row) => !isBulletinRowHidden(row))
+  const { visitIds: hiddenVisitIds, entries: hiddenEntries, hiddenRpcAvailable } =
+    await loadHiddenBulletinVisitIds();
+
+  if (!hiddenRpcAvailable && legacyFeedRpc && __DEV__) {
+    console.warn(
+      '[Bulletin] X hide updates user_cafe_visits.hidden_from_bulletin but reload cannot filter until get_hidden_bulletin_entries RPC is deployed.'
+    );
+  }
+
+  const parsed = rawRows
     .map((row: Record<string, unknown>) => {
-      const visitIdRaw = String((row as { visit_id?: unknown }).visit_id ?? '').trim();
+      const visitId = parseBulletinVisitId(row);
       const cafeIdRaw = String((row as { cafe_id?: unknown }).cafe_id ?? '').trim();
       const cafeSlug = String((row as { cafe_slug?: unknown }).cafe_slug ?? '').trim();
       const cafeName = String((row as { cafe_name?: unknown }).cafe_name ?? '').trim();
       const cafeArea = String((row as { cafe_area?: unknown }).cafe_area ?? '').trim();
       const note = String((row as { note?: unknown }).note ?? '').trim();
-      const createdAt = String((row as { created_at?: unknown }).created_at ?? '').trim();
+      const createdAt = normalizeBulletinTimestamp((row as { created_at?: unknown }).created_at);
       if (!note || !createdAt) return null;
+
+      const hiddenFromBulletin =
+        parseBulletinHiddenFlag(row) || (visitId ? hiddenVisitIds.has(visitId) : false);
+
       const item: PublicVisitNote = {
         cafeId: cafeIdRaw || null,
         cafeSlug: cafeSlug || null,
@@ -502,13 +671,21 @@ export async function getRecentPublicVisitNotes(limit = 5): Promise<PublicVisitN
         cafeArea: cafeArea || null,
         note,
         createdAt,
+        hiddenFromBulletin,
       };
-      if (visitIdRaw) item.visitId = visitIdRaw;
+      if (visitId) item.visitId = visitId;
       return item;
     })
-    .filter((row: PublicVisitNote | null): row is PublicVisitNote => row != null)
+    .filter((row): row is PublicVisitNote => row != null);
+
+  const visible = parsed
+    .filter((item) => item.hiddenFromBulletin !== true && !isPublicVisitNoteHidden(item, hiddenEntries))
+    .map((item) => {
+      const { hiddenFromBulletin: _hidden, ...rest } = item;
+      return rest;
+    })
     .slice(0, safeLimit);
 
-  return rows;
+  return visible;
 }
 
