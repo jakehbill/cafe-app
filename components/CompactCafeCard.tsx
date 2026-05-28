@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'react-native-svg';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -9,6 +9,7 @@ import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { CafeImage } from '@/components/CafeImage';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { getTopCafeTags } from '@/lib/supabase';
 
@@ -191,7 +192,13 @@ export function CompactCafeCard({
         ]}
       >
         <View style={styles.thumbnailWrap}>
-          <Image source={{ uri: primaryPhoto }} style={styles.thumbnailImage} resizeMode="cover" />
+          <CafeImage
+            uri={primaryPhoto}
+            style={styles.thumbnailImage}
+            displayWidth={THUMB * 2}
+            displayHeight={THUMB * 2}
+            priority="low"
+          />
           {showBookmarkAction ? (
             <Pressable
               accessibilityRole="button"

@@ -1,3 +1,4 @@
+import { CafeImage } from '@/components/CafeImage';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -32,7 +33,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Image,
   Linking,
   Platform,
   Pressable,
@@ -155,6 +155,8 @@ export default function CafeDetailScreen() {
   }, [cafe, approvedUserPhotoUrls]);
   const heroPageW = heroGSize.w > 0 ? heroGSize.w : windowWidth;
   const heroPageH = heroGSize.h > 0 ? heroGSize.h : heroPageW / (3 / 2);
+  const heroDisplayWidth = Math.min(960, Math.round(heroPageW * 1.5));
+  const heroDisplayHeight = Math.min(640, Math.round(heroPageH * 1.5));
 
   useEffect(() => {
     // Refresh location on detail mount so the decision screen uses current distance when available.
@@ -406,9 +408,23 @@ export default function CafeDetailScreen() {
           }}
         >
           {photoUrls.length === 0 ? (
-            <Image source={{ uri: CAFE_PLACEHOLDER_IMAGE_URL }} style={styles.heroImage} resizeMode="cover" />
+            <CafeImage
+              uri={CAFE_PLACEHOLDER_IMAGE_URL}
+              style={styles.heroImage}
+              displayWidth={heroDisplayWidth}
+              displayHeight={heroDisplayHeight}
+              lazy={false}
+              priority="high"
+            />
           ) : photoUrls.length === 1 ? (
-            <Image source={{ uri: photoUrls[0] }} style={styles.heroImage} resizeMode="cover" />
+            <CafeImage
+              uri={photoUrls[0]}
+              style={styles.heroImage}
+              displayWidth={heroDisplayWidth}
+              displayHeight={heroDisplayHeight}
+              lazy={false}
+              priority="high"
+            />
           ) : (
             <FlatList
               data={photoUrls}
@@ -435,8 +451,15 @@ export default function CafeDetailScreen() {
                 const boundedIndex = Math.max(0, Math.min(photoUrls.length - 1, nextIndex));
                 setCurrentPhotoIndex((prev) => (prev === boundedIndex ? prev : boundedIndex));
               }}
-              renderItem={({ item: uri }) => (
-                <Image source={{ uri }} style={{ width: heroPageW, height: heroPageH }} resizeMode="cover" />
+              renderItem={({ item: uri, index }) => (
+                <CafeImage
+                  uri={uri}
+                  style={{ width: heroPageW, height: heroPageH }}
+                  displayWidth={heroDisplayWidth}
+                  displayHeight={heroDisplayHeight}
+                  lazy={index > 0}
+                  priority={index === 0 ? 'high' : 'low'}
+                />
               )}
             >
             </FlatList>

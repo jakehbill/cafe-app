@@ -5,7 +5,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import {
-  Image,
   Pressable,
   ScrollView,
   Share,
@@ -19,6 +18,7 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from 'reac
 
 import { type Cafe } from '../../data/cafes';
 import type { CafeRating } from '@/contexts/CafeStateContext';
+import { CafeImage } from '@/components/CafeImage';
 import { BrandTopBar } from '@/components/BrandTopBar';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -106,6 +106,7 @@ function HomeCafeCard({
   hoursLabel,
   onPress,
   layout = 'stack',
+  priorityImage = false,
 }: {
   cafe: Cafe;
   localRating?: CafeRating;
@@ -118,6 +119,8 @@ function HomeCafeCard({
   hoursLabel?: string | null;
   onPress: () => void;
   layout?: 'stack' | 'carousel';
+  /** Web: skip lazy load for the first visible carousel card. */
+  priorityImage?: boolean;
 }) {
   const [topTags, setTopTags] = useState<string[]>([]);
   const [heroGSize, setHeroGSize] = useState({ w: 0, h: 0 });
@@ -135,6 +138,12 @@ function HomeCafeCard({
 
   const isCarousel = layout === 'carousel';
   const primaryPhoto = resolveLiveCafePrimaryImageUrl({ cafe });
+  const heroDisplayWidth =
+    heroGSize.w > 0 ? Math.min(800, Math.round(heroGSize.w * 1.5)) : 480;
+  const heroDisplayHeight =
+    heroGSize.h > 0
+      ? Math.min(600, Math.round(heroGSize.h * 1.5))
+      : Math.round(heroDisplayWidth * (isCarousel ? 3 / 4 : 2 / 3));
   const scoreLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
   const hasTopTags = topTags.length > 0;
   const areaText = (cafe.neighborhood ?? '').trim();
@@ -161,7 +170,14 @@ function HomeCafeCard({
         }}
       >
         {primaryPhoto ? (
-          <Image source={{ uri: primaryPhoto }} style={styles.heroImage} resizeMode="cover" />
+          <CafeImage
+            uri={primaryPhoto}
+            style={styles.heroImage}
+            displayWidth={heroDisplayWidth}
+            displayHeight={heroDisplayHeight}
+            lazy={!priorityImage}
+            priority={priorityImage ? 'high' : 'low'}
+          />
         ) : (
           <View style={[styles.heroImage, styles.heroImageFallback]} />
         )}
@@ -641,6 +657,7 @@ export default function HomeScreen() {
                   <HomeCafeCard
                     cafe={cafe}
                     layout="carousel"
+                    priorityImage={index === 0}
                     localRating={ratingsByCafeId[cafe.id]}
                     recommendationReason={getRecommendationReason(cafe, tasteProfile)}
                     isSaved={isSaved(cafe.id)}
@@ -679,6 +696,7 @@ export default function HomeScreen() {
                   <HomeCafeCard
                     cafe={cafe}
                     layout="carousel"
+                    priorityImage={index === 0}
                     localRating={ratingsByCafeId[cafe.id]}
                     recommendationReason={null}
                     isSaved={isSaved(cafe.id)}
@@ -709,10 +727,12 @@ export default function HomeScreen() {
                       disabled={!cafeTarget}
                       style={({ pressed }) => [styles.noticeCard, pressed && styles.noticeCardPressed]}
                     >
-                      <Image
-                        source={{ uri: row.thumbnailUrl }}
+                      <CafeImage
+                        uri={row.thumbnailUrl}
                         style={styles.noticeThumb}
-                        resizeMode="cover"
+                        displayWidth={112}
+                        displayHeight={112}
+                        priority="low"
                       />
                       <View style={styles.noticeContent}>
                         {canHideBulletin && row.visitId ? (
