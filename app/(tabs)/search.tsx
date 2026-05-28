@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   Platform,
@@ -17,8 +17,8 @@ import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
-import { useCafesWithApprovedPhotos } from '@/hooks/useCafesWithApprovedPhotos';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { buildTasteProfileFromState, rankCafesForSearch } from '@/lib/cafeRanking';
@@ -38,6 +38,66 @@ type SearchSortMode = 'default' | 'nearest';
 type RadiusFilter = 'any' | 0.5 | 1 | 2 | 5;
 const SEARCH_RESULT_LIMIT = 10;
 const MAP_RESULT_LIMIT = 150;
+const SEARCH_DEBOUNCE_MS = 250;
+
+type SearchQueryInputProps = {
+  immediateQueryRef: React.MutableRefObject<string>;
+  onDebouncedChange: (query: string) => void;
+};
+
+/** Local input state so typing does not re-render the whole Search screen. */
+function SearchQueryInput({ immediateQueryRef, onDebouncedChange }: SearchQueryInputProps) {
+  const [query, setQuery] = useState('');
+  const debouncedQuery = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
+  const isPending = query.trim() !== debouncedQuery.trim();
+
+  useEffect(() => {
+    immediateQueryRef.current = query;
+  }, [query, immediateQueryRef]);
+
+  useEffect(() => {
+    onDebouncedChange(debouncedQuery);
+  }, [debouncedQuery, onDebouncedChange]);
+
+  return (
+    <>
+      <TextInput
+        value={query}
+        onChangeText={setQuery}
+        placeholder="Search cafes..."
+        placeholderTextColor={COLORS.muted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        clearButtonMode="while-editing"
+        style={styles.input}
+      />
+      {isPending ? <Text style={styles.searchPendingHint}>Searching…</Text> : null}
+    </>
+  );
+}
+
+const SearchResultCards = React.memo(function SearchResultCards({
+  cafes,
+  onPressCafe,
+}: {
+  cafes: Cafe[];
+  onPressCafe: (id: string) => void;
+}) {
+  return (
+    <>
+      {cafes.map((cafe) => (
+        <CompactCafeCard
+          key={cafe.id}
+          cafe={cafe}
+          scorePosition="cardTopRight"
+          reserveTagSpaceWhenEmpty
+          showBookmarkAction
+          onPress={() => onPressCafe(cafe.id)}
+        />
+      ))}
+    </>
+  );
+});
 
 function regionForCafes(cafeList: Cafe[]) {
   const cafesWithValidCoords = cafeList.filter((cafe) => hasValidCafeCoordinates(cafe));
@@ -66,8 +126,18 @@ export default function SearchScreen() {
   const { requireAuth } = useRequireAuth();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
   const { cafes: cafeCatalog } = useCafeCatalog();
-  const cafesWithApprovedPhotos = useCafesWithApprovedPhotos(cafeCatalog);
-  const { coords: userLocation, refreshLocation } = useUserLocation();
+  const { coords: userLocation, refreshLocation, lastUpdatedAt } = useUserLocation();
+  const immediateQueryRef = useRef('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const handleDebouncedSearchQuery = useCallback((q: string) => {
+    setDebouncedSearchQuery(q);
+  }, []);
+  const handlePressCafe = useCallback(
+    (cafeId: string) => {
+      router.push(`/cafe/${cafeId}`);
+    },
+    [router]
+  );
   const onboardingPrefs = useOnboardingPreferencesForRanking();
   const {
     focusCafeId: focusCafeIdRaw,
@@ -138,10 +208,10 @@ export default function SearchScreen() {
 
   const focusCafe = useMemo(() => {
     if (!focusCafeId) return null;
-    const found = cafesWithApprovedPhotos.find((cafe) => cafe.id === focusCafeId);
+    const found = cafeCatalog.find((cafe) => cafe.id === focusCafeId);
     if (!found) return null;
     return hasValidCafeCoordinates(found) ? found : null;
-  }, [focusCafeId, cafesWithApprovedPhotos]);
+  }, [focusCafeId, cafeCatalog]);
 
   const focusRegion = useMemo(() => {
     const selected =
@@ -158,7 +228,6 @@ export default function SearchScreen() {
     };
   }, [focusCafe, focusCoordsFromParams]);
 
-  const [query, setQuery] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sortMode, setSortMode] = useState<SearchSortMode>('default');
   const [radiusFilter, setRadiusFilter] = useState<RadiusFilter>('any');
@@ -170,9 +239,10 @@ export default function SearchScreen() {
   );
 
   useEffect(() => {
-    // Refresh on mount so distances are recalculated when screen opens.
-    void refreshLocation();
-  }, [refreshLocation]);
+    const stale =
+      lastUpdatedAt == null || Date.now() - lastUpdatedAt > 5 * 60 * 1000;
+    if (stale) void refreshLocation();
+  }, [refreshLocation, lastUpdatedAt]);
 
   useEffect(() => {
     if (focusRegion) setViewMode('map');
@@ -186,8 +256,8 @@ export default function SearchScreen() {
   }, [sortMode, radiusFilter, refreshLocation]);
 
   const cafesWithDistance = useMemo(
-    () => withCafeDistances(cafesWithApprovedPhotos, userLocation),
-    [cafesWithApprovedPhotos, userLocation]
+    () => withCafeDistances(cafeCatalog, userLocation),
+    [cafeCatalog, userLocation]
   );
 
   const tasteProfile = useMemo(
@@ -196,16 +266,16 @@ export default function SearchScreen() {
   );
 
   const ranked = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedSearchQuery.trim().toLowerCase();
     return rankCafesForSearch(
-      [...cafesWithDistance],
+      cafesWithDistance,
       q,
       null,
       ratingsByCafeId,
       tasteProfile,
       onboardingPrefs
     );
-  }, [query, ratingsByCafeId, tasteProfile, onboardingPrefs, cafesWithDistance]);
+  }, [debouncedSearchQuery, ratingsByCafeId, tasteProfile, onboardingPrefs, cafesWithDistance]);
 
   // When tag filters change, fetch rating-derived “meaningful signal” sets (cached in memory here).
   useEffect(() => {
@@ -293,7 +363,7 @@ export default function SearchScreen() {
 
   const activeResults = viewMode === 'map' ? mapResults : listResults;
   const showNoResults = activeResults.length === 0;
-  const hasQuery = query.trim().length > 0;
+  const hasQuery = debouncedSearchQuery.trim().length > 0;
   const resultsLabel =
     selectedTagSlugs.length === 0
       ? 'Top matches'
@@ -303,7 +373,7 @@ export default function SearchScreen() {
 
   const mapRegion = useMemo(() => focusRegion ?? regionForCafes(mapResults), [focusRegion, mapResults]);
   const isWeb = Platform.OS === 'web';
-  const normalizedQuery = query.trim().toLowerCase();
+  const normalizedQuery = debouncedSearchQuery.trim().toLowerCase();
   const hasCloseMatch = useMemo(() => {
     if (!normalizedQuery) return false;
     return ranked.slice(0, 5).some((cafe) => {
@@ -314,7 +384,7 @@ export default function SearchScreen() {
   const showLogMissingCafeCta = hasQuery && (showNoResults || !hasCloseMatch);
 
   function openLogMissingCafeFlow() {
-    const prefillName = query.trim();
+    const prefillName = immediateQueryRef.current.trim();
     if (!prefillName) return;
     const returnTo = `/suggest-cafe?prefillName=${encodeURIComponent(prefillName)}&fromVisitLog=1`;
     if (!requireAuth(returnTo)) return;
@@ -328,7 +398,7 @@ export default function SearchScreen() {
   }
 
   function openSuggestCafeFlow() {
-    const initialSearch = query.trim();
+    const initialSearch = immediateQueryRef.current.trim();
     if (!initialSearch) return;
     const returnTo = `/suggest-cafe?initialSearch=${encodeURIComponent(initialSearch)}`;
     if (!requireAuth(returnTo)) return;
@@ -344,15 +414,9 @@ export default function SearchScreen() {
         <View style={styles.headerTopRow}>
           <Text style={styles.title}>Search</Text>
         </View>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search cafes..."
-          placeholderTextColor={COLORS.muted}
-          autoCapitalize="none"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-          style={styles.input}
+        <SearchQueryInput
+          immediateQueryRef={immediateQueryRef}
+          onDebouncedChange={handleDebouncedSearchQuery}
         />
 
         <View style={styles.categoryFiltersWrap}>
@@ -595,18 +659,7 @@ export default function SearchScreen() {
                   </TouchableOpacity>
                 </View>
               ) : null}
-              {listResults.map((cafe) => {
-                return (
-                  <CompactCafeCard
-                    key={cafe.id}
-                    cafe={cafe}
-                    scorePosition="cardTopRight"
-                    reserveTagSpaceWhenEmpty
-                    showBookmarkAction
-                    onPress={() => router.push(`/cafe/${cafe.id}`)}
-                  />
-                );
-              })}
+              <SearchResultCards cafes={listResults} onPressCafe={handlePressCafe} />
             </>
           )}
         </ScrollView>
@@ -696,6 +749,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.text,
     fontFamily: FONTS.sans.regular,
+  },
+  searchPendingHint: {
+    fontSize: 12,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+    marginTop: -4,
   },
   categoryFiltersWrap: {
     gap: 8,
