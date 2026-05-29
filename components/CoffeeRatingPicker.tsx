@@ -20,8 +20,8 @@ export function CoffeeRatingPicker({
   value,
   onChange,
   onClear,
-  title = 'How was the coffee?',
-  helperText = 'Rate the coffee, not the café overall',
+  title = 'How is the cafe?',
+  helperText = null,
   showClear = false,
   disabled = false,
 }: CoffeeRatingPickerProps) {
@@ -78,11 +78,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 18,
     fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
-    letterSpacing: -0.3,
+    letterSpacing: 0.2,
   },
   helper: {
     fontSize: 13,

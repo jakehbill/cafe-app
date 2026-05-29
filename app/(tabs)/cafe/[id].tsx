@@ -7,6 +7,7 @@ import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { withCafeDistances } from '@/lib/cafeDistance';
 import {
   hasValidCafeCoordinates,
+  openExternalMapsUrl,
   resolveCafeGoogleMapsWebUrl,
   resolveCafeMapsUrl,
 } from '@/lib/cafeMapsUrl';
@@ -34,7 +35,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -334,7 +334,7 @@ export default function CafeDetailScreen() {
       return;
     }
     try {
-      await Linking.openURL(url);
+      await openExternalMapsUrl(url);
     } catch {
       Alert.alert('Cannot open link', 'This maps link could not be opened on your device.');
     }
@@ -359,11 +359,9 @@ export default function CafeDetailScreen() {
     if (!cafe) return;
     const url = resolveCafeGoogleMapsWebUrl(cafe);
     if (!url) return;
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.open(url, '_blank', 'noopener,noreferrer');
-      return;
-    }
-    void Linking.openURL(url);
+    void openExternalMapsUrl(url).catch(() => {
+      Alert.alert('Cannot open link', 'This maps link could not be opened on your device.');
+    });
   }
 
   async function handleSavePress() {

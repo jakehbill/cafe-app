@@ -6,8 +6,14 @@ export type CanonicalTagSlug =
   | 'great_espresso'
   | 'great_filter'
   | 'specialty_coffee'
+  | 'cold_brew'
+  | 'single_origin'
+  | 'good_decaf'
+  | 'matcha'
+  | 'good_iced_drinks'
   | 'great_pastries'
   | 'good_food'
+  | 'vegan_friendly'
   | 'good_for_working'
   | 'good_wifi'
   | 'has_outlets'
@@ -18,6 +24,8 @@ export type CanonicalTagSlug =
   | 'busy'
   | 'aesthetic'
   | 'cosy'
+  | 'good_natural_light'
+  | 'neighborhood_feel'
   | 'outdoor_seating'
   | 'quick_stop'
   | 'pet_friendly';
@@ -44,6 +52,27 @@ function normalizeKey(raw: string): string {
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** Title Case for display; hyphenated segments are capitalized on both sides. */
+export function toTagDisplayTitleCase(raw: string): string {
+  const trimmed = raw.trim().replace(/_/g, ' ');
+  if (!trimmed) return '';
+  return trimmed
+    .split(/\s+/g)
+    .filter(Boolean)
+    .map((word) =>
+      word
+        .split('-')
+        .map((part) => {
+          const p = part.trim();
+          if (!p) return p;
+          if (p.toLowerCase() === 'wifi') return 'WiFi';
+          return p.charAt(0).toUpperCase() + p.slice(1).toLowerCase();
+        })
+        .join('-')
+    )
+    .join(' ');
 }
 
 /** Canonical tag registry (single source of truth). */
@@ -83,9 +112,44 @@ export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
   specialty_coffee: {
     category: 'Coffee',
     slug: 'specialty_coffee',
-    displayLabel: 'Specialty Coffee',
+    displayLabel: 'Specialty Beans',
     icon: 'cafe-outline',
     aliases: ['specialty coffee', 'specialty beans', 'specialty_coffee'],
+  },
+  cold_brew: {
+    category: 'Coffee',
+    slug: 'cold_brew',
+    displayLabel: 'Cold Brew',
+    icon: 'cafe-outline',
+    aliases: ['cold brew', 'cold-brew', 'iced coffee', 'cold brew coffee', 'cold_brew'],
+  },
+  single_origin: {
+    category: 'Coffee',
+    slug: 'single_origin',
+    displayLabel: 'Single Origin',
+    icon: 'cafe-outline',
+    aliases: ['single origin', 'single-origin', 'single origin coffee', 'single_origin'],
+  },
+  good_decaf: {
+    category: 'Coffee',
+    slug: 'good_decaf',
+    displayLabel: 'Good Decaf',
+    icon: 'cafe-outline',
+    aliases: ['good decaf', 'decaf', 'decaffeinated', 'decaf coffee', 'good_decaf'],
+  },
+  matcha: {
+    category: 'Coffee',
+    slug: 'matcha',
+    displayLabel: 'Matcha',
+    icon: 'cafe-outline',
+    aliases: ['matcha', 'matcha latte', 'matcha lattes'],
+  },
+  good_iced_drinks: {
+    category: 'Coffee',
+    slug: 'good_iced_drinks',
+    displayLabel: 'Good Iced Drinks',
+    icon: 'cafe-outline',
+    aliases: ['good iced drinks', 'iced drinks', 'iced drink', 'good_iced_drinks'],
   },
   great_pastries: {
     category: 'Coffee',
@@ -101,11 +165,25 @@ export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
     icon: 'restaurant-outline',
     aliases: ['good food', 'food', 'brunch', 'lunch', 'good_food'],
   },
+  vegan_friendly: {
+    category: 'Coffee',
+    slug: 'vegan_friendly',
+    displayLabel: 'Vegan-Friendly',
+    icon: 'restaurant-outline',
+    aliases: [
+      'vegan friendly',
+      'vegan-friendly',
+      'vegan',
+      'plant based',
+      'plant-based',
+      'vegan_friendly',
+    ],
+  },
 
   good_for_working: {
     category: 'Work',
     slug: 'good_for_working',
-    displayLabel: 'Work-friendly',
+    displayLabel: 'Work-Friendly',
     icon: 'briefcase-outline',
     aliases: [
       'work friendly',
@@ -156,7 +234,7 @@ export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
   good_for_calls: {
     category: 'Work',
     slug: 'good_for_calls',
-    displayLabel: 'Good for Calls',
+    displayLabel: 'Good For Calls',
     icon: 'call-outline',
     aliases: ['good for calls', 'good for meetings', 'calls', 'call friendly', 'meetings', 'good_for_calls'],
   },
@@ -192,6 +270,40 @@ export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
     icon: null,
     aliases: ['cosy', 'cozy', 'warm'],
   },
+  good_natural_light: {
+    category: 'Vibe',
+    slug: 'good_natural_light',
+    displayLabel: 'Good Natural Light',
+    icon: null,
+    aliases: [
+      'good natural light',
+      'natural light',
+      'sunlight',
+      'bright',
+      'bright light',
+      'sunny',
+      'well lit',
+      'well-lit',
+      'good_natural_light',
+    ],
+  },
+  neighborhood_feel: {
+    category: 'Vibe',
+    slug: 'neighborhood_feel',
+    displayLabel: 'Neighborhood Feel',
+    icon: null,
+    aliases: [
+      'neighborhood feel',
+      'neighbourhood feel',
+      'neighborhood',
+      'neighbourhood',
+      'local',
+      'local feel',
+      'community feel',
+      'community',
+      'neighborhood_feel',
+    ],
+  },
 
   outdoor_seating: {
     category: 'Other',
@@ -218,7 +330,7 @@ export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
   pet_friendly: {
     category: 'Other',
     slug: 'pet_friendly',
-    displayLabel: 'Pet Friendly',
+    displayLabel: 'Pet-Friendly',
     icon: 'paw-outline',
     aliases: ['pet friendly', 'pet-friendly', 'dog friendly', 'dog', 'pet_friendly'],
   },
@@ -250,14 +362,7 @@ export function resolveToCanonicalTagSlug(raw: string): CanonicalTagSlug | null 
 export function getTagDisplayLabel(slugOrRaw: string): string {
   const slug = resolveToCanonicalTagSlug(slugOrRaw);
   if (slug) return TAG_REGISTRY[slug].displayLabel;
-  // fallback: title-case the raw string (best effort)
-  const words = slugOrRaw
-    .trim()
-    .toLowerCase()
-    .replace(/_/g, ' ')
-    .split(/\s+/g)
-    .filter(Boolean);
-  return words.map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
+  return toTagDisplayTitleCase(slugOrRaw);
 }
 
 export function getTagIcon(slugOrRaw: string): IoniconName | null {
@@ -266,7 +371,13 @@ export function getTagIcon(slugOrRaw: string): IoniconName | null {
   return TAG_REGISTRY[slug].icon;
 }
 
-export function getTagSections(): { title: TagCategory; tags: CanonicalTagSlug[] }[] {
+/** UI section label for a tag category (internal `TagCategory` keys unchanged). */
+export function getTagCategoryDisplayLabel(category: TagCategory): string {
+  if (category === 'Coffee') return 'Coffee / Food';
+  return category;
+}
+
+export function getTagSections(): { title: string; tags: CanonicalTagSlug[] }[] {
   const byCategory: Record<TagCategory, CanonicalTagSlug[]> = {
     Coffee: [],
     Work: [],
@@ -277,12 +388,11 @@ export function getTagSections(): { title: TagCategory; tags: CanonicalTagSlug[]
     byCategory[TAG_REGISTRY[slug].category].push(slug);
   }
   // Preserve the intended ordering as per registry listing above.
-  return [
-    { title: 'Coffee', tags: byCategory.Coffee },
-    { title: 'Work', tags: byCategory.Work },
-    { title: 'Vibe', tags: byCategory.Vibe },
-    { title: 'Other', tags: byCategory.Other },
-  ];
+  const order: TagCategory[] = ['Coffee', 'Work', 'Vibe', 'Other'];
+  return order.map((category) => ({
+    title: getTagCategoryDisplayLabel(category),
+    tags: byCategory[category],
+  }));
 }
 
 /** Returns canonical slugs represented in a cafe tag array (mixed values). */

@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -41,6 +42,7 @@ import {
   type GooglePlaceDetailsForSubmission,
   type PlacesSearchListItem,
 } from '@/lib/googlePlaces';
+import { openExternalMapsUrl } from '@/lib/cafeMapsUrl';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
 import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
@@ -440,6 +442,12 @@ export default function SuggestCafeScreen() {
 
   function openExternalUrl(url: string) {
     void Linking.openURL(url);
+  }
+
+  function openGoogleMapsUrl(url: string) {
+    void openExternalMapsUrl(url).catch(() => {
+      Alert.alert('Cannot open link', 'This maps link could not be opened on your device.');
+    });
   }
 
   async function handleSubmit() {
@@ -865,7 +873,7 @@ export default function SuggestCafeScreen() {
                   <Text style={styles.placesPreviewName}>{selectedPlace.cafeName}</Text>
                   <Text style={styles.placesPreviewAddress}>{selectedPlace.formattedAddress}</Text>
                   {selectedPlace.googleMapsUri ? (
-                    <Pressable onPress={() => openExternalUrl(selectedPlace.googleMapsUri!)}>
+                    <Pressable onPress={() => openGoogleMapsUrl(selectedPlace.googleMapsUri!)}>
                       <Text style={styles.placesLinkText}>Open in Google Maps</Text>
                     </Pressable>
                   ) : (

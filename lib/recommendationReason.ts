@@ -22,7 +22,7 @@ const REASON = {
   vibePreference: 'Aligned with your vibe preferences',
 
   quiet: 'Quiet spots you tend to like',
-  specialty: 'Specialty coffee you usually go for',
+  specialty: 'Specialty Beans you usually go for',
   quick: 'Fast spots you often choose',
 
   fallbackA: 'Good all-round pick',

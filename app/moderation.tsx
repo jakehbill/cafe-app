@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -17,6 +16,7 @@ import {
 
 import { COLORS, FONTS } from '@/components/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { openExternalMapsUrl } from '@/lib/cafeMapsUrl';
 import { isModerator } from '@/lib/moderator';
 import {
   fetchPendingCafeSuggestions,
@@ -43,7 +43,7 @@ function formatCreatedAt(iso: string): string {
 
 async function handleOpenMaps(url: string) {
   try {
-    await Linking.openURL(url);
+    await openExternalMapsUrl(url);
   } catch {
     Alert.alert('Cannot open link', 'This maps link could not be opened on your device.');
   }

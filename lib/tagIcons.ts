@@ -4,7 +4,13 @@ import { getTagIcon, resolveToCanonicalTagSlug, TAG_REGISTRY } from '@/lib/tagRe
 export type IoniconName = keyof typeof Ionicons.glyphMap;
 
 /** Tags that intentionally render as plain text (no icon), per product rules. */
-const TAGS_PLAIN_TEXT_ONLY = new Set<string>(['busy', 'aesthetic', 'cosy']);
+const TAGS_PLAIN_TEXT_ONLY = new Set<string>([
+  'busy',
+  'aesthetic',
+  'cosy',
+  'good_natural_light',
+  'neighborhood_feel',
+]);
 
 /**
  * Known rating-tag slugs (`lib/cafeTags` / DB) → Ionicons glyph.
@@ -16,8 +22,14 @@ const TAG_ICON_BY_SLUG: Partial<Record<string, IoniconName>> = {
   great_pastries: 'restaurant-outline',
   good_food: 'restaurant-outline',
   specialty_coffee: 'cafe-outline',
+  cold_brew: 'cafe-outline',
+  single_origin: 'cafe-outline',
+  good_decaf: 'cafe-outline',
+  matcha: 'cafe-outline',
+  good_iced_drinks: 'cafe-outline',
   great_espresso: 'cafe-outline',
   great_filter: 'cafe-outline',
+  vegan_friendly: 'restaurant-outline',
   good_for_working: 'briefcase-outline',
   good_for_calls: 'call-outline',
   quiet: 'volume-mute-outline',

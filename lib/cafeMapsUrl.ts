@@ -1,3 +1,5 @@
+import { Linking, Platform } from 'react-native';
+
 import type { Cafe } from '@/data/cafes';
 
 const MAPS_SEARCH_BASE = 'https://www.google.com/maps/search/?api=1&query=';
@@ -25,6 +27,21 @@ export function normalizeExternalMapsUrl(url: string): string {
   if (t.startsWith('//')) return `https:${t}`;
   if (/^https?:\/\//i.test(t)) return t;
   return `https://${t}`;
+}
+
+/**
+ * Opens a Google Maps (or maps) URL without leaving a blank tab on mobile web.
+ * Web: same-tab navigation. Native: system handler via Linking.
+ */
+export async function openExternalMapsUrl(url: string): Promise<void> {
+  const normalized = normalizeExternalMapsUrl(url);
+  if (Platform.OS === 'web') {
+    if (typeof window !== 'undefined') {
+      window.location.href = normalized;
+    }
+    return;
+  }
+  await Linking.openURL(normalized);
 }
 
 /**
