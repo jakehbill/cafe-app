@@ -5,7 +5,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import type { Cafe } from '@/data/cafes';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 
 export type MapCafeCalloutProps = {
   cafe: Cafe;
@@ -48,7 +48,7 @@ export function MapCafeCallout({ cafe }: MapCafeCalloutProps) {
 
 function buildMapMetadataLine(cafe: Cafe): string {
   const parts: string[] = [];
-  const score = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore).trim();
+  const score = formatPublicCoffeeForCafe(cafe).trim();
   if (score && score !== '\u2014') parts.push(`${score} \u2605`);
 
   const neighborhood = (cafe.neighborhood ?? '').trim();

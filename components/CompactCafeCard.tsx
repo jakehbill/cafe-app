@@ -8,7 +8,7 @@ import { type Cafe } from '@/data/cafes';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import { CafeImage } from '@/components/CafeImage';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { getTopCafeTags } from '@/lib/supabase';
@@ -330,7 +330,7 @@ export function CompactCafeCard({
 }
 
 function buildScoreLocationMeta(cafe: Cafe): { score: string; location: string; distance: string } {
-  const score = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore).trim();
+  const score = formatPublicCoffeeForCafe(cafe).trim();
   const location = (cafe.neighborhood ?? '').trim();
   const distance = (cafe.distanceLabel ?? '').trim();
   return { score, location, distance };

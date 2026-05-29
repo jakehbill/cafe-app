@@ -15,7 +15,7 @@ import { formatTagLabel } from '@/lib/cafeTags';
 import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafeImageUrls } from '@/lib/cafeLiveImages';
 import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import {
   getCafeCommunityTagInsight,
   getRecentCafeReviews,
@@ -272,7 +272,9 @@ export default function CafeDetailScreen() {
   }, [cafe, userLocation]);
   const detailDistanceMiles = cafeWithDistance?.distanceMiles ?? null;
   const detailDistanceLabel = cafeWithDistance?.distanceLabel ?? null;
-  const detailScoreLabel = formatPublicCoffeeOutOf5(cafeWithDistance?.publicCoffeeScore ?? null);
+  const detailScoreLabel = cafeWithDistance
+    ? formatPublicCoffeeForCafe(cafeWithDistance)
+    : formatPublicCoffeeForCafe({ publicCoffeeScore: null, coffeeRatingCount: 0 });
   const detailNeighborhood = (cafeWithDistance?.neighborhood ?? '').trim();
   const detailDistanceText = detailDistanceLabel ? `${detailDistanceLabel} away` : null;
 

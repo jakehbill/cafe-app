@@ -10,6 +10,7 @@ type CafeCardProps = {
   neighborhood?: string;
   /** Canonical public coffee from `cafe_public_scores` (merged on `Cafe.publicCoffeeScore`). */
   publicCoffeeScore?: number | null;
+  coffeeRatingCount?: number;
   tags?: string[];
   summary?: string;
   onPress?: () => void;
@@ -19,11 +20,12 @@ export function CafeCard({
   cafeName = 'Moss & Co. Coffee',
   neighborhood = 'Downtown • Elm Street',
   publicCoffeeScore = 4.3,
+  coffeeRatingCount = 1,
   tags = ['Specialty', 'Fast Wi‑Fi', 'Quiet corners'],
   summary = 'Cozy light-filled seating with consistently great pour-overs.',
   onPress,
 }: CafeCardProps) {
-  const coffeeLabel = formatPublicCoffeeOutOf5(publicCoffeeScore);
+  const coffeeLabel = formatPublicCoffeeOutOf5(publicCoffeeScore, coffeeRatingCount);
 
   return (
     <TouchableOpacity activeOpacity={0.92} style={styles.featuredCard} onPress={onPress}>

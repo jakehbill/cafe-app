@@ -2,7 +2,7 @@ import React from 'react';
 
 import { CoffeeScoreBadge, type CoffeeScoreBadgeSize } from '@/components/CoffeeScoreBadge';
 import type { Cafe } from '@/data/cafes';
-import { formatPublicCoffeeOutOf5 } from '@/lib/publicCoffeeDisplay';
+import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 
 type Props = {
   cafe: Cafe;
@@ -36,7 +36,7 @@ export function PublicCoffeeScoreText({
   variant = 'default',
   presentation = 'badge',
 }: Props) {
-  const publicCoffeeLabel = formatPublicCoffeeOutOf5(cafe.publicCoffeeScore);
+  const publicCoffeeLabel = formatPublicCoffeeForCafe(cafe);
   const size = VARIANT_TO_SIZE[variant];
 
   return (
