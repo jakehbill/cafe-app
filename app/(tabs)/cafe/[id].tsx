@@ -24,6 +24,7 @@ import {
   type CafeRecentReview,
 } from '@/lib/supabase';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { resolveCafeDetailBackPath } from '@/lib/authGate';
 import { getMostRecentUserVisitForCafe } from '@/lib/userCafeVisits';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -128,7 +129,11 @@ function formatReviewDate(dateIso: string | null): string | null {
 }
 
 export default function CafeDetailScreen() {
-  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const { id, returnTo, source } = useLocalSearchParams<{
+    id?: string | string[];
+    returnTo?: string | string[];
+    source?: string | string[];
+  }>();
   const router = useRouter();
   const navigation = useNavigation();
   const { toggleSaved, isSaved } = useCafeState();
@@ -250,14 +255,20 @@ export default function CafeDetailScreen() {
     setCurrentPhotoIndex(0);
   }, [cafe?.id, photoUrls.length]);
 
+  const detailBackPath = resolveCafeDetailBackPath({ returnTo, source });
+
   const handleBack = useCallback(() => {
+    if (detailBackPath) {
+      router.replace(detailBackPath as never);
+      return;
+    }
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
     // Deep-linked web entry has no history; return to Home tab without clobbering the URL stack awkwardly.
     router.replace('/(tabs)');
-  }, [navigation, router]);
+  }, [detailBackPath, navigation, router]);
 
   useLayoutEffect(() => {
     navigation.setOptions({

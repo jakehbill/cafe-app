@@ -16,6 +16,7 @@ import type { Cafe } from '@/data/cafes';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
+import { CAFE_DETAIL_RETURN_VISITED } from '@/lib/authGate';
 import {
   getUserCafeVisitTimeline,
   type UserCafeVisit,
@@ -90,12 +91,8 @@ export default function MyCafesScreen() {
   }, []);
 
   const handleBack = useCallback(() => {
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      router.replace('/profile');
-    }
-  }, [navigation, router]);
+    router.replace('/profile');
+  }, [router]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -208,7 +205,12 @@ export default function MyCafesScreen() {
                 visit={visit}
                 visitedDateLabel={formatVisitedDateLabel(visit.createdAt)}
                 maxTags={3}
-                onPress={() => router.push(`/cafe/${cafe.id}`)}
+                onPress={() =>
+                  router.push({
+                    pathname: '/cafe/[id]',
+                    params: { id: cafe.id, returnTo: CAFE_DETAIL_RETURN_VISITED },
+                  } as never)
+                }
               />
             ))}
           </View>

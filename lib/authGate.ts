@@ -44,3 +44,19 @@ export function navigateAfterAuth(router: Router, returnTo: string | null | unde
   }
   router.replace('/(tabs)' as never);
 }
+
+/** Shorthand on café detail `returnTo` / `source` when opened from visited cafés list. */
+export const CAFE_DETAIL_RETURN_VISITED = 'visited';
+
+/** Explicit back target from café detail query params; `null` = use default stack back. */
+export function resolveCafeDetailBackPath(params: {
+  returnTo?: string | string[] | null;
+  source?: string | string[] | null;
+}): string | null {
+  const rt = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const src = Array.isArray(params.source) ? params.source[0] : params.source;
+  if (rt === CAFE_DETAIL_RETURN_VISITED || src === CAFE_DETAIL_RETURN_VISITED) {
+    return '/my-cafes';
+  }
+  return sanitizeReturnTo(parseReturnToParam(params.returnTo ?? undefined));
+}
