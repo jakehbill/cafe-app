@@ -47,6 +47,7 @@ import {
 } from '@/lib/cafeTrending';
 import { withCafeDistances } from '@/lib/cafeDistance';
 import { useUserLocation } from '@/contexts/UserLocationContext';
+import { HomeCafeCarouselSkeleton } from '@/components/skeleton/CafeSkeletons';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 
 const MAX_VISIBLE_TAGS = 3;
@@ -312,7 +313,8 @@ export default function HomeScreen() {
       console.log('[RouteHeaderDebug Home] segments:', segments, 'err:', e);
     }
   }, [navigation, segments]);
-  const { cafes: cafeCatalog, refetch: refetchCafeCatalog } = useCafeCatalog();
+  const { cafes: cafeCatalog, loading: catalogLoading, refetch: refetchCafeCatalog } = useCafeCatalog();
+  const showCatalogSkeleton = catalogLoading && cafeCatalog.length === 0;
   const cafesWithApprovedPhotos = useCafesWithApprovedPhotos(cafeCatalog);
   const { coords: userLocation, refreshLocation } = useUserLocation();
   const onboardingPrefs = useOnboardingPreferencesForRanking();
@@ -636,38 +638,47 @@ export default function HomeScreen() {
               <Text style={styles.homeSectionTitle}>Top picks for you</Text>
               <Text style={styles.homeSectionSubtitle}>Based on your taste</Text>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator
-              decelerationRate="fast"
-              snapToInterval={picksCarousel.snapInterval}
-              snapToAlignment="start"
-              disableIntervalMomentum
-              contentContainerStyle={styles.picksRowContent}
-              style={styles.picksRow}
-            >
-              {topPicksForYou.map((cafe, index) => (
-                <View
-                  key={`pick-${cafe.id}`}
-                  style={{
-                    width: picksCarousel.cardWidth,
-                    marginRight: index === topPicksForYou.length - 1 ? 0 : picksCarousel.gap,
-                  }}
-                >
-                  <HomeCafeCard
-                    cafe={cafe}
-                    layout="carousel"
-                    priorityImage={index === 0}
-                    localRating={ratingsByCafeId[cafe.id]}
-                    recommendationReason={getRecommendationReason(cafe, tasteProfile)}
-                    isSaved={isSaved(cafe.id)}
-                    distanceLabel={cafe.distanceLabel ?? null}
-                    onSavePress={() => void toggleSaved(cafe.id)}
-                    onPress={() => router.push(`/cafe/${cafe.id}`)}
-                  />
-                </View>
-              ))}
-            </ScrollView>
+            {showCatalogSkeleton ? (
+              <HomeCafeCarouselSkeleton
+                cardWidth={picksCarousel.cardWidth}
+                gap={picksCarousel.gap}
+                rowStyle={styles.picksRow}
+                contentContainerStyle={styles.picksRowContent}
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator
+                decelerationRate="fast"
+                snapToInterval={picksCarousel.snapInterval}
+                snapToAlignment="start"
+                disableIntervalMomentum
+                contentContainerStyle={styles.picksRowContent}
+                style={styles.picksRow}
+              >
+                {topPicksForYou.map((cafe, index) => (
+                  <View
+                    key={`pick-${cafe.id}`}
+                    style={{
+                      width: picksCarousel.cardWidth,
+                      marginRight: index === topPicksForYou.length - 1 ? 0 : picksCarousel.gap,
+                    }}
+                  >
+                    <HomeCafeCard
+                      cafe={cafe}
+                      layout="carousel"
+                      priorityImage={index === 0}
+                      localRating={ratingsByCafeId[cafe.id]}
+                      recommendationReason={getRecommendationReason(cafe, tasteProfile)}
+                      isSaved={isSaved(cafe.id)}
+                      distanceLabel={cafe.distanceLabel ?? null}
+                      onSavePress={() => void toggleSaved(cafe.id)}
+                      onPress={() => router.push(`/cafe/${cafe.id}`)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
 
           <View style={styles.homeSection}>
@@ -675,41 +686,50 @@ export default function HomeScreen() {
               <Text style={styles.secondarySectionTitle}>Worth trying nearby</Text>
               <Text style={styles.secondarySectionSubtitle}>{trendingSubtitle}</Text>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator
-              decelerationRate="fast"
-              snapToInterval={picksCarousel.snapInterval}
-              snapToAlignment="start"
-              disableIntervalMomentum
-              contentContainerStyle={styles.picksRowContent}
-              style={styles.picksRow}
-            >
-              {trendingNearby.cafes.map((cafe, index) => (
-                <View
-                  key={`trending-${cafe.id}`}
-                  style={{
-                    width: picksCarousel.cardWidth,
-                    marginRight: index === trendingNearby.cafes.length - 1 ? 0 : picksCarousel.gap,
-                  }}
-                >
-                  <HomeCafeCard
-                    cafe={cafe}
-                    layout="carousel"
-                    priorityImage={index === 0}
-                    localRating={ratingsByCafeId[cafe.id]}
-                    recommendationReason={null}
-                    isSaved={isSaved(cafe.id)}
-                    distanceLabel={cafe.distanceLabel ?? null}
-                    onSavePress={() => void toggleSaved(cafe.id)}
-                    onPress={() => router.push(`/cafe/${cafe.id}`)}
-                  />
-                </View>
-              ))}
-            </ScrollView>
+            {showCatalogSkeleton ? (
+              <HomeCafeCarouselSkeleton
+                cardWidth={picksCarousel.cardWidth}
+                gap={picksCarousel.gap}
+                rowStyle={styles.picksRow}
+                contentContainerStyle={styles.picksRowContent}
+              />
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator
+                decelerationRate="fast"
+                snapToInterval={picksCarousel.snapInterval}
+                snapToAlignment="start"
+                disableIntervalMomentum
+                contentContainerStyle={styles.picksRowContent}
+                style={styles.picksRow}
+              >
+                {trendingNearby.cafes.map((cafe, index) => (
+                  <View
+                    key={`trending-${cafe.id}`}
+                    style={{
+                      width: picksCarousel.cardWidth,
+                      marginRight: index === trendingNearby.cafes.length - 1 ? 0 : picksCarousel.gap,
+                    }}
+                  >
+                    <HomeCafeCard
+                      cafe={cafe}
+                      layout="carousel"
+                      priorityImage={index === 0}
+                      localRating={ratingsByCafeId[cafe.id]}
+                      recommendationReason={null}
+                      isSaved={isSaved(cafe.id)}
+                      distanceLabel={cafe.distanceLabel ?? null}
+                      onSavePress={() => void toggleSaved(cafe.id)}
+                      onPress={() => router.push(`/cafe/${cafe.id}`)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            )}
           </View>
 
-          {noticeBoardRows.length > 0 ? (
+          {!showCatalogSkeleton && noticeBoardRows.length > 0 ? (
             <View style={styles.homeSection}>
               <View style={styles.homeSectionHeader}>
                 <Text style={styles.secondarySectionTitle}>Beaned Bulletin</Text>

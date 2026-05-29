@@ -24,6 +24,7 @@ import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPrefere
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { buildTasteProfileFromState, cafeMatchesSearchQuery, rankCafesForSearch } from '@/lib/cafeRanking';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
+import { SearchResultListSkeleton } from '@/components/skeleton/CafeSkeletons';
 import SearchResultsMap from '@/components/maps/SearchResultsMap';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useUserLocation } from '@/contexts/UserLocationContext';
@@ -126,7 +127,8 @@ export default function SearchScreen() {
   const router = useRouter();
   const { requireAuth } = useRequireAuth();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
-  const { cafes: cafeCatalog } = useCafeCatalog();
+  const { cafes: cafeCatalog, loading: catalogLoading } = useCafeCatalog();
+  const showCatalogSkeleton = catalogLoading && cafeCatalog.length === 0;
   const { coords: userLocation, refreshLocation, lastUpdatedAt } = useUserLocation();
   const immediateQueryRef = useRef('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -363,7 +365,7 @@ export default function SearchScreen() {
     selectedTagSlugs.filter((s) => sectionTags.includes(s)).length;
 
   const activeResults = viewMode === 'map' ? mapResults : listResults;
-  const showNoResults = activeResults.length === 0;
+  const showNoResults = !showCatalogSkeleton && activeResults.length === 0;
   const hasQuery = debouncedSearchQuery.trim().length > 0;
   const resultsLabel =
     selectedTagSlugs.length === 0
@@ -609,7 +611,9 @@ export default function SearchScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {showNoResults ? (
+          {showCatalogSkeleton ? (
+            <SearchResultListSkeleton count={5} />
+          ) : showNoResults ? (
             <>
               <Text style={styles.emptyText}>
                 {hasQuery
@@ -649,7 +653,15 @@ export default function SearchScreen() {
         </ScrollView>
       ) : (
         <View style={styles.mapArea}>
-          {showNoResults ? (
+          {showCatalogSkeleton ? (
+            <ScrollView
+              contentContainerStyle={styles.scrollContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <SearchResultListSkeleton count={5} />
+            </ScrollView>
+          ) : showNoResults ? (
             <>
               <Text style={styles.emptyText}>
                 {hasQuery
