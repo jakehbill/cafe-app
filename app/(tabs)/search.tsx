@@ -382,22 +382,8 @@ export default function SearchScreen() {
       return haystack.includes(normalizedQuery);
     });
   }, [normalizedQuery, ranked]);
-  const showLogMissingCafeCta = hasQuery && (showNoResults || !hasCloseMatch);
-
-  function openLogMissingCafeFlow() {
-    const prefillName = immediateQueryRef.current.trim();
-    if (!prefillName) return;
-    const returnTo = `/suggest-cafe?prefillName=${encodeURIComponent(prefillName)}&fromVisitLog=1&returnTo=${SUGGEST_CAFE_RETURN_SEARCH}`;
-    if (!requireAuth(returnTo)) return;
-    router.push({
-      pathname: '/suggest-cafe',
-      params: {
-        prefillName,
-        fromVisitLog: '1',
-        returnTo: SUGGEST_CAFE_RETURN_SEARCH,
-      },
-    });
-  }
+  /** Partial matches: prompt Google Places suggest only (not manual log-missing flow). */
+  const showMissingCafeSuggestCta = hasQuery && !showNoResults && !hasCloseMatch;
 
   function openSuggestCafeFlow() {
     const initialSearch = immediateQueryRef.current.trim();
@@ -648,16 +634,15 @@ export default function SearchScreen() {
           ) : (
             <>
               <Text style={styles.resultsLabel}>{resultsLabel}</Text>
-              {showLogMissingCafeCta ? (
-                <View style={styles.logMissingInline}>
-                  <Text style={styles.logMissingInlineText}>
-                    Looking for something else? Log it.
-                  </Text>
-                  <TouchableOpacity activeOpacity={0.88} onPress={openLogMissingCafeFlow}>
-                    <Text style={styles.logMissingInlineCta}>Log this cafe</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity activeOpacity={0.88} onPress={openSuggestCafeFlow}>
-                    <Text style={styles.logMissingInlineCta}>Suggest a café</Text>
+              {showMissingCafeSuggestCta ? (
+                <View style={styles.logMissingWrap}>
+                  <Text style={styles.logMissingInlineText}>Can&apos;t find the café?</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    style={styles.logMissingButton}
+                    onPress={openSuggestCafeFlow}
+                  >
+                    <Text style={styles.logMissingButtonText}>Suggest a café using Google Maps</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -961,26 +946,11 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontFamily: FONTS.sans.semibold,
   },
-  logMissingInline: {
-    marginBottom: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.inputBackground,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 4,
-  },
   logMissingInlineText: {
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 18,
     color: COLORS.muted,
     fontFamily: FONTS.sans.regular,
-  },
-  logMissingInlineCta: {
-    fontSize: 13,
-    color: COLORS.accent,
-    fontFamily: FONTS.sans.semibold,
   },
   mapArea: {
     flex: 1,
