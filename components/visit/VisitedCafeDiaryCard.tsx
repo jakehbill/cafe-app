@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { CafeImage } from '@/components/CafeImage';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { VisitPhotoLightbox } from '@/components/visit/VisitPhotoLightbox';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
 import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
@@ -31,6 +32,7 @@ export function VisitedCafeDiaryCard({
   onPress,
   maxTags = 3,
 }: VisitedCafeDiaryCardProps) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const visitPhotoUri = String(visit.imageUrl ?? '').trim() || null;
   const cafeListingUri = resolveLiveCafePrimaryImageUrl({ cafe });
   const hasVisitPhoto = Boolean(visitPhotoUri);
@@ -55,45 +57,53 @@ export function VisitedCafeDiaryCard({
   );
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Open ${cafe.name}`}
-      onPress={onPress}
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-    >
-      <View style={styles.mediaColumn}>
-        <View style={styles.mainImageWrap}>
-          {mainImageUri ? (
-            <CafeImage
-              uri={mainImageUri}
-              style={styles.mainImage}
-              displayWidth={MAIN_W * 2}
-              displayHeight={MAIN_H * 2}
-              priority="low"
-            />
-          ) : (
-            <View style={[styles.mainImage, styles.mainImagePlaceholder]} />
-          )}
-          {hasVisitPhoto ? (
-            <View style={styles.memoryBadge} pointerEvents="none">
-              <Text style={styles.memoryBadgeText}>Your visit</Text>
-            </View>
-          ) : null}
-          {showListingOverlay && cafeListingUri ? (
-            <View style={styles.listingOverlayWrap} pointerEvents="none">
+    <>
+      <View style={styles.card}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            hasVisitPhoto ? `View visit photo for ${cafe.name}` : `Open ${cafe.name}`
+          }
+          onPress={hasVisitPhoto ? () => setLightboxOpen(true) : onPress}
+          style={({ pressed }) => [styles.mediaColumn, pressed && styles.mediaPressed]}
+        >
+          <View style={styles.mainImageWrap}>
+            {mainImageUri ? (
               <CafeImage
-                uri={cafeListingUri}
-                style={styles.listingOverlayImage}
-                displayWidth={OVERLAY_SIZE * 2}
-                displayHeight={OVERLAY_SIZE * 2}
+                uri={mainImageUri}
+                style={styles.mainImage}
+                displayWidth={MAIN_W * 2}
+                displayHeight={MAIN_H * 2}
                 priority="low"
               />
-            </View>
-          ) : null}
-        </View>
-      </View>
+            ) : (
+              <View style={[styles.mainImage, styles.mainImagePlaceholder]} />
+            )}
+            {hasVisitPhoto ? (
+              <View style={styles.memoryBadge} pointerEvents="none">
+                <Text style={styles.memoryBadgeText}>Your visit</Text>
+              </View>
+            ) : null}
+            {showListingOverlay && cafeListingUri ? (
+              <View style={styles.listingOverlayWrap} pointerEvents="none">
+                <CafeImage
+                  uri={cafeListingUri}
+                  style={styles.listingOverlayImage}
+                  displayWidth={OVERLAY_SIZE * 2}
+                  displayHeight={OVERLAY_SIZE * 2}
+                  priority="low"
+                />
+              </View>
+            ) : null}
+          </View>
+        </Pressable>
 
-      <View style={styles.body}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Open ${cafe.name}`}
+          onPress={onPress}
+          style={({ pressed }) => [styles.body, pressed && styles.bodyPressed]}
+        >
         <Text style={styles.name} numberOfLines={2}>
           {cafe.name}
         </Text>
@@ -127,8 +137,18 @@ export function VisitedCafeDiaryCard({
             ))}
           </View>
         ) : null}
+        </Pressable>
       </View>
-    </Pressable>
+
+      {hasVisitPhoto && visitPhotoUri ? (
+        <VisitPhotoLightbox
+          visible={lightboxOpen}
+          imageUri={visitPhotoUri}
+          title={cafe.name}
+          onClose={() => setLightboxOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -145,11 +165,14 @@ const styles = StyleSheet.create({
     paddingRight: 14,
     ...SHADOWS.card,
   },
-  cardPressed: {
-    opacity: 0.92,
-  },
   mediaColumn: {
     flexShrink: 0,
+  },
+  mediaPressed: {
+    opacity: 0.9,
+  },
+  bodyPressed: {
+    opacity: 0.96,
   },
   mainImageWrap: {
     width: MAIN_W,
