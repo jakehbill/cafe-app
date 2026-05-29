@@ -20,7 +20,6 @@ import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import {
   getCafeCommunityTagInsight,
   getRecentCafeReviews,
-  resolveCafeDisplayTags,
   type CafeCommunityTagInsight,
   type CafeRecentReview,
 } from '@/lib/supabase';
@@ -50,8 +49,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { type Cafe } from '@/data/cafes';
-
-const FEATURE_TAG_COUNT = 6;
+import {
+  CAFE_FEATURED_TAG_COUNT,
+  resolveCafeTagDisplaySets,
+} from '@/lib/cafeFeaturedTags';
 
 function heroGradientId(cafeId: string): string {
   return `detailHero_${cafeId.replace(/[^a-zA-Z0-9_]/g, '_')}`;
@@ -144,6 +145,7 @@ export default function CafeDetailScreen() {
   const [heroGSize, setHeroGSize] = useState({ w: 0, h: 0 });
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [featureTags, setFeatureTags] = useState<string[]>([]);
+  const [remainingTags, setRemainingTags] = useState<string[]>([]);
   const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
   const [recentReviews, setRecentReviews] = useState<CafeRecentReview[]>([]);
   const [approvedUserPhotoUrls, setApprovedUserPhotoUrls] = useState<string[]>([]);
@@ -212,6 +214,7 @@ export default function CafeDetailScreen() {
   useEffect(() => {
     if (!cafe?.id) {
       setFeatureTags([]);
+      setRemainingTags([]);
       setTagInsight(null);
       setRecentReviews([]);
       return;
@@ -220,13 +223,14 @@ export default function CafeDetailScreen() {
     void (async () => {
       const c = cafe;
       if (!c) return;
-      const [popular, insight, reviews] = await Promise.all([
-        resolveCafeDisplayTags(c, FEATURE_TAG_COUNT),
+      const [tagSets, insight, reviews] = await Promise.all([
+        resolveCafeTagDisplaySets(c, CAFE_FEATURED_TAG_COUNT),
         getCafeCommunityTagInsight(c.id),
         getRecentCafeReviews(c.id, 3),
       ]);
       if (cancelled) return;
-      setFeatureTags(popular);
+      setFeatureTags(tagSets.featured);
+      setRemainingTags(tagSets.remaining);
       setTagInsight(insight);
       setRecentReviews(reviews);
     })();
@@ -649,6 +653,15 @@ export default function CafeDetailScreen() {
             </View>
           ) : null}
 
+          {remainingTags.length > 0 ? (
+            <View style={styles.alsoGoodForSection}>
+              <Text style={styles.alsoGoodForHeading}>Also good for</Text>
+              <Text style={styles.alsoGoodForText}>
+                {remainingTags.map((tag) => formatTagLabel(tag)).join(' · ')}
+              </Text>
+            </View>
+          ) : null}
+
           <View style={styles.actionsWrap}>
             {isSaved(cafe.id) ? (
               <Text style={styles.savedVisitPromptText}>Been here? Log your visit</Text>
@@ -1009,6 +1022,25 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     textAlign: 'center',
     fontFamily: FONTS.sans.regular,
+  },
+  alsoGoodForSection: {
+    marginTop: 2,
+    gap: 4,
+    paddingTop: 2,
+  },
+  alsoGoodForHeading: {
+    fontSize: 11,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+    letterSpacing: 0.45,
+    textTransform: 'uppercase',
+  },
+  alsoGoodForText: {
+    fontSize: 13,
+    lineHeight: 19,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    letterSpacing: -0.05,
   },
   actionsWrap: {
     marginTop: 8,

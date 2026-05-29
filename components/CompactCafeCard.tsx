@@ -11,7 +11,7 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import { CafeImage } from '@/components/CafeImage';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
-import { getTopCafeTags } from '@/lib/supabase';
+import { resolveCafeDisplayTags } from '@/lib/cafeFeaturedTags';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
@@ -143,7 +143,7 @@ export function CompactCafeCard({
       };
     }
     void (async () => {
-      const fetched = await getTopCafeTags(cafe.id, effectiveMaxTags);
+      const fetched = await resolveCafeDisplayTags(cafe, effectiveMaxTags);
       if (!cancelled) setTopTags(fetched);
     })();
     return () => {

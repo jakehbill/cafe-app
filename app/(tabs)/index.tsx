@@ -33,7 +33,6 @@ import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import {
   getRecentPublicVisitNotes,
   hideBulletinVisit,
-  resolveCafeDisplayTags,
   supabase,
   type PublicVisitNote,
 } from '@/lib/supabase';
@@ -48,6 +47,7 @@ import {
 import { withCafeDistances } from '@/lib/cafeDistance';
 import { useUserLocation } from '@/contexts/UserLocationContext';
 import { HomeCafeCarouselSkeleton } from '@/components/skeleton/CafeSkeletons';
+import { resolveCafeDisplayTags } from '@/lib/cafeFeaturedTags';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 
 const MAX_VISIBLE_TAGS = 3;

@@ -269,20 +269,17 @@ async function getCafeTagsFromCatalogRow(cafeId: string, limit: number): Promise
 }
 
 /**
- * Tags for café cards/detail: editorial `cafes.tags` first (approved submissions), then community ratings.
+ * Community tag usage for a café (full list, most frequent first).
+ * Falls back to editorial `cafes.tags` when there are no ratings.
  */
-export async function resolveCafeDisplayTags(cafe: Cafe, limit = 3): Promise<string[]> {
-  const fromCatalog = parseCafeTagsField(cafe.tags).slice(0, limit);
-  if (fromCatalog.length > 0) return fromCatalog;
-  return getTopCafeTags(cafe.id, limit);
-}
-
-export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[]> {
+export async function getCafeTagPopularityOrdered(cafeId: string): Promise<string[]> {
   const cached = topTagsCache.get(cafeId);
-  if (cached) return cached.slice(0, limit);
+  if (cached) return cached;
 
   if (!isNumericCafeId(cafeId)) {
-    return getCafeTagsFromCatalogRow(cafeId, limit);
+    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
+    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    return catalogTags;
   }
 
   const numericCafeId = Number.parseInt(cafeId, 10);
@@ -292,13 +289,15 @@ export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[
     .select('id')
     .eq('cafe_id', numericCafeId);
   if (ratingsRes.error) {
-    console.error('getTopCafeTags: ratings fetch failed:', ratingsRes.error);
-    return getCafeTagsFromCatalogRow(cafeId, limit);
+    console.error('getCafeTagPopularityOrdered: ratings fetch failed:', ratingsRes.error);
+    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
+    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    return catalogTags;
   }
 
   const ratingIds = (ratingsRes.data ?? []).map((row) => row.id).filter((id): id is number => typeof id === 'number');
   if (ratingIds.length === 0) {
-    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, limit);
+    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
     if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
     return catalogTags;
   }
@@ -308,8 +307,10 @@ export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[
     .select('tag,rating_id')
     .in('rating_id', ratingIds);
   if (tagsRes.error) {
-    console.error('getTopCafeTags: rating_tags fetch failed:', tagsRes.error);
-    return getCafeTagsFromCatalogRow(cafeId, limit);
+    console.error('getCafeTagPopularityOrdered: rating_tags fetch failed:', tagsRes.error);
+    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
+    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    return catalogTags;
   }
 
   const counts = new Map<string, number>();
@@ -324,13 +325,18 @@ export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[
     .map(([tag]) => tag);
 
   if (sortedTags.length === 0) {
-    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, limit);
+    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
     if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
     return catalogTags;
   }
 
   topTagsCache.set(cafeId, sortedTags);
-  return sortedTags.slice(0, limit);
+  return sortedTags;
+}
+
+export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[]> {
+  const ordered = await getCafeTagPopularityOrdered(cafeId);
+  return ordered.slice(0, limit);
 }
 
 /** Community line: share of ratings that included the most-picked tag (real data from `rating_tags`). */
