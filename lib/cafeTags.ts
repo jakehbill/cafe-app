@@ -24,7 +24,16 @@ export function formatTagLabel(tag: string): string {
 export function parseCafeTagsField(raw: unknown): string[] {
   if (raw == null) return [];
   if (Array.isArray(raw)) {
-    return raw.map((x) => String(x).trim()).filter(Boolean);
+    return raw
+      .map((x) => {
+        if (typeof x === 'string') return x.trim();
+        if (x != null && typeof x === 'object') {
+          const o = x as Record<string, unknown>;
+          return String(o.slug ?? o.label ?? o.name ?? o.tag ?? o.value ?? '').trim();
+        }
+        return '';
+      })
+      .filter(Boolean);
   }
   if (typeof raw !== 'string') return [];
   const s = raw.trim();

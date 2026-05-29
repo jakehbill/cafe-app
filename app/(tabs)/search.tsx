@@ -22,7 +22,7 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { SUGGEST_CAFE_RETURN_SEARCH } from '@/lib/authGate';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
-import { buildTasteProfileFromState, rankCafesForSearch } from '@/lib/cafeRanking';
+import { buildTasteProfileFromState, cafeMatchesSearchQuery, rankCafesForSearch } from '@/lib/cafeRanking';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import SearchResultsMap from '@/components/maps/SearchResultsMap';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -267,7 +267,7 @@ export default function SearchScreen() {
   );
 
   const ranked = useMemo(() => {
-    const q = debouncedSearchQuery.trim().toLowerCase();
+    const q = debouncedSearchQuery.trim();
     return rankCafesForSearch(
       cafesWithDistance,
       q,
@@ -374,14 +374,11 @@ export default function SearchScreen() {
 
   const mapRegion = useMemo(() => focusRegion ?? regionForCafes(mapResults), [focusRegion, mapResults]);
   const isWeb = Platform.OS === 'web';
-  const normalizedQuery = debouncedSearchQuery.trim().toLowerCase();
+  const searchQueryTrimmed = debouncedSearchQuery.trim();
   const hasCloseMatch = useMemo(() => {
-    if (!normalizedQuery) return false;
-    return ranked.slice(0, 5).some((cafe) => {
-      const haystack = `${cafe.name} ${cafe.neighborhood}`.toLowerCase();
-      return haystack.includes(normalizedQuery);
-    });
-  }, [normalizedQuery, ranked]);
+    if (!searchQueryTrimmed) return false;
+    return ranked.slice(0, 8).some((cafe) => cafeMatchesSearchQuery(cafe, searchQueryTrimmed));
+  }, [searchQueryTrimmed, ranked]);
   /** Partial matches: prompt Google Places suggest only (not manual log-missing flow). */
   const showMissingCafeSuggestCta = hasQuery && !showNoResults && !hasCloseMatch;
 
@@ -616,7 +613,7 @@ export default function SearchScreen() {
             <>
               <Text style={styles.emptyText}>
                 {hasQuery
-                  ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
+                  ? 'No strong matches yet. Try a café name, an area (e.g. Hackney), or phrases like "quiet", "fast wifi", or "good for working".'
                   : 'No cafes found'}
               </Text>
               {showNoResults && hasQuery ? (
@@ -656,7 +653,7 @@ export default function SearchScreen() {
             <>
               <Text style={styles.emptyText}>
                 {hasQuery
-                  ? 'No strong matches yet. Try a cafe name, an area, or phrases like "quiet" or "good for work".'
+                  ? 'No strong matches yet. Try a café name, an area (e.g. Hackney), or phrases like "quiet", "fast wifi", or "good for working".'
                   : 'No cafes found'}
               </Text>
               {showNoResults && hasQuery ? (
