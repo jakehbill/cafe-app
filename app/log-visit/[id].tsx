@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,6 +17,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { CafeFlowHeaderCard } from '@/components/visit/CafeFlowHeaderCard';
+import { VisitPhotosSection } from '@/components/visit/VisitPhotosSection';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -173,11 +174,14 @@ export default function LogVisitScreen() {
     }
   }
 
-  const coverImage = useMemo(() => {
-    if (photoAsset?.uri) return photoAsset.uri;
+  const cafeListingImageUri = useMemo(() => {
     if (!cafe) return undefined;
     return resolveLiveCafePrimaryImageUrl({ cafe });
-  }, [cafe, photoAsset?.uri]);
+  }, [cafe]);
+  const visitPhotoPreviews = useMemo(
+    () => (photoAsset?.uri ? [{ uri: photoAsset.uri, key: 'visit-draft' }] : []),
+    [photoAsset?.uri]
+  );
   const canRenderVisitForm = Boolean(targetCafeId) || Boolean(cafe) || Boolean(editingVisitId);
 
   function openSuggestPrefilled() {
@@ -290,29 +294,23 @@ export default function LogVisitScreen() {
             </View>
           ) : null}
 
-          {!successState && canRenderVisitForm ? <View style={styles.previewCard}>
-            {coverImage ? (
-              <Image source={{ uri: coverImage }} style={styles.previewImage} resizeMode="cover" />
-            ) : (
-              <View style={[styles.previewImage, styles.previewImagePlaceholder]} />
-            )}
-            <View style={styles.previewTextWrap}>
-              <Text style={styles.previewName}>{cafe?.name ?? existingPendingName ?? 'Cafe'}</Text>
-              <Text style={styles.previewNeighborhood} numberOfLines={1}>
-                {cafe?.neighborhood ?? existingPendingName ?? 'Neighborhood'}
-              </Text>
-            </View>
-          </View> : null}
+          {!successState && canRenderVisitForm ? (
+            <CafeFlowHeaderCard
+              name={cafe?.name ?? existingPendingName ?? 'Cafe'}
+              subtitle={cafe?.neighborhood ?? 'Neighborhood'}
+              imageUri={cafeListingImageUri}
+            />
+          ) : null}
 
-          {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Add a memory</Text>
-            <Text style={styles.sectionHelperText}>
-              A coffee, the space, or anything you want to remember.
-            </Text>
-            <TouchableOpacity style={styles.photoButton} activeOpacity={0.9} onPress={() => void handlePickPhoto()}>
-              <Text style={styles.photoButtonText}>{photoAsset ? 'Change photo' : 'Add photo'}</Text>
-            </TouchableOpacity>
-          </View> : null}
+          {!successState && canRenderVisitForm ? (
+            <VisitPhotosSection
+              photos={visitPhotoPreviews}
+              maxPhotos={1}
+              onPressAdd={() => void handlePickPhoto()}
+              onPressRemove={() => setPhotoAsset(null)}
+              disabled={saving || loadingExisting}
+            />
+          ) : null}
 
           {!successState && canRenderVisitForm ? (
             <View style={styles.sectionCard}>
@@ -401,21 +399,6 @@ const styles = StyleSheet.create({
   titleBlock: { gap: 8 },
   pageTitle: { fontSize: 28, lineHeight: 34, fontFamily: FONTS.display.bold, color: COLORS.text },
   pageSubtitle: { fontSize: 14, lineHeight: 20, color: COLORS.muted, fontFamily: FONTS.sans.regular },
-  previewCard: {
-    borderRadius: 16,
-    backgroundColor: COLORS.cardBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    padding: 12,
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'center',
-  },
-  previewImage: { width: 80, height: 80, borderRadius: 14, backgroundColor: COLORS.imagePlaceholder },
-  previewImagePlaceholder: { backgroundColor: COLORS.imagePlaceholder },
-  previewTextWrap: { flex: 1, gap: 4 },
-  previewName: { fontSize: 18, color: COLORS.text, fontFamily: FONTS.sans.semibold, lineHeight: 24 },
-  previewNeighborhood: { fontSize: 14, color: COLORS.muted, lineHeight: 20 },
   sectionCard: {
     borderRadius: 16,
     backgroundColor: COLORS.cardBackground,
@@ -425,13 +408,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   sectionTitle: { fontSize: 13, fontFamily: FONTS.sans.semibold, color: COLORS.text },
-  sectionHelperText: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.regular,
-    marginTop: -4,
-  },
   photoButton: {
     borderRadius: 12,
     paddingVertical: 12,

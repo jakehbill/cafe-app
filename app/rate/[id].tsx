@@ -5,7 +5,6 @@ import React, { useCallback, useLayoutEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
-  Image,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -25,6 +24,8 @@ import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { CafeFlowHeaderCard } from '@/components/visit/CafeFlowHeaderCard';
+import { VisitPhotosSection } from '@/components/visit/VisitPhotosSection';
 import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
 import { submitCafePhoto } from '@/lib/cafePhotoSubmissions';
 import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
@@ -96,6 +97,7 @@ export default function RateCafeScreen() {
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [visitPhotoPreviewUri, setVisitPhotoPreviewUri] = useState<string | null>(null);
   const scrollRef = React.useRef<ScrollView>(null);
   const [notesSectionY, setNotesSectionY] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -196,6 +198,7 @@ export default function RateCafeScreen() {
       return;
     }
 
+    setVisitPhotoPreviewUri(asset.uri);
     setPhotoUploading(true);
     try {
       const uploadResult = await submitCafePhoto({
@@ -210,7 +213,7 @@ export default function RateCafeScreen() {
         setPhotoError(uploadResult.error);
         return;
       }
-      setPhotoSuccess('Photo submitted for review.');
+      setPhotoSuccess('Your visit photo was submitted for review.');
     } finally {
       setPhotoUploading(false);
     }
@@ -278,6 +281,9 @@ export default function RateCafeScreen() {
   }
 
   const ratePreviewPhoto = cafe ? resolveLiveCafePrimaryImageUrl({ cafe }) : undefined;
+  const visitPhotoPreviews = visitPhotoPreviewUri
+    ? [{ uri: visitPhotoPreviewUri, key: 'visit-upload' }]
+    : [];
 
   /** Full street address when catalog has it; else area/neighborhood. */
   const rateLocationLine =
@@ -330,36 +336,26 @@ export default function RateCafeScreen() {
             <Text style={styles.pageSubtitle}>Help others find great cafes</Text>
           </View>
 
-        <View style={styles.previewCard}>
-          {ratePreviewPhoto ? (
-            <Image source={{ uri: ratePreviewPhoto }} style={styles.previewImage} resizeMode="cover" />
-          ) : (
-            <View style={[styles.previewImage, styles.previewImagePlaceholder]} />
-          )}
-          <View style={styles.previewTextWrap}>
-            <Text style={styles.previewName}>{cafe?.name ?? 'Cafe'}</Text>
-            <Text style={styles.previewNeighborhood} numberOfLines={1} ellipsizeMode="tail">
-              {rateLocationLine}
-            </Text>
-          </View>
-        </View>
+        <CafeFlowHeaderCard
+          name={cafe?.name ?? 'Cafe'}
+          subtitle={rateLocationLine}
+          imageUri={ratePreviewPhoto}
+        />
 
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Add a photo</Text>
-          <Text style={styles.photoHelperText}>Photos are reviewed before appearing publicly</Text>
-          <TouchableOpacity
-            activeOpacity={0.88}
-            style={[styles.photoUploadButton, photoUploading && styles.submitButtonDisabled]}
-            onPress={() => void handleAddPhoto()}
-            disabled={photoUploading}
-          >
-            <Text style={styles.photoUploadButtonText}>
-              {photoUploading ? 'Uploading…' : 'Add photo'}
-            </Text>
-          </TouchableOpacity>
-          {photoError ? <Text style={styles.photoErrorText}>{photoError}</Text> : null}
-          {photoSuccess ? <Text style={styles.photoSuccessText}>{photoSuccess}</Text> : null}
-        </View>
+        <VisitPhotosSection
+          photos={visitPhotoPreviews}
+          maxPhotos={1}
+          onPressAdd={() => void handleAddPhoto()}
+          onPressRemove={() => {
+            setVisitPhotoPreviewUri(null);
+            setPhotoSuccess(null);
+            setPhotoError(null);
+          }}
+          uploading={photoUploading}
+          disabled={submitting || submitted}
+          error={photoError}
+          success={photoSuccess}
+        />
 
         <View style={styles.sectionCard}>
           <CoffeeRatingPicker
@@ -511,43 +507,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
 
-  previewCard: {
-    borderRadius: 16,
-    backgroundColor: COLORS.cardBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    padding: 12,
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'center',
-  },
-  previewImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 14,
-    backgroundColor: COLORS.imagePlaceholder,
-  },
-  previewImagePlaceholder: {
-    backgroundColor: COLORS.imagePlaceholder,
-  },
-  previewTextWrap: {
-    flex: 1,
-    gap: 4,
-  },
-  previewName: {
-    fontSize: 18,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
-    lineHeight: 24,
-    letterSpacing: -0.2,
-  },
-  previewNeighborhood: {
-    fontSize: 14,
-    color: COLORS.muted,
-    lineHeight: 20,
-    fontFamily: FONTS.sans.regular,
-  },
-
   sectionCard: {
     borderRadius: 16,
     backgroundColor: COLORS.cardBackground,
@@ -604,43 +563,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  photoHelperText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.regular,
-    marginTop: -2,
-  },
-  photoUploadButton: {
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: COLORS.inputBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  photoUploadButtonText: {
-    color: COLORS.text,
-    fontSize: 14,
-    fontFamily: FONTS.sans.semibold,
-    textAlign: 'center',
-  },
-  photoErrorText: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#8B4A4A',
-    fontFamily: FONTS.sans.medium,
-  },
-  photoSuccessText: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#4A5A49',
-    fontFamily: FONTS.sans.medium,
-  },
-
   tagsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
