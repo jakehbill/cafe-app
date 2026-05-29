@@ -60,3 +60,30 @@ export function resolveCafeDetailBackPath(params: {
   }
   return sanitizeReturnTo(parseReturnToParam(params.returnTo ?? undefined));
 }
+
+/** Shorthand on suggest-cafe when opened from Search no-results / search CTA. */
+export const SUGGEST_CAFE_RETURN_SEARCH = 'search';
+
+/** Shorthand when opened from Profile activity. */
+export const SUGGEST_CAFE_RETURN_PROFILE = 'profile';
+
+const SUGGEST_CAFE_RETURN_SHORTCUTS: Record<string, string> = {
+  [SUGGEST_CAFE_RETURN_SEARCH]: '/search',
+  [SUGGEST_CAFE_RETURN_PROFILE]: '/profile',
+};
+
+/** Explicit back target from suggest-cafe query params; `null` = use default stack back. */
+export function resolveSuggestCafeBackPath(params: {
+  returnTo?: string | string[] | null;
+  source?: string | string[] | null;
+}): string | null {
+  const rt = Array.isArray(params.returnTo) ? params.returnTo[0] : params.returnTo;
+  const src = Array.isArray(params.source) ? params.source[0] : params.source;
+  for (const key of [rt, src]) {
+    const trimmed = String(key ?? '').trim();
+    if (!trimmed) continue;
+    const shortcut = SUGGEST_CAFE_RETURN_SHORTCUTS[trimmed];
+    if (shortcut) return shortcut;
+  }
+  return sanitizeReturnTo(parseReturnToParam(params.returnTo ?? undefined));
+}

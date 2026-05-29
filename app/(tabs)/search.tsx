@@ -19,6 +19,7 @@ import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { SUGGEST_CAFE_RETURN_SEARCH } from '@/lib/authGate';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { buildTasteProfileFromState, rankCafesForSearch } from '@/lib/cafeRanking';
@@ -386,13 +387,14 @@ export default function SearchScreen() {
   function openLogMissingCafeFlow() {
     const prefillName = immediateQueryRef.current.trim();
     if (!prefillName) return;
-    const returnTo = `/suggest-cafe?prefillName=${encodeURIComponent(prefillName)}&fromVisitLog=1`;
+    const returnTo = `/suggest-cafe?prefillName=${encodeURIComponent(prefillName)}&fromVisitLog=1&returnTo=${SUGGEST_CAFE_RETURN_SEARCH}`;
     if (!requireAuth(returnTo)) return;
     router.push({
       pathname: '/suggest-cafe',
       params: {
         prefillName,
         fromVisitLog: '1',
+        returnTo: SUGGEST_CAFE_RETURN_SEARCH,
       },
     });
   }
@@ -400,11 +402,11 @@ export default function SearchScreen() {
   function openSuggestCafeFlow() {
     const initialSearch = immediateQueryRef.current.trim();
     if (!initialSearch) return;
-    const returnTo = `/suggest-cafe?initialSearch=${encodeURIComponent(initialSearch)}`;
+    const returnTo = `/suggest-cafe?initialSearch=${encodeURIComponent(initialSearch)}&returnTo=${SUGGEST_CAFE_RETURN_SEARCH}`;
     if (!requireAuth(returnTo)) return;
     router.push({
       pathname: '/suggest-cafe',
-      params: { initialSearch },
+      params: { initialSearch, returnTo: SUGGEST_CAFE_RETURN_SEARCH },
     });
   }
 

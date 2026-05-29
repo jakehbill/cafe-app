@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -44,6 +44,7 @@ import {
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
 import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
+import { resolveSuggestCafeBackPath } from '@/lib/authGate';
 import { saveUserCafeVisit } from '@/lib/userCafeVisits';
 
 const PLACES_SEARCH_DEBOUNCE_MS = 350;
@@ -64,6 +65,13 @@ function formatDate(dateIso: string): string {
   });
 }
 
+/** File route options — ensures no native stack title when pushed from Search/tabs. */
+export const options = {
+  headerShown: false,
+  title: '',
+  headerTitle: '',
+} as const;
+
 export default function SuggestCafeScreen() {
   const navigation = useNavigation();
   const router = useRouter();
@@ -78,6 +86,8 @@ export default function SuggestCafeScreen() {
     visitPhotoUri?: string | string[];
     visitPhotoMimeType?: string | string[];
     visitPhotoFileName?: string | string[];
+    returnTo?: string | string[];
+    source?: string | string[];
   }>();
   const fromVisitLog = (Array.isArray(params.fromVisitLog) ? params.fromVisitLog[0] : params.fromVisitLog) === '1';
   const routeCafeId = (Array.isArray(params.cafeId) ? params.cafeId[0] : params.cafeId) ?? '';
@@ -302,6 +312,19 @@ export default function SuggestCafeScreen() {
     }
   }
 
+  const suggestBackPath = resolveSuggestCafeBackPath({
+    returnTo: params.returnTo,
+    source: params.source,
+  });
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+      title: '',
+      headerTitle: '',
+    });
+  }, [navigation]);
+
   function handleBack() {
     if (!fromVisitLog) {
       if (publicSuggestStep === 'beaned_extras') {
@@ -317,6 +340,10 @@ export default function SuggestCafeScreen() {
     }
     if (isMissingCafeFlow && visitFlowStep === 2) {
       setVisitFlowStep(1);
+      return;
+    }
+    if (suggestBackPath) {
+      router.replace(suggestBackPath as never);
       return;
     }
     if (navigation.canGoBack()) {
@@ -611,16 +638,8 @@ export default function SuggestCafeScreen() {
           contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.headerRow}>
-            <View style={styles.headerLeft}>
-              <StackHeaderBackButton
-                canGoBack
-                tintColor={COLORS.text}
-                onPress={handleBack}
-              />
-            </View>
-            <Text style={styles.headerTitle}>{fromVisitLog ? '' : 'Suggest a cafe'}</Text>
-            <View style={styles.headerRight} />
+          <View style={styles.backRow}>
+            <StackHeaderBackButton canGoBack tintColor={COLORS.text} onPress={handleBack} />
           </View>
 
           <View style={styles.titleBlock}>
@@ -1109,27 +1128,9 @@ const styles = StyleSheet.create({
     paddingBottom: 36,
     gap: 16,
   },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 40,
-    marginBottom: 2,
-  },
-  headerLeft: {
-    width: 40,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: 'center',
-    fontSize: 17,
-    lineHeight: 22,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
-  },
-  headerRight: {
-    width: 40,
+  backRow: {
+    alignSelf: 'stretch',
+    marginBottom: 4,
   },
   titleBlock: {
     gap: 6,

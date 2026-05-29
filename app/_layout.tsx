@@ -199,9 +199,9 @@ function RootNavigator() {
       <Stack.Screen
         name="suggest-cafe"
         options={{
-          ...stackHeaderOn,
-          title: 'Suggest a cafe',
-          headerTitle: 'Suggest a cafe',
+          headerShown: false,
+          title: '',
+          headerTitle: '',
         }}
       />
       <Stack.Screen

@@ -18,6 +18,7 @@ import {
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { SUGGEST_CAFE_RETURN_PROFILE } from '@/lib/authGate';
 import { buildAuthPath, buildLoginPath } from '@/lib/authGate';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { GamificationHelpModal } from '@/components/profile/GamificationHelpModal';
@@ -597,7 +598,10 @@ export default function ProfileScreen() {
             style={styles.activityRow}
             onPress={() => {
               if (!requireAuth('/suggest-cafe')) return;
-              router.push('/suggest-cafe');
+              router.push({
+                pathname: '/suggest-cafe',
+                params: { returnTo: SUGGEST_CAFE_RETURN_PROFILE },
+              } as never);
             }}
           >
             <View style={styles.activityTextWrap}>
