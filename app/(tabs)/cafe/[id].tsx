@@ -48,7 +48,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
-import { type Cafe } from '../../data/cafes';
+import { type Cafe } from '@/data/cafes';
 
 const FEATURE_TAG_COUNT = 6;
 

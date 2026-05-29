@@ -165,14 +165,6 @@ function RootNavigator() {
         }}
       />
       <Stack.Screen
-        name="cafe/[id]"
-        options={{
-          ...stackHeaderOn,
-          title: 'Cafe',
-          headerTitle: 'Cafe',
-        }}
-      />
-      <Stack.Screen
         name="rate/[id]"
         options={{
           ...stackHeaderOn,
@@ -202,14 +194,6 @@ function RootNavigator() {
           ...stackHeaderOn,
           title: 'Ratings',
           headerTitle: 'Ratings',
-        }}
-      />
-      <Stack.Screen
-        name="my-cafes"
-        options={{
-          ...stackHeaderOn,
-          title: 'Visit log',
-          headerTitle: 'Visit log',
         }}
       />
       <Stack.Screen
