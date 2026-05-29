@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CompactCafeCard } from '@/components/CompactCafeCard';
+import { VisitedCafeDiaryCard } from '@/components/visit/VisitedCafeDiaryCard';
 import type { Cafe } from '@/data/cafes';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
@@ -163,7 +163,9 @@ export default function MyCafesScreen() {
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
           <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
-          <Text style={styles.hint}>A record of the cafes you’ve visited, rated and remembered.</Text>
+          <Text style={styles.hint}>
+            Your personal coffee diary — visit photos, ratings, and notes you&apos;ve saved.
+          </Text>
           {showMovedToast ? (
             <View style={styles.toastBanner}>
               <Text style={styles.toastBannerText}>Moved to your visits</Text>
@@ -195,32 +197,19 @@ export default function MyCafesScreen() {
               <Text style={styles.toastBannerText}>Moved to your visits</Text>
             </View>
           ) : null}
-          <Text style={styles.hint}>A record of the cafes you’ve visited, rated and remembered.</Text>
+          <Text style={styles.hint}>
+            Your personal coffee diary — visit photos, ratings, and notes you&apos;ve saved.
+          </Text>
           <View style={styles.timelineList}>
             {compactRows.map(({ cafe, visit }) => (
-              (() => {
-                const areaFromCafe = String((cafe as unknown as { area?: unknown }).area ?? '').trim();
-                const area = areaFromCafe || String(cafe.neighborhood ?? '').trim();
-                const ratingText = visit.rating != null ? `${visit.rating.toFixed(1)} ★` : '';
-                const visitedDate = formatVisitedDateLabel(visit.createdAt);
-                const metadataLine = [ratingText, area].filter(Boolean).join(' · ');
-                return (
-                  <CompactCafeCard
-                    key={cafe.id}
-                    cafe={cafe}
-                    thumbnailUri={visit?.imageUrl ?? undefined}
-                    metadataLineOverride={metadataLine.length > 0 ? metadataLine : undefined}
-                    metadataSublineOverride={visitedDate ?? undefined}
-                    notePreview={visit && visit.note.trim().length > 0 ? visit.note.trim() : undefined}
-                    scorePosition="cardTopRight"
-                    tags={
-                      visit.tags.length > 0 ? visit.tags : undefined
-                    }
-                    maxTags={3}
-                    onPress={() => router.push(`/cafe/${cafe.id}`)}
-                  />
-                );
-              })()
+              <VisitedCafeDiaryCard
+                key={`${cafe.id}-${visit.id}`}
+                cafe={cafe}
+                visit={visit}
+                visitedDateLabel={formatVisitedDateLabel(visit.createdAt)}
+                maxTags={3}
+                onPress={() => router.push(`/cafe/${cafe.id}`)}
+              />
             ))}
           </View>
         </ScrollView>
@@ -285,8 +274,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   timelineList: {
-    gap: 14,
-    marginTop: 4,
+    gap: 12,
+    marginTop: 6,
   },
   emptyWrap: {
     marginTop: 20,
