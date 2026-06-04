@@ -11,7 +11,6 @@ import {
   normalizeBetaSignupSource,
   submitBetaSignup,
 } from '@/lib/betaSignup';
-import * as Linking from 'expo-linking';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import {
@@ -25,8 +24,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const BEANED_WEB_URL = 'https://web.beaned.app';
 
 type StepId = 'intro' | 'persona' | 'frequency' | 'priorities' | 'city' | 'drink' | 'email' | 'success';
 
@@ -256,8 +253,14 @@ export function BetaWaitlistFlow() {
                 <AuthBrandBean />
                 <Text style={styles.displayTitle}>You&apos;re in.</Text>
                 <Text style={styles.displaySubtitle}>
-                  {duplicateSignup ? "You're already on the list." : "We'll send early access soon."}
+                  {duplicateSignup
+                    ? "You're already on the list."
+                    : "We'll send early access soon. We're inviting early testers in small batches."}
                 </Text>
+                <Text style={styles.successExtra}>
+                  Want to help test the beta sooner? Reply to our latest post or DM us &apos;BEANED&apos;.
+                </Text>
+                <Text style={styles.successInbox}>Keep an eye on your inbox.</Text>
               </View>
             ) : null}
 
@@ -393,10 +396,8 @@ export function BetaWaitlistFlow() {
 
             {fieldError ? <Text style={styles.error}>{fieldError}</Text> : null}
 
-            <View style={styles.footer}>
-              {step === 'success' ? (
-                <FlowPrimaryButton label="Open Beaned" onPress={() => void Linking.openURL(BEANED_WEB_URL)} />
-              ) : (
+            {step !== 'success' ? (
+              <View style={styles.footer}>
                 <FlowPrimaryButton
                   label={
                     step === 'intro'
@@ -410,8 +411,8 @@ export function BetaWaitlistFlow() {
                   onPress={() => void handlePrimary()}
                   disabled={submitting}
                 />
-              )}
-            </View>
+              </View>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -460,6 +461,23 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     textAlign: 'center',
     paddingHorizontal: 8,
+  },
+  successExtra: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.text,
+    textAlign: 'center',
+    paddingHorizontal: 4,
+    marginTop: 4,
+  },
+  successInbox: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    textAlign: 'center',
+    marginTop: 8,
   },
   qBlock: { gap: 6, marginTop: 4 },
   qTitle: {
