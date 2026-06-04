@@ -83,7 +83,9 @@ function RootNavigator() {
   const { profileLoading, needsOnboarding } = useProfileGate();
   const prevSessionRef = useRef<typeof session>(null);
 
-  const showBootstrapOverlay = loading || (user != null && profileLoading);
+  const isJoinRoute = segments[0] === 'join';
+  const showBootstrapOverlay =
+    !isJoinRoute && (loading || (user != null && profileLoading));
 
   useEffect(() => {
     if (!navigationReady || loading) return;
@@ -104,6 +106,8 @@ function RootNavigator() {
     if (profileLoading) return;
 
     const top = segments[0];
+    if (top === 'join') return;
+
     const onPreferences = top === 'onboarding-preferences';
 
     if (needsOnboarding && !onPreferences) {
