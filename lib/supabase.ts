@@ -570,50 +570,110 @@ export async function getCafeCommunityTagInsight(cafeId: string): Promise<CafeCo
   return { totalRatings, percent, tag: bestTag };
 }
 
-/**
- * Most recent user-written notes for one cafe (UGC review snippets).
- * Pulls from `user_cafe_visits` and returns up to `limit` non-empty notes.
- */
-export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<CafeRecentReview[]> {
-  const numericCafeId = Number.parseInt(String(cafeId).trim(), 10);
-  if (!Number.isFinite(numericCafeId)) return [];
-  const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
+function mapVisitRowToCafeRecentReview(row: Record<string, unknown>): CafeRecentReview | null {
+  const note = String(row.note ?? '').trim();
+  if (!note) return null;
+  const ratingRaw = row.rating;
+  const rating =
+    typeof ratingRaw === 'number' && Number.isFinite(ratingRaw)
+      ? normalizeCoffeeRatingInput(ratingRaw)
+      : null;
+  const tagsRaw = row.tags;
+  const tags = Array.isArray(tagsRaw)
+    ? tagsRaw.map((tag) => String(tag).trim()).filter((tag) => tag.length > 0).slice(0, 3)
+    : [];
+  const createdAt =
+    normalizeBulletinTimestamp(row.created_at ?? row.createdAt) || null;
+  return { note, rating, tags, createdAt };
+}
 
-  const res = await supabase
-    .from('user_cafe_visits')
-    .select('note, rating, tags, created_at')
-    .eq('cafe_id', numericCafeId)
-    .not('note', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(safeLimit);
+/** Match café detail id against Bulletin/RPC cafe_id or slug. */
+export function publicVisitNoteMatchesCafe(
+  targetCafeId: string,
+  noteCafeId: string | null | undefined,
+  noteCafeSlug?: string | null
+): boolean {
+  const target = String(targetCafeId ?? '').trim().toLowerCase();
+  if (!target) return false;
+  const id = String(noteCafeId ?? '').trim().toLowerCase();
+  const slug = String(noteCafeSlug ?? '').trim().toLowerCase();
+  return target === id || (slug.length > 0 && target === slug);
+}
+
+function dedupeCafeRecentReviews(rows: CafeRecentReview[]): CafeRecentReview[] {
+  const seen = new Set<string>();
+  const out: CafeRecentReview[] = [];
+  for (const row of rows) {
+    const key = `${row.createdAt ?? ''}::${row.note.trim().toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+}
+
+async function fetchCafeReviewsViaRpc(cafeId: string, limit: number): Promise<CafeRecentReview[]> {
+  const res = await supabase.rpc('get_public_cafe_visit_notes', {
+    p_cafe_id: cafeId,
+    p_limit: limit,
+  });
   if (res.error) {
-    console.error('getRecentCafeReviews failed:', res.error);
+    if (__DEV__) {
+      console.warn(
+        '[Community notes] RPC get_public_cafe_visit_notes unavailable — using Bulletin feed fallback. Deploy supabase/get_public_cafe_visit_notes.sql:',
+        res.error.message
+      );
+    }
     return [];
   }
+  return dedupeCafeRecentReviews(
+    ((res.data ?? []) as Array<Record<string, unknown>>)
+      .map((row) => mapVisitRowToCafeRecentReview(row))
+      .filter((row): row is CafeRecentReview => row != null)
+      .slice(0, limit)
+  );
+}
 
-  return (res.data ?? [])
-    .map((row) => {
-      const note = String((row as { note?: unknown }).note ?? '').trim();
-      if (!note) return null;
-      const ratingRaw = (row as { rating?: unknown }).rating;
-      const rating =
-        typeof ratingRaw === 'number' && Number.isFinite(ratingRaw)
-          ? normalizeCoffeeRatingInput(ratingRaw)
-          : null;
-      const tagsRaw = (row as { tags?: unknown }).tags;
-      const tags = Array.isArray(tagsRaw)
-        ? tagsRaw.map((tag) => String(tag).trim()).filter((tag) => tag.length > 0).slice(0, 3)
-        : [];
-      const createdAt = String((row as { created_at?: unknown }).created_at ?? '').trim() || null;
-      return {
-        note,
-        rating,
-        tags,
-        createdAt,
-      } satisfies CafeRecentReview;
-    })
-    .filter((row): row is CafeRecentReview => row != null)
-    .slice(0, safeLimit);
+async function fetchCafeReviewsFromBulletinFeed(
+  cafeId: string,
+  limit: number
+): Promise<CafeRecentReview[]> {
+  const feed = await getRecentPublicVisitNotes(30);
+  return dedupeCafeRecentReviews(
+    feed
+      .filter((item) => publicVisitNoteMatchesCafe(cafeId, item.cafeId, item.cafeSlug))
+      .map((item) =>
+        mapVisitRowToCafeRecentReview({
+          note: item.note,
+          created_at: item.createdAt,
+          rating: null,
+          tags: [],
+        })
+      )
+      .filter((row): row is CafeRecentReview => row != null)
+      .slice(0, limit)
+  );
+}
+
+/**
+ * Public community notes for one café (café detail).
+ *
+ * Primary: RPC `get_public_cafe_visit_notes` → `user_cafe_visits` (security definer; all users).
+ * Fallback: filter Home Bulletin feed (`get_recent_public_visit_notes`) by cafe id/slug.
+ *
+ * Previous direct `user_cafe_visits` select failed because:
+ * - RLS only exposes the current user's rows
+ * - `cafe_id` is text but the query required a numeric id
+ */
+export async function getRecentCafeReviews(cafeId: string, limit = 5): Promise<CafeRecentReview[]> {
+  const normalizedCafeId = String(cafeId ?? '').trim();
+  if (!normalizedCafeId) return [];
+  const safeLimit = Math.max(1, Math.min(10, Math.floor(limit)));
+
+  const fromRpc = await fetchCafeReviewsViaRpc(normalizedCafeId, safeLimit);
+  if (fromRpc.length > 0) return fromRpc;
+
+  return fetchCafeReviewsFromBulletinFeed(normalizedCafeId, safeLimit);
 }
 
 /**
