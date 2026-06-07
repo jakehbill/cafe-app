@@ -45,6 +45,7 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ViewToken,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
@@ -164,6 +165,27 @@ export default function CafeDetailScreen() {
   const heroPageH = heroGSize.h > 0 ? heroGSize.h : heroPageW / (3 / 2);
   const heroDisplayWidth = Math.min(960, Math.round(heroPageW * 1.5));
   const heroDisplayHeight = Math.min(640, Math.round(heroPageH * 1.5));
+
+  const heroPhotoViewabilityConfig = React.useRef({ itemVisiblePercentThreshold: 60 }).current;
+  const onHeroPhotoViewableItemsChanged = React.useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const primary = viewableItems.find((item) => item.isViewable);
+      const idx = primary?.index;
+      if (typeof idx === 'number' && idx >= 0) {
+        setCurrentPhotoIndex((prev) => (prev === idx ? prev : idx));
+      }
+    }
+  ).current;
+
+  const syncPhotoIndexFromScroll = useCallback(
+    (offsetX: number) => {
+      if (heroPageW <= 0 || photoUrls.length <= 1) return;
+      const nextIndex = Math.round(offsetX / heroPageW);
+      const boundedIndex = Math.max(0, Math.min(photoUrls.length - 1, nextIndex));
+      setCurrentPhotoIndex((prev) => (prev === boundedIndex ? prev : boundedIndex));
+    },
+    [heroPageW, photoUrls.length]
+  );
 
   useEffect(() => {
     // Refresh location on detail mount so the decision screen uses current distance when available.
@@ -454,17 +476,23 @@ export default function CafeDetailScreen() {
               disableIntervalMomentum
               style={styles.heroImagePager}
               nestedScrollEnabled
-              removeClippedSubviews
+              removeClippedSubviews={Platform.OS !== 'web'}
+              scrollEventThrottle={16}
+              viewabilityConfig={heroPhotoViewabilityConfig}
+              onViewableItemsChanged={onHeroPhotoViewableItemsChanged}
               getItemLayout={(_, index) => ({
                 length: heroPageW,
                 offset: heroPageW * index,
                 index,
               })}
+              onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+                syncPhotoIndexFromScroll(e.nativeEvent.contentOffset.x);
+              }}
+              onScrollEndDrag={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+                syncPhotoIndexFromScroll(e.nativeEvent.contentOffset.x);
+              }}
               onMomentumScrollEnd={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
-                const offsetX = e.nativeEvent.contentOffset.x;
-                const nextIndex = Math.round(offsetX / heroPageW);
-                const boundedIndex = Math.max(0, Math.min(photoUrls.length - 1, nextIndex));
-                setCurrentPhotoIndex((prev) => (prev === boundedIndex ? prev : boundedIndex));
+                syncPhotoIndexFromScroll(e.nativeEvent.contentOffset.x);
               }}
               renderItem={({ item: uri, index }) => (
                 <CafeImage
@@ -476,8 +504,7 @@ export default function CafeDetailScreen() {
                   priority={index === 0 ? 'high' : 'low'}
                 />
               )}
-            >
-            </FlatList>
+            />
           )}
 
           {photoUrls.length > 1 ? (
