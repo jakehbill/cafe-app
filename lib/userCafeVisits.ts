@@ -2,12 +2,9 @@ import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { rateCafe, supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { uploadCafePhotoAssetToStorage } from '@/lib/cafePhotoSubmissions';
+import { MAX_VISIT_PHOTOS, type VisitPhotoAsset } from '@/lib/visitPhotoLimits';
 
-type VisitPhotoAsset = {
-  uri: string;
-  mimeType?: string | null;
-  fileName?: string | null;
-};
+export type { VisitPhotoAsset } from '@/lib/visitPhotoLimits';
 
 export type UserCafeVisit = {
   id: string;
@@ -20,7 +17,10 @@ export type UserCafeVisit = {
   tags: string[];
   note: string;
   isPublic: boolean;
+  /** Primary visit photo (first by sort_order). */
   imageUrl: string | null;
+  /** All visit photos for diary / edit (sorted). */
+  imageUrls: string[];
 };
 
 type SaveVisitInput = {
@@ -29,7 +29,7 @@ type SaveVisitInput = {
   rating?: number | null;
   tags?: string[];
   note?: string;
-  photoAsset?: VisitPhotoAsset | null;
+  photoAssets?: VisitPhotoAsset[];
 };
 
 async function buildSignedUrl(storagePath: string | null): Promise<string | null> {
@@ -50,7 +50,7 @@ type VisitPhotoRow = {
   public_status: string | null;
 };
 
-async function fetchPrimaryPhotoUrlByVisitId(visitIds: string[]): Promise<Map<string, string>> {
+async function fetchVisitPhotoUrlsByVisitId(visitIds: string[]): Promise<Map<string, string[]>> {
   if (visitIds.length === 0) return new Map();
   const res = await supabase
     .from('visit_photos')
@@ -64,14 +64,84 @@ async function fetchPrimaryPhotoUrlByVisitId(visitIds: string[]): Promise<Map<st
     return ao - bo;
   });
 
-  const out = new Map<string, string>();
+  const pathsByVisit = new Map<string, string[]>();
   for (const row of rows) {
     const visitId = String(row.visit_id ?? '').trim();
-    if (!visitId || out.has(visitId)) continue;
-    const url = await buildSignedUrl(row.storage_path ?? null);
-    if (url) out.set(visitId, url);
+    const path = String(row.storage_path ?? '').trim();
+    if (!visitId || !path) continue;
+    const list = pathsByVisit.get(visitId) ?? [];
+    list.push(path);
+    pathsByVisit.set(visitId, list);
+  }
+
+  const out = new Map<string, string[]>();
+  for (const [visitId, paths] of pathsByVisit) {
+    const urls: string[] = [];
+    for (const path of paths) {
+      const url = await buildSignedUrl(path);
+      if (url) urls.push(url);
+    }
+    if (urls.length > 0) out.set(visitId, urls);
   }
   return out;
+}
+
+async function getVisitPhotoCount(visitId: string): Promise<number> {
+  const res = await supabase
+    .from('visit_photos')
+    .select('id', { count: 'exact', head: true })
+    .eq('visit_id', visitId);
+  if (res.error) return 0;
+  return res.count ?? 0;
+}
+
+async function persistVisitPhotoUploads(params: {
+  visitId: string;
+  userId: string;
+  cafeId: string | null;
+  submissionId: string | null;
+  note: string;
+  assets: VisitPhotoAsset[];
+}) {
+  const existingCount = await getVisitPhotoCount(params.visitId);
+  const remaining = Math.max(0, MAX_VISIT_PHOTOS - existingCount);
+  const assets = params.assets
+    .filter((asset) => String(asset.uri ?? '').trim())
+    .slice(0, remaining);
+  for (const asset of assets) {
+    const upload = await uploadCafePhotoAssetToStorage({
+      userId: params.userId,
+      cafeId: params.cafeId ?? `submission-${params.submissionId ?? 'unknown'}`,
+      asset,
+    });
+    if (!upload.ok) {
+      throw new Error(upload.error);
+    }
+
+    await insertVisitPhoto({
+      visitId: params.visitId,
+      userId: params.userId,
+      storagePath: upload.storagePath,
+    });
+
+    if (params.cafeId) {
+      await queueVisitPhotoForModeration({
+        visitId: params.visitId,
+        userId: params.userId,
+        cafeId: params.cafeId,
+        storagePath: upload.storagePath,
+        note: params.note,
+      });
+    }
+
+    if (params.submissionId) {
+      await ensureSubmissionPhotoFromVisit({
+        submissionId: params.submissionId,
+        userId: params.userId,
+        storagePath: upload.storagePath,
+      });
+    }
+  }
 }
 
 async function insertVisitPhoto(params: {
@@ -121,6 +191,7 @@ async function ensureSubmissionPhotoFromVisit(params: {
   if (countRes.error) {
     throw new Error(`Failed to prepare submission photo queue row: ${countRes.error.message}`);
   }
+  if ((countRes.count ?? 0) >= MAX_VISIT_PHOTOS) return;
   const nextSort = countRes.count ?? 0;
   const insertRes = await supabase.from('cafe_submission_photos').insert({
     submission_id: params.submissionId,
@@ -133,19 +204,6 @@ async function ensureSubmissionPhotoFromVisit(params: {
   if (insertRes.error) {
     throw new Error(`Failed to queue photo for submission moderation: ${insertRes.error.message}`);
   }
-}
-
-async function getLatestVisitPhotoStoragePath(visitId: string): Promise<string | null> {
-  const res = await supabase
-    .from('visit_photos')
-    .select('storage_path, sort_order')
-    .eq('visit_id', visitId)
-    .order('sort_order', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (res.error) return null;
-  const path = String(res.data?.storage_path ?? '').trim();
-  return path || null;
 }
 
 async function ensureLegacyVisitedRow(params: { userId: string; cafeId: string }) {
@@ -274,16 +332,9 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
     return { ok: false, error: 'This looks like a duplicate visit. Please wait a moment and try again.' };
   }
 
-  let storagePath: string | null = null;
-  if (input.photoAsset?.uri) {
-    const upload = await uploadCafePhotoAssetToStorage({
-      userId,
-      cafeId: cafeId || `submission-${submissionId}`,
-      asset: input.photoAsset,
-    });
-    if (!upload.ok) return upload;
-    storagePath = upload.storagePath;
-  }
+  const photoAssets = (input.photoAssets ?? [])
+    .filter((asset) => String(asset.uri ?? '').trim())
+    .slice(0, MAX_VISIT_PHOTOS);
 
   const insertVisit = await supabase
     .from('user_cafe_visits')
@@ -306,29 +357,14 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
   }
 
   try {
-    if (storagePath) {
-      await insertVisitPhoto({
+    if (photoAssets.length > 0) {
+      await persistVisitPhotoUploads({
         visitId,
         userId,
-        storagePath,
-      });
-    }
-
-    if (storagePath && cafeId) {
-      await queueVisitPhotoForModeration({
-        visitId,
-        userId,
-        cafeId,
-        storagePath,
+        cafeId: cafeId || null,
+        submissionId: submissionId || null,
         note,
-      });
-    }
-
-    if (storagePath && submissionId) {
-      await ensureSubmissionPhotoFromVisit({
-        submissionId,
-        userId,
-        storagePath,
+        assets: photoAssets,
       });
     }
 
@@ -351,13 +387,43 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
       visitId,
       cafeId: cafeId || null,
       submissionId: submissionId || null,
-      storagePath,
+      photoCount: photoAssets.length,
       message,
     });
     return { ok: false, error: `Visit saved, but moderation routing failed: ${message}` };
   }
 
   return { ok: true };
+}
+
+function mapVisitRowToUserCafeVisit(
+  row: Record<string, unknown>,
+  photoUrls: string[]
+): UserCafeVisit {
+  return {
+    id: String(row.id),
+    cafeId: row.cafe_id == null ? null : String(row.cafe_id),
+    submissionId: row.submission_id == null ? null : String(row.submission_id),
+    submissionCafeName:
+      row.cafe_submissions && typeof row.cafe_submissions === 'object'
+        ? String((row.cafe_submissions as { cafe_name?: unknown }).cafe_name ?? '').trim() || null
+        : null,
+    submissionStatus:
+      row.cafe_submissions && typeof row.cafe_submissions === 'object'
+        ? (((row.cafe_submissions as { status?: unknown }).status as
+            | 'pending'
+            | 'approved'
+            | 'rejected'
+            | undefined) ?? null)
+        : null,
+    createdAt: String(row.created_at ?? ''),
+    rating: typeof row.rating === 'number' ? row.rating : null,
+    tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
+    note: typeof row.note === 'string' ? row.note : '',
+    isPublic: row.is_public === true,
+    imageUrl: photoUrls[0] ?? null,
+    imageUrls: photoUrls,
+  };
 }
 
 export async function getUserCafeVisitById(visitId: string): Promise<UserCafeVisit | null> {
@@ -375,27 +441,8 @@ export async function getUserCafeVisitById(visitId: string): Promise<UserCafeVis
     .maybeSingle();
   if (res.error || !res.data) return null;
   const row = res.data;
-  const imageMap = await fetchPrimaryPhotoUrlByVisitId([String(row.id)]);
-  return {
-    id: String(row.id),
-    cafeId: row.cafe_id == null ? null : String(row.cafe_id),
-    submissionId: row.submission_id == null ? null : String(row.submission_id),
-    submissionCafeName:
-      row.cafe_submissions && typeof row.cafe_submissions === 'object'
-        ? String((row.cafe_submissions as { cafe_name?: unknown }).cafe_name ?? '').trim() || null
-        : null,
-    submissionStatus:
-      row.cafe_submissions && typeof row.cafe_submissions === 'object'
-        ? (((row.cafe_submissions as { status?: unknown }).status as 'pending' | 'approved' | 'rejected' | undefined) ??
-            null)
-        : null,
-    createdAt: String(row.created_at ?? ''),
-    rating: typeof row.rating === 'number' ? row.rating : null,
-    tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
-    note: typeof row.note === 'string' ? row.note : '',
-    isPublic: row.is_public === true,
-    imageUrl: imageMap.get(String(row.id)) ?? null,
-  };
+  const imageMap = await fetchVisitPhotoUrlsByVisitId([String(row.id)]);
+  return mapVisitRowToUserCafeVisit(row as Record<string, unknown>, imageMap.get(String(row.id)) ?? []);
 }
 
 export async function updateUserCafeVisit(
@@ -404,7 +451,7 @@ export async function updateUserCafeVisit(
     rating?: number | null;
     tags?: string[];
     note?: string;
-    photoAsset?: VisitPhotoAsset | null;
+    photoAssets?: VisitPhotoAsset[];
   }
 ): Promise<SupabaseActionResult> {
   const existing = await getUserCafeVisitById(visitId);
@@ -413,18 +460,17 @@ export async function updateUserCafeVisit(
   if (error || !data.user?.id) return { ok: false, error: AUTH_REQUIRED_MESSAGE };
   const userId = data.user.id;
 
-  let nextStoragePath: string | null = null;
-  if (input.photoAsset?.uri) {
-    const upload = await uploadCafePhotoAssetToStorage({
-      userId,
-      cafeId: existing.cafeId ?? `submission-${existing.submissionId ?? 'unknown'}`,
-      asset: input.photoAsset,
-    });
-    if (!upload.ok) return upload;
-    nextStoragePath = upload.storagePath;
-  }
-  if (!nextStoragePath) {
-    nextStoragePath = await getLatestVisitPhotoStoragePath(visitId);
+  const newPhotoAssets = (input.photoAssets ?? [])
+    .filter((asset) => String(asset.uri ?? '').trim())
+    .slice(0, MAX_VISIT_PHOTOS);
+  if (newPhotoAssets.length > 0) {
+    const existingCount = await getVisitPhotoCount(visitId);
+    if (existingCount + newPhotoAssets.length > MAX_VISIT_PHOTOS) {
+      return {
+        ok: false,
+        error: `This visit already has ${existingCount} photo${existingCount === 1 ? '' : 's'}. You can add up to ${MAX_VISIT_PHOTOS} total.`,
+      };
+    }
   }
 
   const nextRating = normalizeCoffeeRatingInput(input.rating ?? existing.rating);
@@ -443,29 +489,14 @@ export async function updateUserCafeVisit(
   if (updateRes.error) return { ok: false, error: updateRes.error.message };
 
   try {
-    if (input.photoAsset?.uri && nextStoragePath) {
-      await insertVisitPhoto({
-        visitId,
-        userId,
-        storagePath: nextStoragePath,
-      });
-    }
-
-    if (existing.cafeId && nextStoragePath) {
-      await queueVisitPhotoForModeration({
+    if (newPhotoAssets.length > 0) {
+      await persistVisitPhotoUploads({
         visitId,
         userId,
         cafeId: existing.cafeId,
-        storagePath: nextStoragePath,
-        note: nextNote,
-      });
-    }
-
-    if (existing.submissionId && nextStoragePath) {
-      await ensureSubmissionPhotoFromVisit({
         submissionId: existing.submissionId,
-        userId,
-        storagePath: nextStoragePath,
+        note: nextNote,
+        assets: newPhotoAssets,
       });
     }
   } catch (error) {
@@ -474,7 +505,7 @@ export async function updateUserCafeVisit(
       visitId,
       cafeId: existing.cafeId,
       submissionId: existing.submissionId,
-      storagePath: nextStoragePath,
+      newPhotoCount: newPhotoAssets.length,
       message,
     });
     return { ok: false, error: `Visit updated, but moderation routing failed: ${message}` };
@@ -522,36 +553,10 @@ export async function getUserCafeVisitTimeline(): Promise<UserCafeVisit[]> {
   if (res.error) return [];
 
   const rows = res.data ?? [];
-  const photoMap = await fetchPrimaryPhotoUrlByVisitId(rows.map((row) => String(row.id)));
-  const withSigned = await Promise.all(
-    rows.map(async (row) => {
-      return {
-        id: String(row.id),
-        cafeId: row.cafe_id == null ? null : String(row.cafe_id),
-        submissionId: row.submission_id == null ? null : String(row.submission_id),
-        submissionCafeName:
-          row.cafe_submissions && typeof row.cafe_submissions === 'object'
-            ? String((row.cafe_submissions as { cafe_name?: unknown }).cafe_name ?? '').trim() || null
-            : null,
-        submissionStatus:
-          row.cafe_submissions && typeof row.cafe_submissions === 'object'
-            ? (((row.cafe_submissions as { status?: unknown }).status as
-                | 'pending'
-                | 'approved'
-                | 'rejected'
-                | undefined) ?? null)
-            : null,
-        createdAt: String(row.created_at ?? ''),
-        rating: typeof row.rating === 'number' ? row.rating : null,
-        tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
-        note: typeof row.note === 'string' ? row.note : '',
-        isPublic: row.is_public === true,
-        imageUrl: photoMap.get(String(row.id)) ?? null,
-      } satisfies UserCafeVisit;
-    })
+  const photoMap = await fetchVisitPhotoUrlsByVisitId(rows.map((row) => String(row.id)));
+  return rows.map((row) =>
+    mapVisitRowToUserCafeVisit(row as Record<string, unknown>, photoMap.get(String(row.id)) ?? [])
   );
-
-  return withSigned;
 }
 
 /**
@@ -577,29 +582,6 @@ export async function getMostRecentUserVisitForCafe(cafeId: string): Promise<Use
   if (res.error || !res.data) return null;
 
   const row = res.data;
-  const imageMap = await fetchPrimaryPhotoUrlByVisitId([String(row.id)]);
-
-  return {
-    id: String(row.id),
-    cafeId: row.cafe_id == null ? null : String(row.cafe_id),
-    submissionId: row.submission_id == null ? null : String(row.submission_id),
-    submissionCafeName:
-      row.cafe_submissions && typeof row.cafe_submissions === 'object'
-        ? String((row.cafe_submissions as { cafe_name?: unknown }).cafe_name ?? '').trim() || null
-        : null,
-    submissionStatus:
-      row.cafe_submissions && typeof row.cafe_submissions === 'object'
-        ? (((row.cafe_submissions as { status?: unknown }).status as
-            | 'pending'
-            | 'approved'
-            | 'rejected'
-            | undefined) ?? null)
-        : null,
-    createdAt: String(row.created_at ?? ''),
-    rating: typeof row.rating === 'number' ? row.rating : null,
-    tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
-    note: typeof row.note === 'string' ? row.note : '',
-    isPublic: row.is_public === true,
-    imageUrl: imageMap.get(String(row.id)) ?? null,
-  };
+  const imageMap = await fetchVisitPhotoUrlsByVisitId([String(row.id)]);
+  return mapVisitRowToUserCafeVisit(row as Record<string, unknown>, imageMap.get(String(row.id)) ?? []);
 }

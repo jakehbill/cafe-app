@@ -1,3 +1,4 @@
+import { MAX_VISIT_PHOTOS } from '@/lib/visitPhotoLimits';
 import { supabase } from '@/lib/supabase';
 import {
   CAFE_USER_PHOTO_BUCKET,
@@ -55,8 +56,9 @@ export async function uploadSubmissionPhotos(
   let failedCount = 0;
   const errors: string[] = [];
 
-  for (let index = 0; index < input.images.length; index += 1) {
-    const asset = input.images[index];
+  const images = input.images.slice(0, MAX_VISIT_PHOTOS);
+  for (let index = 0; index < images.length; index += 1) {
+    const asset = images[index];
     const extension = safeFileExtension(asset);
     const storagePath = buildSubmissionPhotoStoragePath({
       userId: input.userId,

@@ -1,4 +1,3 @@
-import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useLayoutEffect, useMemo, useState } from 'react';
@@ -29,7 +28,14 @@ import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { POINTS } from '@/lib/profileGamification';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
-import { getUserCafeVisitById, saveUserCafeVisit, updateUserCafeVisit } from '@/lib/userCafeVisits';
+import {
+  getUserCafeVisitById,
+  saveUserCafeVisit,
+  updateUserCafeVisit,
+  type VisitPhotoAsset,
+} from '@/lib/userCafeVisits';
+import { MAX_VISIT_PHOTOS, VISIT_PHOTO_MAX_MESSAGE } from '@/lib/visitPhotoLimits';
+import { pickVisitPhotoFromLibrary } from '@/lib/visitPhotoPicker';
 
 export default function LogVisitScreen() {
   const router = useRouter();
@@ -49,11 +55,8 @@ export default function LogVisitScreen() {
   const [rating, setRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [note, setNote] = useState('');
-  const [photoAsset, setPhotoAsset] = useState<{
-    uri: string;
-    mimeType?: string | null;
-    fileName?: string | null;
-  } | null>(null);
+  const [existingPhotoPreviews, setExistingPhotoPreviews] = useState<{ uri: string; key: string }[]>([]);
+  const [newPhotoAssets, setNewPhotoAssets] = useState<VisitPhotoAsset[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
@@ -92,6 +95,13 @@ export default function LogVisitScreen() {
       setSelectedTags(existing.tags);
       setNote(existing.note);
       setExistingPendingName(existing.submissionCafeName);
+      setExistingPhotoPreviews(
+        existing.imageUrls.map((uri, index) => ({
+          uri,
+          key: `existing-${index}`,
+        }))
+      );
+      setNewPhotoAssets([]);
       if (!targetCafeId && existing.cafeId) {
         const resolvedCafe = await fetchCafeByIdFromSupabase(existing.cafeId);
         if (!cancelled) setCafe(resolvedCafe);
@@ -119,25 +129,32 @@ export default function LogVisitScreen() {
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   }
 
+  const totalPhotoCount = existingPhotoPreviews.length + newPhotoAssets.length;
+
   async function handlePickPhoto() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setError('Allow photo access to add a visit photo.');
+    if (totalPhotoCount >= MAX_VISIT_PHOTOS) {
+      setError(VISIT_PHOTO_MAX_MESSAGE);
       return;
     }
-    const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 0.86,
-    });
-    if (picked.canceled) return;
-    const asset = picked.assets?.[0];
-    if (!asset?.uri) return;
-    setPhotoAsset({
-      uri: asset.uri,
-      mimeType: asset.mimeType,
-      fileName: asset.fileName,
-    });
+    setError(null);
+    try {
+      const asset = await pickVisitPhotoFromLibrary();
+      if (!asset) return;
+      if (totalPhotoCount >= MAX_VISIT_PHOTOS) {
+        setError(VISIT_PHOTO_MAX_MESSAGE);
+        return;
+      }
+      setNewPhotoAssets((prev) => [...prev, asset]);
+    } catch (pickError) {
+      setError(pickError instanceof Error ? pickError.message : 'Could not add photo.');
+    }
+  }
+
+  function handleRemovePhoto(index: number) {
+    if (index < existingPhotoPreviews.length) return;
+    const newIndex = index - existingPhotoPreviews.length;
+    setNewPhotoAssets((prev) => prev.filter((_, i) => i !== newIndex));
+    setError(null);
   }
 
   async function handleSaveVisit() {
@@ -150,14 +167,14 @@ export default function LogVisitScreen() {
             rating,
             tags: selectedTags,
             note,
-            photoAsset,
+            photoAssets: newPhotoAssets,
           })
         : await saveUserCafeVisit({
             cafeId: targetCafeId,
             rating,
             tags: selectedTags,
             note,
-            photoAsset,
+            photoAssets: newPhotoAssets,
           });
       if (!res.ok) {
         setError(res.error);
@@ -165,7 +182,7 @@ export default function LogVisitScreen() {
       }
       const movedFromSaved = !editingVisitId && Boolean(targetCafeId) && isSaved(targetCafeId);
       if (!editingVisitId) {
-        setSuccessState({ movedFromSaved, hadPhoto: Boolean(photoAsset?.uri) });
+        setSuccessState({ movedFromSaved, hadPhoto: totalPhotoCount > 0 });
       } else {
         router.replace('/my-cafes');
       }
@@ -179,8 +196,14 @@ export default function LogVisitScreen() {
     return resolveLiveCafePrimaryImageUrl({ cafe });
   }, [cafe]);
   const visitPhotoPreviews = useMemo(
-    () => (photoAsset?.uri ? [{ uri: photoAsset.uri, key: 'visit-draft' }] : []),
-    [photoAsset?.uri]
+    () => [
+      ...existingPhotoPreviews,
+      ...newPhotoAssets.map((asset, index) => ({
+        uri: asset.uri,
+        key: `new-${index}`,
+      })),
+    ],
+    [existingPhotoPreviews, newPhotoAssets]
   );
   const canRenderVisitForm = Boolean(targetCafeId) || Boolean(cafe) || Boolean(editingVisitId);
 
@@ -193,9 +216,9 @@ export default function LogVisitScreen() {
         visitRating: rating != null ? String(rating) : '',
         visitTags: selectedTags.join(','),
         visitNote: note,
-        visitPhotoUri: photoAsset?.uri ?? '',
-        visitPhotoMimeType: photoAsset?.mimeType ?? '',
-        visitPhotoFileName: photoAsset?.fileName ?? '',
+        visitPhotoUri: newPhotoAssets[0]?.uri ?? '',
+        visitPhotoMimeType: newPhotoAssets[0]?.mimeType ?? '',
+        visitPhotoFileName: newPhotoAssets[0]?.fileName ?? '',
       },
     });
   }
@@ -240,7 +263,7 @@ export default function LogVisitScreen() {
               </Text>
               <Text style={styles.successPointsText}>+{POINTS.perVisited} points for logging a visit</Text>
               {successState.hadPhoto ? (
-                <Text style={styles.successHintText}>Your photo has been submitted for review.</Text>
+                <Text style={styles.successHintText}>Your photos have been submitted for review.</Text>
               ) : null}
               {successState.movedFromSaved ? (
                 <Text style={styles.successHintText}>Moved to Visited</Text>
@@ -305,10 +328,10 @@ export default function LogVisitScreen() {
           {!successState && canRenderVisitForm ? (
             <VisitPhotosSection
               photos={visitPhotoPreviews}
-              maxPhotos={1}
               onPressAdd={() => void handlePickPhoto()}
-              onPressRemove={() => setPhotoAsset(null)}
+              onPressRemove={handleRemovePhoto}
               disabled={saving || loadingExisting}
+              error={error && totalPhotoCount >= MAX_VISIT_PHOTOS ? error : null}
             />
           ) : null}
 

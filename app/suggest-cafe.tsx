@@ -47,7 +47,10 @@ import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { uploadSubmissionPhotos } from '@/lib/cafeSubmissionPhotos';
 import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
 import { resolveSuggestCafeBackPath } from '@/lib/authGate';
-import { saveUserCafeVisit } from '@/lib/userCafeVisits';
+import { VisitPhotosSection } from '@/components/visit/VisitPhotosSection';
+import { saveUserCafeVisit, type VisitPhotoAsset } from '@/lib/userCafeVisits';
+import { MAX_VISIT_PHOTOS, VISIT_PHOTO_MAX_MESSAGE } from '@/lib/visitPhotoLimits';
+import { pickVisitPhotoFromLibrary } from '@/lib/visitPhotoPicker';
 
 const PLACES_SEARCH_DEBOUNCE_MS = 350;
 
@@ -137,19 +140,18 @@ export default function SuggestCafeScreen() {
       .filter(Boolean)
   );
   const [visitNote, setVisitNote] = useState(String(initialVisitNote ?? ''));
-  const [visitPhoto, setVisitPhoto] = useState<{
-    uri: string;
-    mimeType?: string | null;
-    fileName?: string | null;
-  } | null>(
+  const [visitPhotoAssets, setVisitPhotoAssets] = useState<VisitPhotoAsset[]>(() =>
     initialVisitPhotoUri
-      ? {
-          uri: initialVisitPhotoUri,
-          mimeType: initialVisitPhotoMimeType ?? null,
-          fileName: initialVisitPhotoFileName ?? null,
-        }
-      : null
+      ? [
+          {
+            uri: initialVisitPhotoUri,
+            mimeType: initialVisitPhotoMimeType ?? null,
+            fileName: initialVisitPhotoFileName ?? null,
+          },
+        ]
+      : []
   );
+  const [visitPhotoError, setVisitPhotoError] = useState<string | null>(null);
   const [visitFlowStep, setVisitFlowStep] = useState<1 | 2>(1);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -309,8 +311,40 @@ export default function SuggestCafeScreen() {
     setSelectedTags([]);
     setSuggestCoffeeRating(null);
     setSelectedPhotos([null, null, null]);
+    setVisitPhotoAssets([]);
+    setVisitPhotoError(null);
     if (!fromVisitLog) {
       resetPublicSuggest();
+    }
+  }
+
+  const visitPhotoPreviews = useMemo(
+    () =>
+      visitPhotoAssets.map((asset, index) => ({
+        uri: asset.uri,
+        key: `visit-${index}`,
+      })),
+    [visitPhotoAssets]
+  );
+
+  async function handlePickVisitPhoto() {
+    if (visitPhotoAssets.length >= MAX_VISIT_PHOTOS) {
+      setVisitPhotoError(VISIT_PHOTO_MAX_MESSAGE);
+      return;
+    }
+    setVisitPhotoError(null);
+    try {
+      const asset = await pickVisitPhotoFromLibrary();
+      if (!asset) return;
+      setVisitPhotoAssets((prev) => {
+        if (prev.length >= MAX_VISIT_PHOTOS) {
+          setVisitPhotoError(VISIT_PHOTO_MAX_MESSAGE);
+          return prev;
+        }
+        return [...prev, asset];
+      });
+    } catch (pickError) {
+      setVisitPhotoError(pickError instanceof Error ? pickError.message : 'Could not add photo.');
     }
   }
 
@@ -383,27 +417,6 @@ export default function SuggestCafeScreen() {
     });
   }
 
-  async function pickVisitPhoto() {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      setSubmitError('Please allow photo library access to add photos.');
-      return;
-    }
-    const pickerResult = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 0.86,
-    });
-    if (pickerResult.canceled) return;
-    const asset = pickerResult.assets?.[0];
-    if (!asset?.uri) return;
-    setVisitPhoto({
-      uri: asset.uri,
-      mimeType: asset.mimeType,
-      fileName: asset.fileName,
-    });
-  }
-
   function removePhotoForSlot(index: number) {
     setSelectedPhotos((prev) => {
       const next = [...prev];
@@ -463,7 +476,7 @@ export default function SuggestCafeScreen() {
           rating: visitRating,
           tags: visitTags,
           note: visitNote,
-          photoAsset: visitPhoto,
+          photoAssets: visitPhotoAssets,
         });
         if (!linkedVisit.ok) {
           setSubmitError(linkedVisit.error);
@@ -471,7 +484,7 @@ export default function SuggestCafeScreen() {
         }
         setSuccessMessage('Visit saved');
         setVisitLogSuccessState({
-          hadPhoto: Boolean(visitPhoto?.uri),
+          hadPhoto: visitPhotoAssets.length > 0,
           pendingReview: false,
         });
         resetForm();
@@ -524,9 +537,12 @@ export default function SuggestCafeScreen() {
           }
         }
 
-        const imagesToUpload = selectedPhotos.filter(
-          (photo): photo is { uri: string; mimeType?: string | null; fileName?: string | null } => photo != null
-        );
+        const imagesToUpload = selectedPhotos
+          .filter(
+            (photo): photo is { uri: string; mimeType?: string | null; fileName?: string | null } =>
+              photo != null
+          )
+          .slice(0, MAX_VISIT_PHOTOS);
 
         if (imagesToUpload.length > 0) {
           const uploadSummary = await uploadSubmissionPhotos({
@@ -598,7 +614,7 @@ export default function SuggestCafeScreen() {
         rating: visitRating,
         tags: visitTags,
         note: visitNote,
-        photoAsset: visitPhoto,
+        photoAssets: visitPhotoAssets,
       });
       if (!linkedVisit.ok) {
         setSuccessMessage(
@@ -609,7 +625,7 @@ export default function SuggestCafeScreen() {
 
       setSuccessMessage('Visit saved');
       setVisitLogSuccessState({
-        hadPhoto: Boolean(visitPhoto?.uri),
+        hadPhoto: visitPhotoAssets.length > 0,
         pendingReview: true,
       });
       resetForm();
@@ -670,37 +686,16 @@ export default function SuggestCafeScreen() {
               {visitFlowStep === 1 ? (
                 <>
                   <Text style={styles.fieldLabel}>Visit details</Text>
-                  <Text style={styles.fieldLabel}>Add photo (optional)</Text>
-                  <View style={styles.photoSlotsWrap}>
-                    {['Exterior photo', 'Coffee / interior', 'Third photo'].map((label) => (
-                      <View key={`visit-photo-prompt-${label}`} style={styles.photoSlotCard}>
-                        <Text style={styles.photoSlotLabel}>{label}</Text>
-                        <View style={styles.photoSlotActionsRow}>
-                          <TouchableOpacity
-                            activeOpacity={0.88}
-                            style={styles.photoSlotButton}
-                            onPress={() => void pickVisitPhoto()}
-                            disabled={submitting || redirecting}
-                          >
-                            <Text style={styles.photoSlotButtonText}>{visitPhoto ? 'Replace photo' : 'Add photo'}</Text>
-                          </TouchableOpacity>
-                          {visitPhoto ? (
-                            <TouchableOpacity
-                              activeOpacity={0.88}
-                              style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
-                              onPress={() => setVisitPhoto(null)}
-                              disabled={submitting || redirecting}
-                            >
-                              <Text style={styles.photoSlotButtonSecondaryText}>Remove</Text>
-                            </TouchableOpacity>
-                          ) : null}
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                  {visitPhoto ? (
-                    <Image source={{ uri: visitPhoto.uri }} style={styles.photoPreview} resizeMode="cover" />
-                  ) : null}
+                  <VisitPhotosSection
+                    photos={visitPhotoPreviews}
+                    onPressAdd={() => void handlePickVisitPhoto()}
+                    onPressRemove={(index) => {
+                      setVisitPhotoAssets((prev) => prev.filter((_, i) => i !== index));
+                      setVisitPhotoError(null);
+                    }}
+                    disabled={submitting || redirecting}
+                    error={visitPhotoError}
+                  />
 
                   <CoffeeRatingPicker
                     value={visitRating}
@@ -943,7 +938,7 @@ export default function SuggestCafeScreen() {
                   </View>
 
                   <View style={styles.sectionCard}>
-                    <Text style={styles.fieldLabel}>Add photos (recommended)</Text>
+                    <Text style={styles.fieldLabel}>Add up to 3 photos (recommended)</Text>
                     <View style={styles.photoSlotsWrap}>
                       {[
                         { label: 'Exterior photo', index: 0 },
@@ -1022,7 +1017,7 @@ export default function SuggestCafeScreen() {
               <Text style={styles.fieldLabel}>Visit saved</Text>
               <Text style={styles.tagHelperText}>Added to your personal cafe log.</Text>
               {visitLogSuccessState.hadPhoto ? (
-                <Text style={styles.tagHelperText}>Your photo has been submitted for review.</Text>
+                <Text style={styles.tagHelperText}>Your photos have been submitted for review.</Text>
               ) : null}
               {visitLogSuccessState.pendingReview ? (
                 <>

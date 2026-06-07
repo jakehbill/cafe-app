@@ -33,14 +33,22 @@ export function VisitedCafeDiaryCard({
   maxTags = 3,
 }: VisitedCafeDiaryCardProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const visitPhotoUri = String(visit.imageUrl ?? '').trim() || null;
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  const visitPhotoUris = useMemo(() => {
+    const fromList = (visit.imageUrls ?? []).map((uri) => String(uri).trim()).filter(Boolean);
+    if (fromList.length > 0) return fromList;
+    const single = String(visit.imageUrl ?? '').trim();
+    return single ? [single] : [];
+  }, [visit.imageUrl, visit.imageUrls]);
+
   const cafeListingUri = resolveLiveCafePrimaryImageUrl({ cafe });
-  const hasVisitPhoto = Boolean(visitPhotoUri);
-  const mainImageUri = hasVisitPhoto ? visitPhotoUri! : cafeListingUri;
+  const hasVisitPhotos = visitPhotoUris.length > 0;
+  const mainImageUri = hasVisitPhotos ? visitPhotoUris[0]! : cafeListingUri;
   const showListingOverlay =
-    hasVisitPhoto &&
+    hasVisitPhotos &&
     Boolean(cafeListingUri) &&
-    cafeListingUri !== visitPhotoUri;
+    cafeListingUri !== visitPhotoUris[0];
 
   const area =
     String((cafe as unknown as { area?: unknown }).area ?? '').trim() ||
@@ -56,19 +64,111 @@ export function VisitedCafeDiaryCard({
     [visit.tags, maxTags]
   );
 
+  function openLightboxAt(index: number) {
+    setLightboxIndex(index);
+    setLightboxOpen(true);
+  }
+
   return (
     <>
       <View style={styles.card}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={
-            hasVisitPhoto ? `View visit photo for ${cafe.name}` : `Open ${cafe.name}`
+            hasVisitPhotos ? `View visit photos for ${cafe.name}` : `Open ${cafe.name}`
           }
-          onPress={hasVisitPhoto ? () => setLightboxOpen(true) : onPress}
+          onPress={hasVisitPhotos ? () => openLightboxAt(0) : onPress}
           style={({ pressed }) => [styles.mediaColumn, pressed && styles.mediaPressed]}
         >
           <View style={styles.mainImageWrap}>
-            {mainImageUri ? (
+            {hasVisitPhotos && visitPhotoUris.length > 1 ? (
+              <View style={styles.visitGallery}>
+                {visitPhotoUris.length === 2 ? (
+                  <>
+                    <Pressable
+                      style={styles.galleryHalf}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        openLightboxAt(0);
+                      }}
+                    >
+                      <CafeImage
+                        uri={visitPhotoUris[0]}
+                        style={styles.galleryImage}
+                        displayWidth={MAIN_W}
+                        displayHeight={MAIN_H}
+                        priority="low"
+                      />
+                    </Pressable>
+                    <Pressable
+                      style={styles.galleryHalf}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        openLightboxAt(1);
+                      }}
+                    >
+                      <CafeImage
+                        uri={visitPhotoUris[1]}
+                        style={styles.galleryImage}
+                        displayWidth={MAIN_W}
+                        displayHeight={MAIN_H}
+                        priority="low"
+                      />
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.galleryTopRow}>
+                      <Pressable
+                        style={styles.galleryTopCell}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          openLightboxAt(0);
+                        }}
+                      >
+                        <CafeImage
+                          uri={visitPhotoUris[0]}
+                          style={styles.galleryImage}
+                          displayWidth={MAIN_W}
+                          displayHeight={MAIN_H / 2}
+                          priority="low"
+                        />
+                      </Pressable>
+                      <Pressable
+                        style={styles.galleryTopCell}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          openLightboxAt(1);
+                        }}
+                      >
+                        <CafeImage
+                          uri={visitPhotoUris[1]}
+                          style={styles.galleryImage}
+                          displayWidth={MAIN_W}
+                          displayHeight={MAIN_H / 2}
+                          priority="low"
+                        />
+                      </Pressable>
+                    </View>
+                    <Pressable
+                      style={styles.galleryBottomCell}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        openLightboxAt(2);
+                      }}
+                    >
+                      <CafeImage
+                        uri={visitPhotoUris[2]}
+                        style={styles.galleryImage}
+                        displayWidth={MAIN_W}
+                        displayHeight={MAIN_H / 2}
+                        priority="low"
+                      />
+                    </Pressable>
+                  </>
+                )}
+              </View>
+            ) : mainImageUri ? (
               <CafeImage
                 uri={mainImageUri}
                 style={styles.mainImage}
@@ -79,9 +179,11 @@ export function VisitedCafeDiaryCard({
             ) : (
               <View style={[styles.mainImage, styles.mainImagePlaceholder]} />
             )}
-            {hasVisitPhoto ? (
+            {hasVisitPhotos ? (
               <View style={styles.memoryBadge} pointerEvents="none">
-                <Text style={styles.memoryBadgeText}>Your visit</Text>
+                <Text style={styles.memoryBadgeText}>
+                  Your visit{visitPhotoUris.length > 1 ? ` · ${visitPhotoUris.length}` : ''}
+                </Text>
               </View>
             ) : null}
             {showListingOverlay && cafeListingUri ? (
@@ -104,46 +206,47 @@ export function VisitedCafeDiaryCard({
           onPress={onPress}
           style={({ pressed }) => [styles.body, pressed && styles.bodyPressed]}
         >
-        <Text style={styles.name} numberOfLines={2}>
-          {cafe.name}
-        </Text>
-        {metaLine.length > 0 ? (
-          <Text style={styles.metaLine} numberOfLines={1}>
-            {metaLine}
+          <Text style={styles.name} numberOfLines={2}>
+            {cafe.name}
           </Text>
-        ) : null}
-        {visitedDateLabel ? (
-          <Text style={styles.dateLine} numberOfLines={1}>
-            {visitedDateLabel}
-          </Text>
-        ) : null}
-        {notePreview ? (
-          <Text style={styles.notePreview} numberOfLines={2}>
-            {notePreview}
-          </Text>
-        ) : null}
-        {tagSlice.length > 0 ? (
-          <View style={styles.tagsRow}>
-            {tagSlice.map((tag) => (
-              <View key={tag} style={styles.tagChip}>
-                <TagWithOptionalIcon
-                  tag={tag}
-                  iconSize={11}
-                  color={COLORS.muted}
-                  textStyle={styles.tagChipText}
-                  gap={4}
-                />
-              </View>
-            ))}
-          </View>
-        ) : null}
+          {metaLine.length > 0 ? (
+            <Text style={styles.metaLine} numberOfLines={1}>
+              {metaLine}
+            </Text>
+          ) : null}
+          {visitedDateLabel ? (
+            <Text style={styles.dateLine} numberOfLines={1}>
+              {visitedDateLabel}
+            </Text>
+          ) : null}
+          {notePreview ? (
+            <Text style={styles.notePreview} numberOfLines={2}>
+              {notePreview}
+            </Text>
+          ) : null}
+          {tagSlice.length > 0 ? (
+            <View style={styles.tagsRow}>
+              {tagSlice.map((tag) => (
+                <View key={tag} style={styles.tagChip}>
+                  <TagWithOptionalIcon
+                    tag={tag}
+                    iconSize={11}
+                    color={COLORS.muted}
+                    textStyle={styles.tagChipText}
+                    gap={4}
+                  />
+                </View>
+              ))}
+            </View>
+          ) : null}
         </Pressable>
       </View>
 
-      {hasVisitPhoto && visitPhotoUri ? (
+      {hasVisitPhotos ? (
         <VisitPhotoLightbox
           visible={lightboxOpen}
-          imageUri={visitPhotoUri}
+          imageUris={visitPhotoUris}
+          initialIndex={lightboxIndex}
           title={cafe.name}
           onClose={() => setLightboxOpen(false)}
         />
@@ -187,6 +290,34 @@ const styles = StyleSheet.create({
   },
   mainImagePlaceholder: {
     backgroundColor: COLORS.imagePlaceholder,
+  },
+  visitGallery: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  galleryHalf: {
+    width: '50%',
+    height: '100%',
+  },
+  galleryTopRow: {
+    width: '100%',
+    height: '50%',
+    flexDirection: 'row',
+  },
+  galleryTopCell: {
+    width: '50%',
+    height: '100%',
+  },
+  galleryBottomCell: {
+    width: '100%',
+    height: '50%',
+  },
+  galleryImage: {
+    width: '100%',
+    height: '100%',
   },
   memoryBadge: {
     position: 'absolute',

@@ -522,7 +522,7 @@ export async function createCafeAndApproveSubmission(
         .select('visit_id, storage_path, sort_order, is_public, public_status')
         .in('visit_id', visitIds)
     : { data: [], error: null };
-  const visitPhotoByVisitId = new Map<string, string>();
+  const visitPhotosByVisitId = new Map<string, string[]>();
   const rows = (visitPhotosRes.data ?? []) as {
     visit_id: string;
     storage_path: string | null;
@@ -539,21 +539,24 @@ export async function createCafeAndApproveSubmission(
     .forEach((row) => {
       const visitId = String(row.visit_id ?? '').trim();
       const path = String(row.storage_path ?? '').trim();
-      if (!visitId || !path || visitPhotoByVisitId.has(visitId)) return;
-      visitPhotoByVisitId.set(visitId, path);
+      if (!visitId || !path) return;
+      const list = visitPhotosByVisitId.get(visitId) ?? [];
+      list.push(path);
+      visitPhotosByVisitId.set(visitId, list);
     });
 
-  const cafePhotoRows = linkedRows
-    .map((visit) => ({
+  const cafePhotoRows = linkedRows.flatMap((visit) => {
+    const paths = visitPhotosByVisitId.get(String(visit.id)) ?? [];
+    return paths.map((storage_path) => ({
       user_id: String(visit.user_id ?? '').trim(),
       cafe_id: Number(createdCafeId),
-      storage_path: visitPhotoByVisitId.get(String(visit.id)) ?? '',
+      storage_path,
       image_url: null as string | null,
       caption: String(visit.note ?? '').trim().slice(0, 280) || null,
       status: 'pending' as const,
       source_visit_id: String(visit.id),
-    }))
-    .filter((row) => row.user_id && row.storage_path && Number.isFinite(row.cafe_id));
+    }));
+  }).filter((row) => row.user_id && row.storage_path && Number.isFinite(row.cafe_id));
   if (cafePhotoRows.length > 0) {
     await supabase.from('cafe_photos').insert(cafePhotoRows);
   }

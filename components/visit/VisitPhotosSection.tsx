@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { COLORS, FONTS } from '@/components/theme';
+import { MAX_VISIT_PHOTOS } from '@/lib/visitPhotoLimits';
 
 export type VisitPhotoPreview = {
   uri: string;
@@ -42,8 +43,8 @@ export function VisitPhotosSection({
   disabled = false,
   error,
   success,
-  addLabel = 'Add photo from your visit',
-  maxPhotos,
+  addLabel = `Add up to ${MAX_VISIT_PHOTOS} photos`,
+  maxPhotos = MAX_VISIT_PHOTOS,
 }: Props) {
   const hasPhotos = photos.length > 0;
   const addDisabled = disabled || uploading;
@@ -128,14 +129,14 @@ export function VisitPhotosSection({
         </Pressable>
       )}
 
-      {hasPhotos && !uploading ? (
+      {hasPhotos && !uploading && !atMax ? (
         <Pressable
           accessibilityRole="button"
           onPress={onPressAdd}
           disabled={addDisabled}
           style={styles.changeLinkWrap}
         >
-          <Text style={styles.changeLinkText}>Add or change photo</Text>
+          <Text style={styles.changeLinkText}>Add another photo</Text>
         </Pressable>
       ) : null}
 
