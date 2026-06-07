@@ -4,7 +4,14 @@ import { Platform } from 'react-native';
 import type { Cafe } from '@/data/cafes';
 import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { normalizeCoffeeRatingInput, quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
+import {
+  buildCafeCommunityTagInsightFromCounts,
+  type CafeCommunityTagInsight,
+} from '@/lib/cafeCommunityTagInsight';
 import { parseCafeTagsField } from '@/lib/cafeTags';
+
+export type { CafeCommunityTagInsight } from '@/lib/cafeCommunityTagInsight';
+export { formatCafeCommunityTagInsight } from '@/lib/cafeCommunityTagInsight';
 
 export { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 
@@ -339,14 +346,6 @@ export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[
   return ordered.slice(0, limit);
 }
 
-/** Community line: share of ratings that included the most-picked tag (real data from `rating_tags`). */
-export type CafeCommunityTagInsight = {
-  totalRatings: number;
-  /** % of ratings that include at least one pick of this tag */
-  percent: number;
-  tag: string;
-};
-
 export type CafeRecentReview = {
   note: string;
   rating: number | null;
@@ -517,57 +516,41 @@ function isPublicVisitNoteHidden(
 }
 
 /**
- * Best tag for “X% of people rate this for Y” — uses the most common tag among
- * `rating_tags` rows for this cafe’s ratings; % = ratings that include that tag / total ratings.
+ * Top community tag insight for café detail.
+ *
+ * Primary: RPC `get_cafe_community_tag_insight` → `user_cafe_visits.tags` (all users; security definer).
+ * Denominator: distinct users with ≥1 tag. Numerator: distinct users who picked the winning tag.
+ *
+ * Previous client-side `ratings` + `rating_tags` query only saw the current user's rows (RLS)
+ * and divided by all ratings (including untagged), producing misleading "100%" from one review.
  */
 export async function getCafeCommunityTagInsight(cafeId: string): Promise<CafeCommunityTagInsight | null> {
-  const numericCafeId = Number.parseInt(cafeId, 10);
-  if (!Number.isFinite(numericCafeId)) return null;
+  const normalizedCafeId = String(cafeId ?? '').trim();
+  if (!normalizedCafeId) return null;
 
-  const ratingsRes = await supabase
-    .from('ratings')
-    .select('id')
-    .eq('cafe_id', numericCafeId);
-  if (ratingsRes.error) {
-    console.error('getCafeCommunityTagInsight: ratings fetch failed:', ratingsRes.error);
-    return null;
-  }
+  const res = await supabase.rpc('get_cafe_community_tag_insight', {
+    p_cafe_id: normalizedCafeId,
+  });
 
-  const ratingIds = (ratingsRes.data ?? []).map((row) => row.id).filter((id): id is number => typeof id === 'number');
-  const totalRatings = ratingIds.length;
-  if (totalRatings === 0) return null;
-
-  const tagsRes = await supabase
-    .from('rating_tags')
-    .select('tag,rating_id')
-    .in('rating_id', ratingIds);
-  if (tagsRes.error) {
-    console.error('getCafeCommunityTagInsight: rating_tags fetch failed:', tagsRes.error);
-    return null;
-  }
-
-  const tagToRatings = new Map<string, Set<number>>();
-  for (const row of tagsRes.data ?? []) {
-    const rid = typeof row.rating_id === 'number' ? row.rating_id : null;
-    const tag = typeof row.tag === 'string' ? row.tag.trim() : '';
-    if (rid == null || !tag) continue;
-    if (!tagToRatings.has(tag)) tagToRatings.set(tag, new Set());
-    tagToRatings.get(tag)!.add(rid);
-  }
-
-  let bestTag = '';
-  let bestCount = 0;
-  for (const [tag, set] of tagToRatings) {
-    if (set.size > bestCount) {
-      bestCount = set.size;
-      bestTag = tag;
+  if (res.error) {
+    if (__DEV__) {
+      console.warn(
+        '[Community tag insight] RPC get_cafe_community_tag_insight unavailable. Deploy supabase/get_cafe_community_tag_insight.sql:',
+        res.error.message
+      );
     }
+    return null;
   }
 
-  if (!bestTag || bestCount === 0) return null;
+  const row = (res.data ?? [])[0] as Record<string, unknown> | undefined;
+  if (!row) return null;
 
-  const percent = Math.min(100, Math.max(0, Math.round((bestCount / totalRatings) * 100)));
-  return { totalRatings, percent, tag: bestTag };
+  return buildCafeCommunityTagInsightFromCounts({
+    tag: String(row.tag ?? '').trim(),
+    mentionCount: Number(row.mention_count ?? 0),
+    totalTaggedUsers: Number(row.total_tagged_users ?? 0),
+    totalTaggedVisits: Number(row.total_tagged_visits ?? 0),
+  });
 }
 
 function mapVisitRowToCafeRecentReview(row: Record<string, unknown>): CafeRecentReview | null {

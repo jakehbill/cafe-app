@@ -17,12 +17,7 @@ import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafeImageUrls } from '@/lib/cafeLiveImages';
 import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
 import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
-import {
-  getCafeCommunityTagInsight,
-  getRecentCafeReviews,
-  type CafeCommunityTagInsight,
-  type CafeRecentReview,
-} from '@/lib/supabase';
+import { getRecentCafeReviews, type CafeRecentReview } from '@/lib/supabase';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { resolveCafeDetailBackPath } from '@/lib/authGate';
 import { getMostRecentUserVisitForCafe } from '@/lib/userCafeVisits';
@@ -147,7 +142,6 @@ export default function CafeDetailScreen() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [featureTags, setFeatureTags] = useState<string[]>([]);
   const [remainingTags, setRemainingTags] = useState<string[]>([]);
-  const [tagInsight, setTagInsight] = useState<CafeCommunityTagInsight | null>(null);
   const [recentReviews, setRecentReviews] = useState<CafeRecentReview[]>([]);
   const [approvedUserPhotoUrls, setApprovedUserPhotoUrls] = useState<string[]>([]);
   const [mostRecentVisitId, setMostRecentVisitId] = useState<string | null>(null);
@@ -237,7 +231,6 @@ export default function CafeDetailScreen() {
     if (!cafe?.id) {
       setFeatureTags([]);
       setRemainingTags([]);
-      setTagInsight(null);
       setRecentReviews([]);
       return;
     }
@@ -245,15 +238,13 @@ export default function CafeDetailScreen() {
     void (async () => {
       const c = cafe;
       if (!c) return;
-      const [tagSets, insight, reviews] = await Promise.all([
+      const [tagSets, reviews] = await Promise.all([
         resolveCafeTagDisplaySets(c, CAFE_FEATURED_TAG_COUNT),
-        getCafeCommunityTagInsight(c.id),
         getRecentCafeReviews(c.id, 3),
       ]);
       if (cancelled) return;
       setFeatureTags(tagSets.featured);
       setRemainingTags(tagSets.remaining);
-      setTagInsight(insight);
       setRecentReviews(reviews);
     })();
     return () => {
@@ -418,17 +409,6 @@ export default function CafeDetailScreen() {
   };
 
   const webGoogleMapsUrl = Platform.OS === 'web' ? resolveCafeGoogleMapsWebUrl(cafe) : null;
-
-  const insightBubbleText = (() => {
-    if (tagInsight) {
-      const tagForSentence = formatTagLabel(tagInsight.tag ?? '').toLowerCase();
-      return `${tagInsight.percent}% of people rate this for ${tagForSentence}`;
-    }
-    if (cafe.coffeeRatingCount > 0) {
-      return `Based on ${cafe.coffeeRatingCount} community coffee score${cafe.coffeeRatingCount === 1 ? '' : 's'} — tag picks will show here as more people rate.`;
-    }
-    return 'Community picks will appear here once more people rate and tag this cafe.';
-  })();
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
@@ -636,10 +616,6 @@ export default function CafeDetailScreen() {
             </View>
             </>
           ) : null}
-
-          <View style={styles.insightBubble}>
-            <Text style={styles.insightBubbleText}>{insightBubbleText}</Text>
-          </View>
 
           {recentReviews.length > 0 ? (
             <View style={styles.reviewsSection}>
@@ -961,24 +937,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
     letterSpacing: -0.2,
-  },
-  insightBubble: {
-    marginTop: 4,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.coffeePillBorder,
-    backgroundColor: COLORS.coffeePillBackground,
-  },
-  insightBubbleText: {
-    fontSize: 14,
-    lineHeight: 21,
-    fontFamily: FONTS.sans.regular,
-    fontStyle: 'italic',
-    color: COLORS.accent,
-    letterSpacing: -0.05,
-    opacity: 0.92,
   },
   reviewsSection: {
     gap: 10,
