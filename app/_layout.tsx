@@ -17,6 +17,7 @@ import 'react-native-reanimated';
 
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
+import { isPublicStandaloneRoute } from '@/lib/publicRoutes';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { CafeStateProvider } from '@/contexts/CafeStateContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
@@ -83,9 +84,9 @@ function RootNavigator() {
   const { profileLoading, needsOnboarding } = useProfileGate();
   const prevSessionRef = useRef<typeof session>(null);
 
-  const isJoinRoute = segments[0] === 'join';
+  const isPublicRoute = isPublicStandaloneRoute(segments[0]);
   const showBootstrapOverlay =
-    !isJoinRoute && (loading || (user != null && profileLoading));
+    !isPublicRoute && (loading || (user != null && profileLoading));
 
   useEffect(() => {
     if (!navigationReady || loading) return;
@@ -106,7 +107,7 @@ function RootNavigator() {
     if (profileLoading) return;
 
     const top = segments[0];
-    if (top === 'join') return;
+    if (isPublicStandaloneRoute(top)) return;
 
     const onPreferences = top === 'onboarding-preferences';
 
