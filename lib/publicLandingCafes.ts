@@ -33,6 +33,14 @@ export const WORK_LANDING_FALLBACK_TAG_SLUGS: readonly CanonicalTagSlug[] = [
   'good_natural_light',
 ];
 
+/**
+ * Coffee-led slugs for `/best-coffee-london` dynamic fallback — all registry `Coffee` tags.
+ * Covers specialty beans, espresso, filter, flat white, single origin, cold brew, decaf, matcha, iced drinks, etc.
+ * via canonical slugs + aliases on `cafes.tags` (no separate tag system).
+ */
+export const BEST_COFFEE_LONDON_FALLBACK_TAG_SLUGS: readonly CanonicalTagSlug[] =
+  CANONICAL_TAG_SLUGS.filter((slug) => TAG_REGISTRY[slug].category === 'Coffee');
+
 function isPlaceholderImageUrl(url: string): boolean {
   const normalized = url.trim().toLowerCase();
   if (!normalized) return true;
@@ -216,6 +224,9 @@ function resolveFallbackTagSlugs(
 ): readonly CanonicalTagSlug[] {
   if (pageSlug === 'working-from-cafes') {
     return WORK_LANDING_FALLBACK_TAG_SLUGS;
+  }
+  if (pageSlug === 'best-coffee-london') {
+    return BEST_COFFEE_LONDON_FALLBACK_TAG_SLUGS;
   }
   return config.tagSlugs ?? [];
 }
