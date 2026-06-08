@@ -22,11 +22,11 @@ export type PublicLandingPageConfig = {
 export const WORKING_FROM_CAFES_PAGE: PublicLandingPageConfig = {
   slug: 'working-from-cafes',
   joinSource: 'working-from-cafes',
-  heroTitle: 'Find cafés you can actually work from.',
+  heroTitle: 'Jake’s favourite cafés to work from in London',
   heroSubtitle:
-    'Beaned helps you discover cafés with the right mix of coffee, WiFi, atmosphere, and laptop-friendly energy.',
+    'A personal shortlist of cafés I’d actually bring my laptop to — good coffee, decent atmosphere, and fewer awkward “should I be working here?” vibes.',
   explanation:
-    'Curated picks with work-friendly signals from the Beaned community — WiFi, outlets, quiet corners, and space to settle in.',
+    'Based on Jake’s picks, with Beaned community ratings layered in.',
   tagSlugs: [
     'good_for_working',
     'good_wifi',
@@ -46,18 +46,18 @@ export const WORKING_FROM_CAFES_PAGE: PublicLandingPageConfig = {
     'Good Natural Light',
   ],
   fallbackBlurb:
-    'Join the beta to unlock work-friendly café picks tailored to how you actually work — laptop hours, calls, and coffee quality in one place.',
+    'I’m still adding to this list. Join the beta to see work-friendly picks as they go live — and build your own shortlist.',
   showBrowseLink: true,
 };
 
 export const BEST_COFFEE_LONDON_PAGE: PublicLandingPageConfig = {
   slug: 'best-coffee-london',
   joinSource: 'best-coffee-london',
-  heroTitle: 'Better coffee, fewer guesses.',
+  heroTitle: 'Jake’s favourite coffee spots in London',
   heroSubtitle:
-    'Discover cafés worth visiting for espresso, filter coffee, single origin beans, cold brew, matcha, and more.',
+    'Places I’d send a friend who cares about the coffee itself — espresso, filter, beans, and everything in between.',
   explanation:
-    'London cafés rated for coffee quality — from specialty beans and flat whites to filter, matcha, and iced drinks.',
+    'Based on Jake’s picks, with Beaned community ratings layered in.',
   tagSlugs: [
     'specialty_coffee',
     'great_espresso',
@@ -80,33 +80,33 @@ export const BEST_COFFEE_LONDON_PAGE: PublicLandingPageConfig = {
   ],
   londonOnly: true,
   fallbackBlurb:
-    'Join the beta for coffee-first recommendations across London — fewer guesses, more cups worth the trip.',
+    'More spots coming soon. Join the beta to follow along as I add the places I’d actually recommend for the coffee.',
   showBrowseLink: true,
 };
 
 export const HIDDEN_GEM_CAFES_PAGE: PublicLandingPageConfig = {
   slug: 'hidden-gem-cafes',
   joinSource: 'hidden-gem-cafes',
-  heroTitle: 'Find the cafés you’d usually walk past.',
+  heroTitle: 'Jake’s favourite hidden-gem cafés in London',
   heroSubtitle:
-    'Hidden corners, neighbourhood favourites, and places worth saving for later.',
+    'Neighbourhood spots, tucked-away corners, and cafés that feel worth remembering.',
   explanation:
-    'Neighbourhood-feel spots with cosy corners, design-led interiors, and relaxed energy — the kind you bookmark for later.',
+    'Based on Jake’s picks, with Beaned community ratings layered in.',
   tagSlugs: ['neighborhood_feel', 'cosy', 'aesthetic', 'quiet', 'good_natural_light'],
   tagLabels: ['Neighborhood Feel', 'Cosy', 'Aesthetic', 'Quiet', 'Good Natural Light'],
   fallbackBlurb:
-    'Join the beta to save hidden gems, build your café diary, and get picks that match your vibe — not just the obvious chains.',
+    'I’m still building this list. Join the beta to save the gems you find and keep your own running shortlist.',
   showBrowseLink: true,
 };
 
 export const CAFE_DIARY_PAGE: PublicLandingPageConfig = {
   slug: 'cafe-diary',
   joinSource: 'cafe-diary',
-  heroTitle: 'Start remembering the cafés you visit.',
+  heroTitle: 'Start your own café diary',
   heroSubtitle:
-    'Log your favourite spots, save photos from each visit, rate the experience, and build a personal coffee diary.',
+    'I started Beaned because I kept forgetting the cafés I loved. Track where you’ve been, what you ordered, and the places you want to come back to.',
   explanation:
-    'Beaned is built for people who care where they drink coffee — not just where they worked today.',
+    'Same idea I use myself — a simple log for the cafés worth remembering.',
   steps: [
     {
       title: 'Find a café',
@@ -126,6 +126,6 @@ export const CAFE_DIARY_PAGE: PublicLandingPageConfig = {
     },
   ],
   fallbackBlurb:
-    'Join the beta to start your café diary — early testers get in first as we open access in small batches.',
+    'Join the beta to start yours — early testers get in first while I’m opening access in small batches.',
   showBrowseLink: false,
 };
