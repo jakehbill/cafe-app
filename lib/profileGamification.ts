@@ -2,24 +2,26 @@ import type { CafeRating } from '@/contexts/CafeStateContext';
 
 /**
  * Unified points model (single progression source for levels + badges).
- * - Rating a cafe = 20 pts (one row in `user_cafe_ratings`)
- * - Marking visited = 10 pts per visited cafe
- * - Saving = 5 pts per saved cafe
- * - Each tag on a rating = 2 pts (from `user_cafe_ratings.tags`)
- * - Suggesting a cafe = 10 pts (one meaningful suggestion per cafe key)
- * - Cafe approved = 50 pts
- * - Submitting a photo = 3 pts
- * - Photo approved = 12 pts
+ * Computed from activity counts on profile load — not stored in the database.
+ *
+ * - Log / visit (unique cafe) = 1 pt
+ * - Rate a cafe (`user_cafe_ratings` row) = 1 pt
+ * - Save a cafe = 1 pt
+ * - Tags on ratings = 0 pts (covered by rating; avoids tag inflation)
+ * - Suggest a cafe = 2 pts (one per meaningful submission key)
+ * - Cafe approved = 5 pts
+ * - Submit a photo = 1 pt
+ * - Photo approved = 1 pt
  */
 export const POINTS = {
-  perRating: 20,
-  perVisited: 10,
-  perSaved: 5,
-  perTag: 2,
-  perCafeSuggestion: 10,
-  perCafeApproved: 50,
-  perPhotoSubmitted: 3,
-  perPhotoApproved: 12,
+  perRating: 1,
+  perVisited: 1,
+  perSaved: 1,
+  perTag: 0,
+  perCafeSuggestion: 2,
+  perCafeApproved: 5,
+  perPhotoSubmitted: 1,
+  perPhotoApproved: 1,
 } as const;
 
 export type ActivitySnapshot = {
@@ -84,15 +86,21 @@ export function computeTotalPoints(snapshot: ActivitySnapshot): number {
 
 /**
  * Level thresholds (minimum total points inclusive).
- * 0 → Newcomer, 100 → First Pour, …, 1400 → Cult Favourite (max).
+ * Tight early tiers for long-term, Duolingo-style progression.
  */
 const LEVEL_TIERS = [
-  { minPoints: 0, title: 'Newcomer' },
-  { minPoints: 100, title: 'First Pour' },
-  { minPoints: 250, title: 'Regular' },
-  { minPoints: 500, title: 'Explorer' },
-  { minPoints: 900, title: 'Connoisseur' },
-  { minPoints: 1400, title: 'Cult Favourite' },
+  { minPoints: 0, title: 'First Sip' },
+  { minPoints: 10, title: 'Regular' },
+  { minPoints: 25, title: 'Café Hopper' },
+  { minPoints: 45, title: 'Neighbourhood Explorer' },
+  { minPoints: 70, title: 'Flat White Finder' },
+  { minPoints: 100, title: 'Hidden Gem Hunter' },
+  { minPoints: 140, title: 'Coffee Cartographer' },
+  { minPoints: 190, title: 'City Sipper' },
+  { minPoints: 250, title: 'Beaned Local' },
+  { minPoints: 325, title: 'Café Legend' },
+  { minPoints: 425, title: 'Beaned Legend' },
+  { minPoints: 540, title: 'Coffee Elder' },
 ] as const;
 
 export type LevelProgress = {
@@ -166,7 +174,7 @@ export type ProfileBadge = {
   unlocked: boolean;
 };
 
-/** Milestone badges — unlock rules use the same `ActivitySnapshot` as points. */
+/** Milestone badges — unlock rules use activity counts, not point totals. */
 export function computeProfileBadges(snapshot: ActivitySnapshot): ProfileBadge[] {
   const catalog: ProfileBadge[] = [
     {

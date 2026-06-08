@@ -25,7 +25,6 @@ import { type Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
-import { POINTS } from '@/lib/profileGamification';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
 import {
@@ -261,7 +260,9 @@ export default function LogVisitScreen() {
                   ? 'Moved from Saved for later to Visited.'
                   : 'Added to your personal cafe log.'}
               </Text>
-              <Text style={styles.successPointsText}>+{POINTS.perVisited} points for logging a visit</Text>
+              <Text style={styles.successProgressText}>
+                Logged. Your Beaned progress has been updated.
+              </Text>
               {successState.hadPhoto ? (
                 <Text style={styles.successHintText}>Your photos have been submitted for review.</Text>
               ) : null}
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
   },
   errorText: { fontSize: 13, lineHeight: 18, color: '#8B4A4A', fontFamily: FONTS.sans.medium },
-  successPointsText: {
+  successProgressText: {
     fontSize: 13,
     lineHeight: 18,
     color: COLORS.accent,

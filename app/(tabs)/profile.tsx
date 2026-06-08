@@ -279,16 +279,17 @@ export default function ProfileScreen() {
   const badges = useMemo(() => computeProfileBadges(activitySnapshot), [activitySnapshot]);
   const canAccessModeration = useMemo(() => isModerator(user?.id), [user?.id]);
   const gamificationHelpLines = useMemo(
-    () => [
-      { label: 'Rate a cafe', points: POINTS.perRating },
-      { label: 'Visit a cafe', points: POINTS.perVisited },
-      { label: 'Save a cafe', points: POINTS.perSaved },
-      { label: 'Add a tag', points: POINTS.perTag },
-      { label: 'Suggest a cafe', points: POINTS.perCafeSuggestion },
-      { label: 'Approved cafe', points: POINTS.perCafeApproved },
-      { label: 'Submit a photo', points: POINTS.perPhotoSubmitted },
-      { label: 'Approved photo', points: POINTS.perPhotoApproved },
-    ],
+    () =>
+      [
+        { label: 'Rate a cafe', points: POINTS.perRating },
+        { label: 'Visit a cafe', points: POINTS.perVisited },
+        { label: 'Save a cafe', points: POINTS.perSaved },
+        { label: 'Add a tag', points: POINTS.perTag },
+        { label: 'Suggest a cafe', points: POINTS.perCafeSuggestion },
+        { label: 'Approved cafe', points: POINTS.perCafeApproved },
+        { label: 'Submit a photo', points: POINTS.perPhotoSubmitted },
+        { label: 'Approved photo', points: POINTS.perPhotoApproved },
+      ].filter((line) => line.points > 0),
     []
   );
 
@@ -492,7 +493,7 @@ export default function ProfileScreen() {
               <View style={styles.progressMetaRow}>
                 <Text style={styles.progressMetaText} numberOfLines={2}>
                   {levelProgress.isMaxLevel
-                    ? 'You’ve reached Cult Favourite — the top level.'
+                    ? `You’ve reached ${levelProgress.currentTitle} — the top level.`
                     : `Progress toward ${levelProgress.nextTitle}`}
                 </Text>
                 {!levelProgress.isMaxLevel && levelProgress.nextTierMinPoints !== null ? (
