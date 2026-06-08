@@ -1,3 +1,9 @@
+import {
+  getApprovedCafePhotoUrls,
+  parseCafeIdForPhotoQuery,
+  resolveCafePhotoRowToDisplayUrl,
+  type CafePhotoRowForDisplay,
+} from '@/lib/cafePhotoSubmissions';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { generateUniqueCafeSlug } from '@/lib/cafeSlug';
 import {
@@ -562,6 +568,144 @@ export async function createCafeAndApproveSubmission(
   }
 
   return { ok: true, cafeId: createdCafeId };
+}
+
+export type ApprovedCafePhotoForModeration = {
+  id: string;
+  cafeId: string;
+  previewUrl: string | null;
+  isPrimary: boolean;
+  sortOrder: number | null;
+  createdAt: string;
+};
+
+/** Approved live photos for a café — moderator tools (primary picker). */
+export async function fetchApprovedCafePhotosForCafe(
+  cafeId: string
+): Promise<ApprovedCafePhotoForModeration[]> {
+  const normalizedCafeId = String(cafeId ?? '').trim();
+  if (!normalizedCafeId) return [];
+
+  const res = await supabase
+    .from('cafe_photos')
+    .select('id, cafe_id, image_url, storage_path, sort_order, is_primary, created_at')
+    .eq('cafe_id', parseCafeIdForPhotoQuery(normalizedCafeId))
+    .eq('status', 'approved')
+    .order('is_primary', { ascending: false })
+    .order('sort_order', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true });
+
+  if (res.error) {
+    console.error('[fetchApprovedCafePhotosForCafe] select failed:', res.error.message);
+    return [];
+  }
+
+  const rows = (res.data ?? []) as (CafePhotoRowForDisplay & {
+    id: string;
+    cafe_id: number | string;
+    created_at: string;
+  })[];
+
+  const withUrls = await Promise.all(
+    rows.map(async (row) => {
+      const previewUrl = await resolveCafePhotoRowToDisplayUrl(row);
+      return {
+        id: String(row.id),
+        cafeId: String(row.cafe_id ?? normalizedCafeId),
+        previewUrl,
+        isPrimary: row.is_primary === true,
+        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : null,
+        createdAt: String(row.created_at ?? ''),
+      } satisfies ApprovedCafePhotoForModeration;
+    })
+  );
+
+  return withUrls.filter((row) => Boolean(row.previewUrl));
+}
+
+/**
+ * Mark one approved photo as the café primary image.
+ * Clears `is_primary` on sibling rows and reorders `cafes.image_urls` (primary first).
+ */
+export async function setCafePrimaryPhoto(photoId: string): Promise<SupabaseActionResult> {
+  const key = String(photoId ?? '').trim();
+  if (!key) return { ok: false, error: 'Photo id is required.' };
+
+  const rowRes = await supabase
+    .from('cafe_photos')
+    .select('id, cafe_id, image_url, storage_path, status, is_primary')
+    .eq('id', key)
+    .eq('status', 'approved')
+    .maybeSingle();
+
+  if (rowRes.error) return { ok: false, error: rowRes.error.message };
+  const row = rowRes.data as {
+    id: string;
+    cafe_id: number | string;
+    image_url: string | null;
+    storage_path: string | null;
+    status: string;
+    is_primary: boolean | null;
+  } | null;
+  if (!row) {
+    return { ok: false, error: 'Approved photo not found.' };
+  }
+
+  const cafeId = String(row.cafe_id ?? '').trim();
+  const cafeIdQuery = parseCafeIdForPhotoQuery(cafeId);
+  const publicUrl = await resolveCafePhotoRowToDisplayUrl(row);
+  if (!publicUrl) {
+    return { ok: false, error: 'Photo has no usable public image URL.' };
+  }
+
+  const clearRes = await supabase
+    .from('cafe_photos')
+    .update({ is_primary: false })
+    .eq('cafe_id', cafeIdQuery)
+    .eq('status', 'approved');
+  if (clearRes.error) return { ok: false, error: clearRes.error.message };
+
+  const setRes = await supabase
+    .from('cafe_photos')
+    .update({ is_primary: true, sort_order: 0 })
+    .eq('id', key)
+    .eq('status', 'approved');
+  if (setRes.error) return { ok: false, error: setRes.error.message };
+
+  const siblingRes = await supabase
+    .from('cafe_photos')
+    .select('id')
+    .eq('cafe_id', cafeIdQuery)
+    .eq('status', 'approved')
+    .neq('id', key)
+    .order('created_at', { ascending: true });
+  if (!siblingRes.error) {
+    const siblings = siblingRes.data ?? [];
+    await Promise.all(
+      siblings.map((sibling, index) =>
+        supabase
+          .from('cafe_photos')
+          .update({ sort_order: index + 1 })
+          .eq('id', String((sibling as { id: string }).id))
+      )
+    );
+  }
+
+  const orderedUrls = await getApprovedCafePhotoUrls(cafeId);
+  const nextImageUrls =
+    orderedUrls.length > 0
+      ? orderedUrls
+      : [publicUrl];
+
+  const cafeUpdateRes = await supabase
+    .from('cafes')
+    .update({ image_urls: nextImageUrls })
+    .eq('id', cafeId);
+  if (cafeUpdateRes.error) {
+    console.warn('[setCafePrimaryPhoto] cafes.image_urls update failed:', cafeUpdateRes.error.message);
+  }
+
+  return { ok: true };
 }
 
 export async function reviewPhotoSubmission(

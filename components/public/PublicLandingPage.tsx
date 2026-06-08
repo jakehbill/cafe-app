@@ -3,11 +3,7 @@ import { PublicCafePreviewCard } from '@/components/public/PublicCafePreviewCard
 import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 import { COLORS, FONTS } from '@/components/theme';
 import type { PublicLandingPageConfig } from '@/lib/publicLandingConfig';
-import {
-  fetchPublicCafeSample,
-  pickCafesForTagSlugs,
-  PUBLIC_LANDING_CAFE_MAX,
-} from '@/lib/publicLandingCafes';
+import { getLandingPageCafes, PUBLIC_LANDING_CAFE_MAX } from '@/lib/publicLandingCafes';
 import type { Cafe } from '@/data/cafes';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
@@ -24,26 +20,25 @@ type Props = {
 export function PublicLandingPage({ config }: Props) {
   const router = useRouter();
   const [cafes, setCafes] = useState<Cafe[]>([]);
-  const [loading, setLoading] = useState(!!config.tagSlugs?.length);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!config.tagSlugs?.length) return;
     let cancelled = false;
     void (async () => {
       setLoading(true);
-      const sample = await fetchPublicCafeSample();
-      if (cancelled) return;
-      const picked = pickCafesForTagSlugs(sample, config.tagSlugs, {
+      const picked = await getLandingPageCafes(config.slug, {
+        tagSlugs: config.tagSlugs,
         londonOnly: config.londonOnly,
         max: PUBLIC_LANDING_CAFE_MAX,
       });
+      if (cancelled) return;
       setCafes(picked);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [config.tagSlugs, config.londonOnly]);
+  }, [config.slug, config.tagSlugs, config.londonOnly]);
 
   function openJoin() {
     router.push(`/join?source=${encodeURIComponent(config.joinSource)}`);
@@ -83,32 +78,26 @@ export function PublicLandingPage({ config }: Props) {
             </View>
           ) : null}
 
-          {config.tagSlugs?.length ? (
-            <View style={styles.cafeSection}>
-              <Text style={styles.sectionLabel}>Curated picks</Text>
-              {loading ? (
-                <View style={styles.loadingWrap}>
-                  <ActivityIndicator color={COLORS.accent} />
-                  <Text style={styles.loadingText}>Loading cafés…</Text>
-                </View>
-              ) : cafes.length > 0 ? (
-                <View style={styles.cafeList}>
-                  {cafes.map((cafe) => (
-                    <PublicCafePreviewCard key={cafe.id} cafe={cafe} />
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.fallbackCard}>
-                  <Text style={styles.fallbackTitle}>More picks coming soon</Text>
-                  <Text style={styles.fallbackBody}>{config.fallbackBlurb}</Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View style={styles.fallbackCard}>
-              <Text style={styles.fallbackBody}>{config.fallbackBlurb}</Text>
-            </View>
-          )}
+          <View style={styles.cafeSection}>
+            <Text style={styles.sectionLabel}>Curated picks</Text>
+            {loading ? (
+              <View style={styles.loadingWrap}>
+                <ActivityIndicator color={COLORS.accent} />
+                <Text style={styles.loadingText}>Loading cafés…</Text>
+              </View>
+            ) : cafes.length > 0 ? (
+              <View style={styles.cafeList}>
+                {cafes.map((cafe) => (
+                  <PublicCafePreviewCard key={cafe.id} cafe={cafe} />
+                ))}
+              </View>
+            ) : (
+              <View style={styles.fallbackCard}>
+                <Text style={styles.fallbackTitle}>More picks coming soon</Text>
+                <Text style={styles.fallbackBody}>{config.fallbackBlurb}</Text>
+              </View>
+            )}
+          </View>
 
           <View style={styles.ctaBlock}>
             <FlowPrimaryButton label="Join the beta" onPress={openJoin} />

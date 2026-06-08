@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { type Href, useRouter } from 'expo-router';
 import React from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
@@ -111,7 +111,11 @@ export default function ModerationScreen() {
     setCafeItems((prev) => prev.filter((item) => item.id !== id));
   }
 
-  async function handlePhotoDecision(id: string, decision: 'approved' | 'rejected') {
+  async function handlePhotoDecision(
+    id: string,
+    decision: 'approved' | 'rejected',
+    options?: { setAsPrimary?: boolean }
+  ) {
     if (workingItemId === id) return;
     if (workingItemId) {
       Alert.alert('Please wait', 'Another moderation action is still in progress.');
@@ -120,7 +124,9 @@ export default function ModerationScreen() {
 
     setWorkingItemId(id);
     try {
-      const res = await reviewPhotoSubmission(id, decision);
+      const res = await reviewPhotoSubmission(id, decision, {
+        setAsPrimary: options?.setAsPrimary === true,
+      });
       if (!res.ok) {
         Alert.alert(
           decision === 'approved' ? 'Could not approve photo' : 'Could not reject photo',
@@ -132,7 +138,9 @@ export default function ModerationScreen() {
       Alert.alert(
         decision === 'approved' ? 'Photo approved' : 'Photo rejected',
         decision === 'approved'
-          ? 'This photo is now live on the café page and cards (refresh home to see it).'
+          ? options?.setAsPrimary
+            ? 'This photo is approved and set as the café primary image.'
+            : 'This photo is now live on the café page and cards (refresh home to see it).'
           : 'This photo will not appear on the café.'
       );
     } catch (error) {
@@ -170,6 +178,13 @@ export default function ModerationScreen() {
         <View style={styles.headerBlock}>
           <Text style={styles.title}>Moderation</Text>
           <Text style={styles.subtitle}>Review pending submissions before anything goes live.</Text>
+          <TouchableOpacity
+            activeOpacity={0.88}
+            style={styles.managePhotosLink}
+            onPress={() => router.push('/moderation-cafe-photos' as Href)}
+          >
+            <Text style={styles.managePhotosLinkText}>Manage café primary photos</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.segmentRow}>
@@ -307,6 +322,16 @@ export default function ModerationScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       activeOpacity={0.88}
+                      style={[styles.actionButton, styles.approvePrimaryButton]}
+                      disabled={workingItemId != null}
+                      onPress={() => void handlePhotoDecision(item.id, 'approved', { setAsPrimary: true })}
+                    >
+                      <Text style={[styles.actionButtonText, styles.approveButtonText]}>
+                        Approve & Make Primary
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.88}
                       style={[styles.actionButton, styles.rejectButton]}
                       disabled={workingItemId != null}
                       onPress={() => void handlePhotoDecision(item.id, 'rejected')}
@@ -314,6 +339,18 @@ export default function ModerationScreen() {
                       <Text style={styles.actionButtonText}>Reject</Text>
                     </TouchableOpacity>
                   </View>
+                  <TouchableOpacity
+                    activeOpacity={0.88}
+                    style={styles.manageCafePhotosLink}
+                    onPress={() => {
+                      const href = `/moderation-cafe-photos?cafeId=${encodeURIComponent(String(item.cafe_id))}`;
+                      router.push(href as Href);
+                    }}
+                  >
+                    <Text style={styles.manageCafePhotosLinkText}>
+                      Manage approved photos for this café
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -359,6 +396,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: COLORS.muted,
     fontFamily: FONTS.sans.regular,
+  },
+  managePhotosLink: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  managePhotosLinkText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
   },
   segmentRow: {
     flexDirection: 'row',
@@ -443,10 +490,13 @@ const styles = StyleSheet.create({
   actionsRow: {
     marginTop: 4,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   actionButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 96,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
@@ -458,6 +508,20 @@ const styles = StyleSheet.create({
   approveButton: {
     borderColor: COLORS.accentSubtleBorder,
     backgroundColor: COLORS.accentSubtleFill,
+  },
+  approvePrimaryButton: {
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accentSubtleFill,
+  },
+  manageCafePhotosLink: {
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  manageCafePhotosLinkText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.accent,
+    fontFamily: FONTS.sans.semibold,
   },
   createButton: {
     borderColor: COLORS.accent,

@@ -226,6 +226,14 @@ function RootNavigator() {
         }}
       />
       <Stack.Screen
+        name="moderation-cafe-photos"
+        options={{
+          ...stackHeaderOn,
+          title: 'Café photos',
+          headerTitle: 'Café photos',
+        }}
+      />
+      <Stack.Screen
         name="onboarding-preferences"
         options={{
           headerShown: false,
