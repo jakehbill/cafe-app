@@ -3,6 +3,10 @@ import { getCafePhotoUrls } from '@/data/cafes';
 import { hydrateCafesWithPublicScores, mapCafeRowToCafe } from '@/lib/cafeCatalogSupabase';
 import { CAFE_PLACEHOLDER_IMAGE_URL } from '@/lib/cafeLiveImages';
 import {
+  rawPublicCoffeeToOutOf5,
+  UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE,
+} from '@/lib/publicCoffeeDisplay';
+import {
   fetchApprovedCafePhotoUrlsByCafeIds,
   isUnusableCafePhotoImageUrl,
 } from '@/lib/cafePhotoSubmissions';
@@ -72,8 +76,13 @@ type CuratedPickRow = {
   cafes: Record<string, unknown> | Record<string, unknown>[] | null;
 };
 
-/** Manual picks from `public_landing_cafe_picks` joined to `cafes`, ordered by sort_order. */
-export async function fetchCuratedLandingCafes(pageSlug: string): Promise<Cafe[]> {
+export type CuratedLandingPick = {
+  cafe: Cafe;
+  sortOrder: number;
+};
+
+/** Manual picks from `public_landing_cafe_picks` joined to `cafes`. */
+export async function fetchCuratedLandingCafePicks(pageSlug: string): Promise<CuratedLandingPick[]> {
   const slug = String(pageSlug ?? '').trim();
   if (!slug) return [];
 
@@ -89,7 +98,7 @@ export async function fetchCuratedLandingCafes(pageSlug: string): Promise<Cafe[]
     return [];
   }
 
-  const out: Cafe[] = [];
+  const out: CuratedLandingPick[] = [];
   const seenIds = new Set<string>();
 
   for (const row of (res.data ?? []) as CuratedPickRow[]) {
@@ -100,10 +109,63 @@ export async function fetchCuratedLandingCafes(pageSlug: string): Promise<Cafe[]
     const cafe = mapCafeRowToCafe(cafeRow);
     if (!cafe || seenIds.has(cafe.id)) continue;
     seenIds.add(cafe.id);
-    out.push(cafe);
+    const sortOrder =
+      typeof row.sort_order === 'number' && Number.isFinite(row.sort_order)
+        ? row.sort_order
+        : Number.MAX_SAFE_INTEGER;
+    out.push({ cafe, sortOrder });
   }
 
   return out;
+}
+
+/** @deprecated Use fetchCuratedLandingCafePicks — kept for callers that only need café rows. */
+export async function fetchCuratedLandingCafes(pageSlug: string): Promise<Cafe[]> {
+  const picks = await fetchCuratedLandingCafePicks(pageSlug);
+  return picks.map((pick) => pick.cafe);
+}
+
+/** Sort key for public landing lists — real `cafe_public_scores` average, else UI baseline 4.0. */
+export function publicLandingRatingSortKey(cafe: Cafe): number {
+  const ratingCount = Math.max(0, Math.floor(cafe.coffeeRatingCount ?? 0));
+  if (ratingCount > 0) {
+    const normalized = rawPublicCoffeeToOutOf5(cafe.publicCoffeeScore);
+    if (normalized != null) return normalized;
+  }
+  return UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE;
+}
+
+/**
+ * Order eligible landing-page cafés: public rating → rating count → manual sort_order → dynamic rank → name.
+ */
+export function sortLandingPageCafesByPublicRating(
+  cafes: Cafe[],
+  options: {
+    manualSortOrderByCafeId: ReadonlyMap<string, number>;
+    dynamicFallbackIndexByCafeId?: ReadonlyMap<string, number>;
+  }
+): Cafe[] {
+  const { manualSortOrderByCafeId, dynamicFallbackIndexByCafeId } = options;
+
+  return [...cafes].sort((a, b) => {
+    const ratingA = publicLandingRatingSortKey(a);
+    const ratingB = publicLandingRatingSortKey(b);
+    if (ratingB !== ratingA) return ratingB - ratingA;
+
+    const countA = Math.max(0, Math.floor(a.coffeeRatingCount ?? 0));
+    const countB = Math.max(0, Math.floor(b.coffeeRatingCount ?? 0));
+    if (countB !== countA) return countB - countA;
+
+    const manualA = manualSortOrderByCafeId.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+    const manualB = manualSortOrderByCafeId.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+    if (manualA !== manualB) return manualA - manualB;
+
+    const dynamicA = dynamicFallbackIndexByCafeId?.get(a.id) ?? Number.MAX_SAFE_INTEGER;
+    const dynamicB = dynamicFallbackIndexByCafeId?.get(b.id) ?? Number.MAX_SAFE_INTEGER;
+    if (dynamicA !== dynamicB) return dynamicA - dynamicB;
+
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export function pickCafesForTagSlugs(
@@ -158,14 +220,11 @@ function resolveFallbackTagSlugs(
   return config.tagSlugs ?? [];
 }
 
-async function fetchDynamicFallbackCafes(
+/** Tag-matched dynamic pool (photo/tag ranked) — eligibility only; final order is by public rating. */
+async function fetchDynamicFallbackPool(
   pageSlug: string,
-  config: LandingPageDynamicFallbackConfig,
-  options: { remainingSlots: number; excludeCafeIds: ReadonlySet<string> }
+  config: LandingPageDynamicFallbackConfig
 ): Promise<Cafe[]> {
-  const { remainingSlots, excludeCafeIds } = options;
-  if (remainingSlots <= 0) return [];
-
   const tagSlugs = resolveFallbackTagSlugs(pageSlug, config);
   if (tagSlugs.length === 0) return [];
 
@@ -176,50 +235,70 @@ async function fetchDynamicFallbackCafes(
 
   return pickCafesForTagSlugs(sample, tagSlugs, {
     londonOnly: config.londonOnly,
-    max: remainingSlots,
-    excludeCafeIds,
+    max: PUBLIC_SAMPLE_LIMIT,
     approvedPhotosByCafeId,
   });
 }
 
 /**
- * Landing page cafés: manual `public_landing_cafe_picks` first, then tag-based fallback.
- * Deduplicates by café id; manual order is preserved.
+ * Landing page cafés: manual picks + dynamic fallback eligibility, then ordered by public rating.
  */
 export async function getLandingPageCafes(
   pageSlug: string,
   fallback?: LandingPageDynamicFallbackConfig
 ): Promise<Cafe[]> {
   const max = fallback?.max ?? PUBLIC_LANDING_CAFE_MAX;
+  const fallbackConfig = fallback ?? {};
 
-  let curated: Cafe[] = [];
+  let curatedPicks: CuratedLandingPick[] = [];
   try {
-    curated = await fetchCuratedLandingCafes(pageSlug);
+    curatedPicks = await fetchCuratedLandingCafePicks(pageSlug);
   } catch (error) {
     console.error('[publicLanding] curated picks threw:', error);
   }
 
-  const curatedTrimmed = curated.slice(0, max);
-  const curatedIds = new Set(curatedTrimmed.map((cafe) => cafe.id));
-  const remainingSlots = Math.max(0, max - curatedTrimmed.length);
+  const manualSortOrderByCafeId = new Map(
+    curatedPicks.map((pick) => [pick.cafe.id, pick.sortOrder] as const)
+  );
 
-  let dynamic: Cafe[] = [];
-  if (remainingSlots > 0 && fallback?.tagSlugs?.length) {
+  let dynamicPool: Cafe[] = [];
+  if (resolveFallbackTagSlugs(pageSlug, fallbackConfig).length > 0) {
     try {
-      dynamic = await fetchDynamicFallbackCafes(pageSlug, fallback, {
-        remainingSlots,
-        excludeCafeIds: curatedIds,
-      });
+      dynamicPool = await fetchDynamicFallbackPool(pageSlug, fallbackConfig);
     } catch (error) {
       console.error('[publicLanding] dynamic fallback threw:', error);
     }
   }
 
-  const combined = [...curatedTrimmed, ...dynamic].slice(0, max);
+  const dynamicFallbackIndexByCafeId = new Map(
+    dynamicPool.map((cafe, index) => [cafe.id, index] as const)
+  );
+
+  const eligibleById = new Map<string, Cafe>();
+  for (const pick of curatedPicks) {
+    eligibleById.set(pick.cafe.id, pick.cafe);
+  }
+  for (const cafe of dynamicPool) {
+    if (!eligibleById.has(cafe.id)) {
+      eligibleById.set(cafe.id, cafe);
+    }
+  }
+
+  const eligible = Array.from(eligibleById.values());
+  if (eligible.length === 0) return [];
+
+  let hydrated: Cafe[];
   try {
-    return await hydrateCafesWithPublicScores(combined);
+    hydrated = await hydrateCafesWithPublicScores(eligible);
   } catch (error) {
     console.error('[publicLanding] public score hydration threw:', error);
-    return combined;
+    hydrated = eligible;
   }
+
+  const sorted = sortLandingPageCafesByPublicRating(hydrated, {
+    manualSortOrderByCafeId,
+    dynamicFallbackIndexByCafeId,
+  });
+
+  return sorted.slice(0, max);
 }
