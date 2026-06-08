@@ -303,6 +303,22 @@ export async function fetchCafePublicScoreForId(id: string): Promise<CafePublicS
   return parsePublicScoreRow(res.data ?? null);
 }
 
+/**
+ * Merge `cafe_public_scores` onto café rows (same path as catalog cards / detail).
+ */
+export async function hydrateCafesWithPublicScores(
+  cafes: Cafe[],
+  rawRowsByCafeId?: Map<string, Record<string, unknown>>
+): Promise<Cafe[]> {
+  if (cafes.length === 0) return [];
+  const uniqueIds = Array.from(new Set(cafes.map((cafe) => cafe.id).filter((id) => id.length > 0)));
+  const pubMap = await fetchCafePublicScoresForIds(uniqueIds);
+  return cafes.map((cafe) => {
+    const raw = rawRowsByCafeId?.get(cafe.id);
+    return mergePublicIntoCafe(cafe, resolvePublicScoreRowFromMap(cafe, raw ?? {}, pubMap));
+  });
+}
+
 /** Full cafe catalog — Supabase `public.cafes` is the source of truth for listing metadata. */
 export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
   const [res, pubMap] = await Promise.all([

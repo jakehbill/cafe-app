@@ -1,7 +1,17 @@
 import type { Cafe } from '@/data/cafes';
-import { mapCafeRowToCafe } from '@/lib/cafeCatalogSupabase';
-import { getCanonicalSlugsFromCafeTags } from '@/lib/tagRegistry';
-import type { CanonicalTagSlug } from '@/lib/tagRegistry';
+import { getCafePhotoUrls } from '@/data/cafes';
+import { hydrateCafesWithPublicScores, mapCafeRowToCafe } from '@/lib/cafeCatalogSupabase';
+import { CAFE_PLACEHOLDER_IMAGE_URL } from '@/lib/cafeLiveImages';
+import {
+  fetchApprovedCafePhotoUrlsByCafeIds,
+  isUnusableCafePhotoImageUrl,
+} from '@/lib/cafePhotoSubmissions';
+import {
+  CANONICAL_TAG_SLUGS,
+  getCanonicalSlugsFromCafeTags,
+  TAG_REGISTRY,
+  type CanonicalTagSlug,
+} from '@/lib/tagRegistry';
 import { supabase } from '@/lib/supabase';
 
 const PUBLIC_SAMPLE_LIMIT = 100;
@@ -12,6 +22,34 @@ export type LandingPageDynamicFallbackConfig = {
   londonOnly?: boolean;
   max?: number;
 };
+
+/** Broader work-related slugs for `/working-from-cafes` dynamic fallback (registry Work + natural light). */
+export const WORK_LANDING_FALLBACK_TAG_SLUGS: readonly CanonicalTagSlug[] = [
+  ...CANONICAL_TAG_SLUGS.filter((slug) => TAG_REGISTRY[slug].category === 'Work'),
+  'good_natural_light',
+];
+
+function isPlaceholderImageUrl(url: string): boolean {
+  const normalized = url.trim().toLowerCase();
+  if (!normalized) return true;
+  if (normalized === CAFE_PLACEHOLDER_IMAGE_URL.toLowerCase()) return true;
+  return normalized.includes('beaned image placeholder') || normalized.includes('beaned%20image%20placeholder');
+}
+
+/**
+ * True when the café has a non-placeholder public image (approved `cafe_photos` and/or `cafes.image_urls`).
+ */
+export function cafeHasRealPublicPhoto(cafe: Cafe, approvedPhotoUrls?: string[]): boolean {
+  const candidates = [
+    ...(approvedPhotoUrls ?? []),
+    ...getCafePhotoUrls(cafe),
+  ];
+  return candidates.some((url) => {
+    const s = String(url ?? '').trim();
+    if (!s || isPlaceholderImageUrl(s) || isUnusableCafePhotoImageUrl(s)) return false;
+    return /^https?:\/\//i.test(s);
+  });
+}
 
 /** Lightweight public sample — capped row count, no full-catalog hydration. */
 export async function fetchPublicCafeSample(): Promise<Cafe[]> {
@@ -71,40 +109,76 @@ export async function fetchCuratedLandingCafes(pageSlug: string): Promise<Cafe[]
 export function pickCafesForTagSlugs(
   cafes: Cafe[],
   tagSlugs: readonly CanonicalTagSlug[],
-  options?: { londonOnly?: boolean; max?: number; excludeCafeIds?: ReadonlySet<string> }
+  options?: {
+    londonOnly?: boolean;
+    max?: number;
+    excludeCafeIds?: ReadonlySet<string>;
+    approvedPhotosByCafeId?: ReadonlyMap<string, string[]>;
+  }
 ): Cafe[] {
   const max = options?.max ?? PUBLIC_LANDING_CAFE_MAX;
   const exclude = options?.excludeCafeIds;
+  const approvedMap = options?.approvedPhotosByCafeId;
 
   const ranked = cafes
     .map((cafe) => {
       const present = getCanonicalSlugsFromCafeTags(cafe.tags);
-      let score = tagSlugs.filter((slug) => present.has(slug)).length;
+      const matchCount = tagSlugs.filter((slug) => present.has(slug)).length;
+      if (matchCount <= 0) return null;
+
+      let tagScore = matchCount;
       if (options?.londonOnly) {
         const area = `${cafe.neighborhood} ${cafe.name}`.toLowerCase();
-        if (area.includes('london')) score += 0.5;
+        if (area.includes('london')) tagScore += 0.5;
       }
-      return { cafe, score };
+
+      const hasRealPhoto = cafeHasRealPublicPhoto(cafe, approvedMap?.get(cafe.id));
+      return { cafe, tagScore, hasRealPhoto };
     })
-    .filter((row) => row.score > 0 && !exclude?.has(row.cafe.id))
-    .sort((a, b) => b.score - a.score || a.cafe.name.localeCompare(b.cafe.name));
+    .filter((row): row is { cafe: Cafe; tagScore: number; hasRealPhoto: boolean } => {
+      if (!row) return false;
+      return !exclude?.has(row.cafe.id);
+    })
+    .sort((a, b) => {
+      if (a.hasRealPhoto !== b.hasRealPhoto) return a.hasRealPhoto ? -1 : 1;
+      if (b.tagScore !== a.tagScore) return b.tagScore - a.tagScore;
+      return a.cafe.name.localeCompare(b.cafe.name);
+    });
 
   return ranked.slice(0, max).map((row) => row.cafe);
 }
 
+function resolveFallbackTagSlugs(
+  pageSlug: string,
+  config: LandingPageDynamicFallbackConfig
+): readonly CanonicalTagSlug[] {
+  if (pageSlug === 'working-from-cafes') {
+    return WORK_LANDING_FALLBACK_TAG_SLUGS;
+  }
+  return config.tagSlugs ?? [];
+}
+
 async function fetchDynamicFallbackCafes(
+  pageSlug: string,
   config: LandingPageDynamicFallbackConfig,
   options: { remainingSlots: number; excludeCafeIds: ReadonlySet<string> }
 ): Promise<Cafe[]> {
   const { remainingSlots, excludeCafeIds } = options;
   if (remainingSlots <= 0) return [];
-  if (!config.tagSlugs?.length) return [];
+
+  const tagSlugs = resolveFallbackTagSlugs(pageSlug, config);
+  if (tagSlugs.length === 0) return [];
 
   const sample = await fetchPublicCafeSample();
-  return pickCafesForTagSlugs(sample, config.tagSlugs, {
+  const approvedPhotosByCafeId = await fetchApprovedCafePhotoUrlsByCafeIds(
+    sample.map((cafe) => cafe.id)
+  );
+
+  return pickCafesForTagSlugs(sample, tagSlugs, {
     londonOnly: config.londonOnly,
     max: remainingSlots,
     excludeCafeIds,
+    approvedPhotosByCafeId,
   });
 }
 
@@ -132,7 +206,7 @@ export async function getLandingPageCafes(
   let dynamic: Cafe[] = [];
   if (remainingSlots > 0 && fallback?.tagSlugs?.length) {
     try {
-      dynamic = await fetchDynamicFallbackCafes(fallback, {
+      dynamic = await fetchDynamicFallbackCafes(pageSlug, fallback, {
         remainingSlots,
         excludeCafeIds: curatedIds,
       });
@@ -141,5 +215,11 @@ export async function getLandingPageCafes(
     }
   }
 
-  return [...curatedTrimmed, ...dynamic].slice(0, max);
+  const combined = [...curatedTrimmed, ...dynamic].slice(0, max);
+  try {
+    return await hydrateCafesWithPublicScores(combined);
+  } catch (error) {
+    console.error('[publicLanding] public score hydration threw:', error);
+    return combined;
+  }
 }
