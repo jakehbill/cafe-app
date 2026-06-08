@@ -6,6 +6,11 @@ import { getCafeTagPopularityOrdered } from '@/lib/supabase';
 /** Max tags on compact cards and café detail “Features” row. */
 export const CAFE_FEATURED_TAG_COUNT = 3;
 
+/** Café detail page: featured (3) + “Also good for” (5) = 8 visible tags max. */
+export const CAFE_DETAIL_MAX_VISIBLE_TAGS = 8;
+export const CAFE_DETAIL_ALSO_GOOD_FOR_MAX =
+  CAFE_DETAIL_MAX_VISIBLE_TAGS - CAFE_FEATURED_TAG_COUNT;
+
 function tagKey(raw: string): string {
   return resolveToCanonicalTagSlug(raw) ?? raw.trim().toLowerCase();
 }

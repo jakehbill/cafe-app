@@ -46,6 +46,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Rect, Stop, LinearGradient as SvgLinearGradient } from 'react-native-svg';
 import { type Cafe } from '@/data/cafes';
 import {
+  CAFE_DETAIL_ALSO_GOOD_FOR_MAX,
   CAFE_FEATURED_TAG_COUNT,
   resolveCafeTagDisplaySets,
 } from '@/lib/cafeFeaturedTags';
@@ -244,7 +245,7 @@ export default function CafeDetailScreen() {
       ]);
       if (cancelled) return;
       setFeatureTags(tagSets.featured);
-      setRemainingTags(tagSets.remaining);
+      setRemainingTags(tagSets.remaining.slice(0, CAFE_DETAIL_ALSO_GOOD_FOR_MAX));
       setRecentReviews(reviews);
     })();
     return () => {
