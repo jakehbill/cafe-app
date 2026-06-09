@@ -8,6 +8,11 @@ import {
   type JoinAnalyticsStepKey,
 } from '@/lib/analyticsEvents';
 import {
+  trackJoinFunnelCompleted,
+  trackJoinFunnelEmailSubmitted,
+  trackJoinFunnelStepViewed,
+} from '@/lib/joinFunnelSessions';
+import {
   BETA_DRINK_OPTIONS,
   BETA_PERSONA_OPTIONS,
   BETA_PRIORITY_OPTIONS,
@@ -122,6 +127,7 @@ export function BetaWaitlistFlow() {
     const stepKey = joinAnalyticsStepKey(step);
     if (!stepKey) return;
     trackAnalyticsEvent({ event_name: 'join_step_viewed', step_key: stepKey });
+    trackJoinFunnelStepViewed(stepKey);
   }, [step]);
 
   const progressIndex = QUESTION_STEPS.indexOf(step);
@@ -213,6 +219,8 @@ export function BetaWaitlistFlow() {
       if (result.ok || result.duplicate) {
         trackAnalyticsEvent({ event_name: 'join_email_submitted', step_key: 'email' });
         trackAnalyticsEvent({ event_name: 'join_completed', step_key: 'confirmation' });
+        trackJoinFunnelEmailSubmitted();
+        trackJoinFunnelCompleted();
         setDuplicateSignup(!!result.duplicate);
         setStep('success');
         return;
