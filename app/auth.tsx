@@ -1,169 +1,343 @@
-import { buildLoginPath, navigateAfterAuth, parseReturnToParam } from '@/lib/authGate';
+import { buildLoginPath, parseReturnToParam } from '@/lib/authGate';
 import {
-  createProfileIfMissing,
-  isUsernameAvailable,
+  COFFEE_PREFERENCE_OPTIONS,
+  INTENT_PREFERENCE_OPTIONS,
   normalizeSignupUsername,
-  updateProfile,
+  upsertSignupProfileForUser,
   validateSignupUsernameFormat,
+  VIBE_PREFERENCE_OPTIONS,
 } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
-import { Alert, Pressable, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
-import { COLORS, authStyles } from '@/components/auth/authStyles';
+import { COLORS as AUTH_COLORS, authStyles } from '@/components/auth/authStyles';
+import { COLORS, FONTS, SPACING } from '@/components/theme';
+import { useProfileGate } from '@/contexts/ProfileGateContext';
 import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 
-type SignupStep = 1 | 2;
+const TOTAL_STEPS = 5;
+
+/** 0–2 taste questions, 3 account details, 4 username */
+type SignupStepIndex = 0 | 1 | 2 | 3 | 4;
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function devLogSignup(message: string, detail?: unknown) {
+  if (!__DEV__) return;
+  if (detail !== undefined) console.log(`[signup] ${message}`, detail);
+  else console.log(`[signup] ${message}`);
+}
+
+function toggleInMaxTwo(current: string[], value: string, max: number): string[] {
+  if (current.includes(value)) return current.filter((v) => v !== value);
+  if (current.length >= max) return [...current.slice(1), value];
+  return [...current, value];
+}
+
+function SignupProgress({ step }: { step: number }) {
+  return (
+    <View style={styles.progressWrap}>
+      <Text style={styles.progressKicker}>
+        Step {step + 1} of {TOTAL_STEPS}
+      </Text>
+      <View style={styles.dots}>
+        {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
+          <View key={i} style={[styles.dot, i === step && styles.dotActive]} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+type PreferenceOptionsProps = {
+  options: string[];
+  mode: 'single' | 'multi';
+  singleValue?: string | null;
+  onToggleSingle?: (v: string) => void;
+  multiValue?: string[];
+  onToggleMulti?: (v: string) => void;
+};
+
+/** Options only — title/subtitle come from AuthScreenShell. */
+function PreferenceOptions({
+  options,
+  mode,
+  singleValue,
+  onToggleSingle,
+  multiValue,
+  onToggleMulti,
+}: PreferenceOptionsProps) {
+  return (
+    <View style={styles.optionList}>
+      {options.map((opt) => {
+        const selected =
+          mode === 'single' ? singleValue === opt : (multiValue?.includes(opt) ?? false);
+        return (
+          <Pressable
+            key={opt}
+            onPress={() => {
+              if (mode === 'single') onToggleSingle?.(opt);
+              else onToggleMulti?.(opt);
+            }}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            style={({ pressed }) => [
+              styles.optionRow,
+              selected && styles.optionRowSelected,
+              pressed && styles.optionRowPressed,
+            ]}
+          >
+            <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>{opt}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 /**
  * Main auth entry: sign up (`/auth`).
- * Log in lives at `/login` — no duplicate `app/auth/` folder.
+ * Log in lives at `/login`.
  */
 export default function AuthScreen() {
   const { returnTo: returnToParam } = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const returnTo = parseReturnToParam(returnToParam);
-  const [step, setStep] = useState<SignupStep>(1);
+  const { refresh: refreshProfileGate } = useProfileGate();
+  const [step, setStep] = useState<SignupStepIndex>(0);
+  const [coffee, setCoffee] = useState<string | null>(null);
+  const [vibes, setVibes] = useState<string[]>([]);
+  const [intents, setIntents] = useState<string[]>([]);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  async function persistSignupProfile(first: string, last: string, handle: string) {
-    const created = await createProfileIfMissing();
-    if (created.error) {
-      console.warn('[auth] createProfileIfMissing', created.error);
-      return;
+  const { shellTitle, shellSubtitle } = useMemo(() => {
+    switch (step) {
+      case 0:
+        return {
+          shellTitle: 'What are you usually ordering?',
+          shellSubtitle: 'Help us understand your coffee style.',
+        };
+      case 1:
+        return {
+          shellTitle: 'What kind of places do you gravitate toward?',
+          shellSubtitle: 'Pick one or two.',
+        };
+      case 2:
+        return {
+          shellTitle: 'What are you most often looking for?',
+          shellSubtitle: 'Pick one or two.',
+        };
+      case 3:
+        return {
+          shellTitle: 'Create your account',
+          shellSubtitle: 'Almost there — just your details to sign up.',
+        };
+      case 4:
+        return {
+          shellTitle: 'Choose your username',
+          shellSubtitle: 'This is how you’ll show up on Beaned.',
+        };
+      default:
+        return { shellTitle: 'Create your account', shellSubtitle: '' };
     }
-    const fullName = `${first} ${last}`;
-    const profileRes = await updateProfile({
-      first_name: first,
-      last_name: last,
-      username: handle,
-      display_name: fullName,
-    });
-    if (!profileRes.ok) {
-      console.warn('[auth] updateProfile after signup', profileRes.error);
+  }, [step]);
+
+  function validatePreferences(): boolean {
+    if (!coffee) {
+      setFormError('Please pick what you usually order.');
+      return false;
     }
+    if (vibes.length === 0) {
+      setFormError('Please pick at least one vibe.');
+      return false;
+    }
+    if (intents.length === 0) {
+      setFormError('Please pick at least one intent.');
+      return false;
+    }
+    return true;
   }
 
-  function validateStepOne(): {
+  function validateAccount(): {
     first: string;
     last: string;
     mail: string;
   } | null {
-    const trimmedFirst = firstName.trim();
-    const trimmedLast = lastName.trim();
-    const trimmedEmail = email.trim();
+    const first = firstName.trim();
+    const last = lastName.trim();
+    const mail = email.trim();
 
-    if (!trimmedFirst) {
-      Alert.alert('First name required', 'Please enter your first name.');
+    if (!first) {
+      setFormError('Please enter your first name.');
       return null;
     }
-    if (!trimmedLast) {
-      Alert.alert('Last name required', 'Please enter your last name.');
+    if (!last) {
+      setFormError('Please enter your last name.');
       return null;
     }
-    if (!trimmedEmail) {
-      Alert.alert('Email required', 'Please enter your email.');
+    if (!mail) {
+      setFormError('Please enter your email.');
       return null;
     }
-    if (!isValidEmail(trimmedEmail)) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
+    if (!isValidEmail(mail)) {
+      setFormError('Please enter a valid email address.');
       return null;
     }
     if (!password) {
-      Alert.alert('Password required', 'Please create a password.');
+      setFormError('Please create a password.');
       return null;
     }
-    if (!confirmPassword) {
-      Alert.alert('Confirm your password', 'Please confirm your password.');
-      return null;
-    }
-    if (password !== confirmPassword) {
-      Alert.alert('Passwords do not match', 'Make sure both password fields match.');
-      return null;
-    }
+    return { first, last, mail };
+  }
 
-    return { first: trimmedFirst, last: trimmedLast, mail: trimmedEmail };
+  function validateCurrentStep(): boolean {
+    setFormError(null);
+    if (step === 0) {
+      if (!coffee) {
+        setFormError('Please pick what you usually order.');
+        return false;
+      }
+      return true;
+    }
+    if (step === 1) {
+      if (vibes.length === 0) {
+        setFormError('Please pick at least one vibe.');
+        return false;
+      }
+      return true;
+    }
+    if (step === 2) {
+      if (intents.length === 0) {
+        setFormError('Please pick at least one intent.');
+        return false;
+      }
+      return true;
+    }
+    if (step === 3) {
+      return validateAccount() != null;
+    }
+    return true;
   }
 
   function handleContinue() {
-    const valid = validateStepOne();
-    if (!valid) return;
-    setStep(2);
+    if (!validateCurrentStep()) return;
+    if (step < 4) setStep((s) => (s + 1) as SignupStepIndex);
   }
 
   async function handleCreateAccount() {
-    const account = validateStepOne();
+    setFormError(null);
+
+    if (!validatePreferences()) return;
+    const account = validateAccount();
     if (!account) {
-      setStep(1);
+      setStep(3);
       return;
     }
 
     const formatError = validateSignupUsernameFormat(username);
     if (formatError) {
-      Alert.alert('Username', formatError);
+      setFormError(formatError);
       return;
     }
 
-    const normalizedUsername = normalizeSignupUsername(username);
+    const handle = normalizeSignupUsername(username);
+    const mail = account.mail.trim().toLowerCase();
+
+    devLogSignup('submit values', {
+      firstName: account.first,
+      lastName: account.last,
+      username: handle,
+      email: mail,
+    });
 
     setLoading(true);
     try {
-      const availability = await isUsernameAvailable(normalizedUsername);
-      if (!availability.available) {
-        Alert.alert('Username unavailable', availability.error ?? 'That username is already taken.');
-        return;
-      }
+      devLogSignup('signUp start', { email: mail, username: handle });
 
-      const fullName = `${account.first} ${account.last}`;
       const { data, error } = await supabase.auth.signUp({
-        email: account.mail,
+        email: mail,
         password,
         options: {
           data: {
             first_name: account.first,
             last_name: account.last,
-            display_name: fullName,
-            username: normalizedUsername,
+            display_name: handle,
+            username: handle,
+            email: mail,
           },
         },
       });
 
       if (error) {
-        Alert.alert('Sign up failed', error.message);
+        devLogSignup('signUp error', error);
+        setFormError(error.message || 'Please check your details and try again.');
         return;
       }
 
-      if (data.session) {
-        await persistSignupProfile(account.first, account.last, normalizedUsername);
-        navigateAfterAuth(router, returnTo);
+      devLogSignup('signUp success', { userId: data.user?.id ?? null, hasSession: !!data.session });
+
+      const userId = data.user?.id;
+      if (!userId) {
+        setFormError('Please check your details and try again.');
         return;
       }
 
-      Alert.alert(
-        'Check your email',
-        'If email confirmation is enabled, verify your email to finish sign up.'
-      );
+      if (!data.session) {
+        setFormError(
+          'Account created. Confirm your email, then log in to finish setting up your profile.'
+        );
+        return;
+      }
+
+      devLogSignup('profile client fallback start', { userId });
+
+      const profileRes = await upsertSignupProfileForUser(userId, {
+        first_name: account.first,
+        last_name: account.last,
+        username: handle,
+        email: mail,
+        coffee_preference: coffee,
+        vibe_preferences: vibes,
+        intent_preferences: intents,
+        onboarding_completed: true,
+      });
+
+      if (!profileRes.ok) {
+        if (__DEV__) {
+          console.warn(
+            '[signup] profile client fallback failed — auth user exists; DB trigger may have created the row',
+            profileRes
+          );
+        }
+      } else {
+        devLogSignup('profile client fallback success', { userId });
+      }
+
+      await refreshProfileGate();
+      devLogSignup('navigation start', { route: '/(tabs)' });
+      router.replace('/(tabs)');
     } catch (e) {
-      Alert.alert('Sign up failed', e instanceof Error ? e.message : 'Something went wrong');
+      devLogSignup('signUp error', e);
+      setFormError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   }
 
   function handleShellBack() {
-    if (step === 2) {
-      setStep(1);
+    setFormError(null);
+    if (step > 0) {
+      setStep((s) => (s - 1) as SignupStepIndex);
       return;
     }
     if (router.canGoBack()) {
@@ -173,11 +347,8 @@ export default function AuthScreen() {
     router.replace('/(tabs)');
   }
 
-  const shellTitle = step === 1 ? 'Create your account' : 'Choose your username';
-  const shellSubtitle =
-    step === 1
-      ? 'Start discovering cafes that fit how you work and unwind'
-      : 'This is how you’ll show up on Beaned.';
+  const primaryLabel =
+    step === 4 ? (loading ? 'Creating account...' : 'Create account') : 'Continue';
 
   return (
     <AuthScreenShell
@@ -197,7 +368,42 @@ export default function AuthScreen() {
         </View>
       }
     >
+      <SignupProgress step={step} />
+
+      {formError ? (
+        <View style={authStyles.feedbackBannerError}>
+          <Text style={authStyles.feedbackErrorText}>{formError}</Text>
+        </View>
+      ) : null}
+
+      {step === 0 ? (
+        <PreferenceOptions
+          options={[...COFFEE_PREFERENCE_OPTIONS]}
+          mode="single"
+          singleValue={coffee}
+          onToggleSingle={setCoffee}
+        />
+      ) : null}
+
       {step === 1 ? (
+        <PreferenceOptions
+          options={[...VIBE_PREFERENCE_OPTIONS]}
+          mode="multi"
+          multiValue={vibes}
+          onToggleMulti={(v) => setVibes((prev) => toggleInMaxTwo(prev, v, 2))}
+        />
+      ) : null}
+
+      {step === 2 ? (
+        <PreferenceOptions
+          options={[...INTENT_PREFERENCE_OPTIONS]}
+          mode="multi"
+          multiValue={intents}
+          onToggleMulti={(v) => setIntents((prev) => toggleInMaxTwo(prev, v, 2))}
+        />
+      ) : null}
+
+      {step === 3 ? (
         <>
           <View style={authStyles.fieldWrap}>
             <Text style={authStyles.fieldLabel}>First name</Text>
@@ -206,7 +412,7 @@ export default function AuthScreen() {
                 value={firstName}
                 onChangeText={setFirstName}
                 placeholder="First name"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={AUTH_COLORS.muted}
                 autoCapitalize="words"
                 autoCorrect={false}
                 style={authStyles.input}
@@ -221,7 +427,7 @@ export default function AuthScreen() {
                 value={lastName}
                 onChangeText={setLastName}
                 placeholder="Last name"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={AUTH_COLORS.muted}
                 autoCapitalize="words"
                 autoCorrect={false}
                 style={authStyles.input}
@@ -236,7 +442,7 @@ export default function AuthScreen() {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="your@email.com"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={AUTH_COLORS.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -252,72 +458,108 @@ export default function AuthScreen() {
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Create a password"
-                placeholderTextColor={COLORS.muted}
+                placeholderTextColor={AUTH_COLORS.muted}
                 secureTextEntry
                 style={authStyles.input}
               />
             </View>
           </View>
+        </>
+      ) : null}
 
-          <View style={authStyles.fieldWrap}>
-            <Text style={authStyles.fieldLabel}>Confirm password</Text>
-            <View style={authStyles.inputWrap}>
-              <TextInput
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="Confirm your password"
-                placeholderTextColor={COLORS.muted}
-                secureTextEntry
-                style={authStyles.input}
-              />
-            </View>
-          </View>
-
-          <View style={authStyles.primaryButtonSlot}>
-            <FlowPrimaryButton
-              label="Continue"
-              onPress={handleContinue}
-              disabled={loading}
+      {step === 4 ? (
+        <View style={authStyles.fieldWrap}>
+          <Text style={authStyles.fieldLabel}>Username</Text>
+          <View style={authStyles.inputWrap}>
+            <TextInput
+              value={username}
+              onChangeText={setUsername}
+              placeholder="username"
+              placeholderTextColor={AUTH_COLORS.muted}
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="username"
+              style={authStyles.input}
             />
           </View>
-        </>
-      ) : (
-        <>
-          <View style={authStyles.fieldWrap}>
-            <Text style={authStyles.fieldLabel}>Username</Text>
-            <View style={authStyles.inputWrap}>
-              <TextInput
-                value={username}
-                onChangeText={setUsername}
-                placeholder="username"
-                placeholderTextColor={COLORS.muted}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="username"
-                style={authStyles.input}
-              />
-            </View>
-          </View>
+        </View>
+      ) : null}
 
-          <View style={authStyles.primaryButtonSlot}>
-            <FlowPrimaryButton
-              label={loading ? 'Please wait…' : 'Create account'}
-              onPress={() => void handleCreateAccount()}
-              disabled={loading}
-            />
-          </View>
+      <View style={authStyles.primaryButtonSlot}>
+        <FlowPrimaryButton
+          label={primaryLabel}
+          onPress={() => (step === 4 ? void handleCreateAccount() : handleContinue())}
+          disabled={loading}
+        />
+      </View>
 
-          <Pressable
-            onPress={() => setStep(1)}
-            disabled={loading}
-            accessibilityRole="button"
-            accessibilityLabel="Back to account details"
-            style={authStyles.stepBackLink}
-          >
-            <Text style={authStyles.stepBackLinkText}>Back</Text>
-          </Pressable>
-        </>
-      )}
+      {step > 0 && step < 4 ? (
+        <Pressable
+          onPress={() => setStep((s) => (s - 1) as SignupStepIndex)}
+          disabled={loading}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={authStyles.stepBackLink}
+        >
+          <Text style={authStyles.stepBackLinkText}>Back</Text>
+        </Pressable>
+      ) : null}
     </AuthScreenShell>
   );
 }
+
+const styles = StyleSheet.create({
+  progressWrap: {
+    marginBottom: SPACING.sectionGap,
+    gap: 14,
+  },
+  progressKicker: {
+    fontSize: 13,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
+  },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.cardBorder,
+  },
+  dotActive: {
+    backgroundColor: COLORS.accent,
+  },
+  optionList: {
+    gap: 12,
+  },
+  optionRow: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.inputBackground,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  optionRowSelected: {
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
+  },
+  optionRowPressed: {
+    opacity: 0.92,
+  },
+  optionLabel: {
+    fontSize: 16,
+    lineHeight: 22,
+    color: COLORS.text,
+    fontFamily: FONTS.sans.regular,
+  },
+  optionLabelSelected: {
+    fontFamily: FONTS.sans.semibold,
+  },
+});

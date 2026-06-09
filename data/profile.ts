@@ -9,6 +9,7 @@ export {
   INTENT_PREFERENCE_OPTIONS,
   isUsernameAvailable,
   normalizeSignupUsername,
+  upsertSignupProfileForUser,
   updateProfile,
   updateProfilePreferences,
   validateSignupUsernameFormat,

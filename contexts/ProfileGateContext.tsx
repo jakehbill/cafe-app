@@ -1,7 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { createProfileIfMissing, hydrateProfileIdentityFromAuth } from '@/data/profile';
+import {
+  createProfileIfMissing,
+  getCurrentUserProfile,
+  hydrateProfileIdentityFromAuth,
+} from '@/data/profile';
 
 type ProfileGateContextValue = {
   /** True while resolving profile / onboarding for the signed-in user. */
@@ -29,15 +33,22 @@ export function ProfileGateProvider({ children }: { children: React.ReactNode })
     setProfileLoading(true);
     try {
       const created = await createProfileIfMissing();
-      if (created.error || !created.data) {
+      if (created.error) {
         console.warn('[ProfileGate] createProfileIfMissing:', created.error);
         setNeedsOnboarding(false);
         return;
       }
 
-      await hydrateProfileIdentityFromAuth(user, created.data);
+      const fresh = await getCurrentUserProfile();
+      const profile = fresh.data ?? created.data;
+      if (!profile) {
+        setNeedsOnboarding(false);
+        return;
+      }
 
-      const completed = created.data.onboarding_completed === true;
+      await hydrateProfileIdentityFromAuth(user, profile);
+
+      const completed = profile.onboarding_completed === true;
       setNeedsOnboarding(!completed);
     } finally {
       setProfileLoading(false);

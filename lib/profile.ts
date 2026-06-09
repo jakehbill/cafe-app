@@ -127,16 +127,30 @@ export function validateSignupUsernameFormat(raw: string): string | null {
   return null;
 }
 
+function devWarnSignup(context: string, detail: unknown) {
+  if (!__DEV__) return;
+  console.warn(`[signup] ${context}`, detail);
+}
+
 /** Pre-signup availability check against `public.profiles.username`. */
 export async function isUsernameAvailable(
   raw: string
-): Promise<{ available: boolean; error: string | null }> {
+): Promise<{ available: boolean; error: string | null; checkSkipped?: boolean }> {
   const formatError = validateSignupUsernameFormat(raw);
   if (formatError) {
     return { available: false, error: formatError };
   }
 
   const normalized = normalizeSignupUsername(raw);
+
+  const rpcRes = await supabase.rpc('is_username_taken', { p_username: normalized });
+  if (!rpcRes.error) {
+    if (rpcRes.data === true) {
+      return { available: false, error: 'That username is already taken.' };
+    }
+    return { available: true, error: null };
+  }
+
   const res = await supabase
     .from('profiles')
     .select('user_id')
@@ -144,12 +158,95 @@ export async function isUsernameAvailable(
     .maybeSingle();
 
   if (res.error) {
-    return { available: false, error: 'Could not check username. Please try again.' };
+    devWarnSignup('username availability check failed', res.error);
+    return {
+      available: true,
+      error: null,
+      checkSkipped: true,
+    };
   }
   if (res.data) {
     return { available: false, error: 'That username is already taken.' };
   }
   return { available: true, error: null };
+}
+
+export type SignupProfileInput = {
+  first_name: string;
+  last_name: string;
+  username: string;
+  /** Defaults to `username` when omitted. */
+  display_name?: string | null;
+  /** Saved when `public.profiles.email` exists; otherwise omitted. */
+  email?: string;
+  onboarding_completed?: boolean;
+  coffee_preference?: string | null;
+  vibe_preferences?: string[] | null;
+  intent_preferences?: string[] | null;
+};
+
+/**
+ * Creates or updates `public.profiles` for a known auth user id (post-signUp).
+ * Uses a single upsert so a racing empty row from ProfileGate cannot win.
+ */
+export async function upsertSignupProfileForUser(
+  userId: string,
+  patch: SignupProfileInput
+): Promise<{ ok: true } | { ok: false; error: string; code?: string }> {
+  const trimmedUserId = String(userId ?? '').trim();
+  if (!trimmedUserId) {
+    return { ok: false, error: 'Missing user id for profile.' };
+  }
+
+  const firstName = patch.first_name.trim();
+  const lastName = patch.last_name.trim();
+  const username = normalizeSignupUsername(patch.username);
+  const email = (patch.email ?? '').trim().toLowerCase();
+
+  if (!firstName || !lastName || !username) {
+    return { ok: false, error: 'Missing required profile identity fields.' };
+  }
+
+  const row: Record<string, unknown> = {
+    user_id: trimmedUserId,
+    first_name: firstName,
+    last_name: lastName,
+    username,
+    display_name: username,
+    onboarding_completed: patch.onboarding_completed === true,
+  };
+
+  if (email) row.email = email;
+  if (patch.coffee_preference != null) row.coffee_preference = patch.coffee_preference;
+  if (patch.vibe_preferences != null) row.vibe_preferences = patch.vibe_preferences;
+  if (patch.intent_preferences != null) row.intent_preferences = patch.intent_preferences;
+
+  if (__DEV__) {
+    devWarnSignup('profile upsert payload', row);
+  }
+
+  let res = await supabase.from('profiles').upsert(row, { onConflict: 'user_id' }).select('user_id').single();
+
+  if (res.error && email && res.error.message?.toLowerCase().includes('email')) {
+    devWarnSignup('profile upsert retry without email column', res.error);
+    const { email: _omit, ...withoutEmail } = row;
+    res = await supabase
+      .from('profiles')
+      .upsert(withoutEmail, { onConflict: 'user_id' })
+      .select('user_id')
+      .single();
+  }
+
+  if (res.error) {
+    const msg = res.error.message ?? '';
+    if (res.error.code === '23505' && msg.toLowerCase().includes('username')) {
+      return { ok: false, error: 'That username is already taken.', code: res.error.code };
+    }
+    devWarnSignup('profile upsert failed', res.error);
+    return { ok: false, error: res.error.message, code: res.error.code };
+  }
+
+  return { ok: true };
 }
 
 /** Copy signup metadata into profile when profile identity fields are still empty. */

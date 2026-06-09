@@ -109,6 +109,9 @@ function RootNavigator() {
     const top = segments[0];
     if (isPublicStandaloneRoute(top)) return;
 
+    // Signup/login handle their own flow — do not append legacy onboarding.
+    if (top === 'auth' || top === 'login' || top === 'onboarding') return;
+
     const onPreferences = top === 'onboarding-preferences';
 
     if (needsOnboarding && !onPreferences) {
