@@ -113,6 +113,29 @@ export type LevelProgress = {
   isMaxLevel: boolean;
 };
 
+export type LevelTierEntry = {
+  /** 1-based level number */
+  level: number;
+  title: string;
+  minPoints: number;
+  unlocked: boolean;
+  isCurrent: boolean;
+};
+
+/** All Beaned levels with unlock/current flags derived from total points. */
+export function getLevelTierEntries(totalPoints: number): LevelTierEntry[] {
+  const safePoints =
+    typeof totalPoints === 'number' && Number.isFinite(totalPoints) ? Math.max(0, totalPoints) : 0;
+  const currentLevel = getUserLevel(safePoints);
+  return LEVEL_TIERS.map((tier, index) => ({
+    level: index + 1,
+    title: tier.title,
+    minPoints: tier.minPoints,
+    unlocked: index + 1 <= currentLevel,
+    isCurrent: index + 1 === currentLevel,
+  }));
+}
+
 export function getUserLevel(totalPoints: number | null | undefined): number {
   const safePoints =
     typeof totalPoints === 'number' && Number.isFinite(totalPoints) ? Math.max(0, totalPoints) : 0;

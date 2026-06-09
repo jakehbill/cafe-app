@@ -24,11 +24,11 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { GamificationHelpModal } from '@/components/profile/GamificationHelpModal';
 import {
-  computeProfileBadges,
   computeSavedVisitedUnionCount,
   computeTotalPoints,
   countTagsInRatings,
   getLevelProgress,
+  getLevelTierEntries,
   getUserLevel,
   hasCafeSavedVisitedAndRated,
   POINTS,
@@ -167,6 +167,7 @@ export default function ProfileScreen() {
   const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [showGamificationHelp, setShowGamificationHelp] = useState(false);
+  const [levelsExpanded, setLevelsExpanded] = useState(false);
 
   const loadProfileRow = useCallback(async () => {
     const userId = user?.id;
@@ -277,7 +278,16 @@ export default function ProfileScreen() {
   const totalPoints = useMemo(() => computeTotalPoints(activitySnapshot), [activitySnapshot]);
   const levelProgress = useMemo(() => getLevelProgress(totalPoints), [totalPoints]);
   const userLevel = useMemo(() => getUserLevel(totalPoints), [totalPoints]);
-  const badges = useMemo(() => computeProfileBadges(activitySnapshot), [activitySnapshot]);
+  const unlockedLevels = useMemo(
+    () => getLevelTierEntries(totalPoints).filter((entry) => entry.unlocked),
+    [totalPoints]
+  );
+  const levelsCollapsedLimit = 6;
+  const showLevelsToggle = unlockedLevels.length > levelsCollapsedLimit;
+  const visibleUnlockedLevels =
+    showLevelsToggle && !levelsExpanded
+      ? unlockedLevels.slice(0, levelsCollapsedLimit)
+      : unlockedLevels;
   const canAccessModeration = useMemo(() => isModerator(user?.id), [user?.id]);
   const gamificationHelpLines = useMemo(
     () =>
@@ -535,7 +545,7 @@ export default function ProfileScreen() {
         <View style={styles.activitySection}>
           <Text style={styles.sectionHeading}>Your activity</Text>
           <Text style={styles.activitySectionIntro}>
-            Cafés you&apos;ve visited and saved for later.
+            Cafés you&apos;ve visited, saved, and successfully suggested.
           </Text>
 
           <View style={styles.statsRow}>
@@ -546,7 +556,7 @@ export default function ProfileScreen() {
                 <Text style={styles.statNumber}>{displayCounts.visited}</Text>
               )}
               <Text style={styles.statLabel} numberOfLines={2}>
-                Visited Cafes
+                Visited
               </Text>
             </View>
             <View style={styles.statCard}>
@@ -556,7 +566,17 @@ export default function ProfileScreen() {
                 <Text style={styles.statNumber}>{displayCounts.saved}</Text>
               )}
               <Text style={styles.statLabel} numberOfLines={2}>
-                Saved Cafes
+                Saved
+              </Text>
+            </View>
+            <View style={styles.statCard}>
+              {countsLoading ? (
+                <ActivityIndicator color={COLORS.muted} style={styles.statSpinner} />
+              ) : (
+                <Text style={styles.statNumber}>{displayCounts.cafesApproved}</Text>
+              )}
+              <Text style={styles.statLabel} numberOfLines={2}>
+                Suggested
               </Text>
             </View>
           </View>
@@ -647,34 +667,37 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        <Text style={[styles.sectionHeading, styles.achievementsHeading]}>Achievements</Text>
-        <Text style={styles.badgesExplainer}>
-          Milestones along your points journey. Unlocked badges appear first.
-        </Text>
-        <View style={styles.badgeGrid}>
-          {badges.map((b) => (
-            <View
-              key={b.id}
-              style={[styles.badgeCell, !b.unlocked && styles.badgeCellLocked]}
-            >
-              <Text style={[styles.badgeIcon, !b.unlocked && styles.badgeIconLocked]}>
-                {b.icon}
-              </Text>
-              <View style={styles.badgeTextBlock}>
+        <View style={styles.levelsUnlockedSection}>
+          <Text style={styles.sectionHeading}>Levels unlocked</Text>
+          <View style={styles.levelChipWrap}>
+            {visibleUnlockedLevels.map((entry) => (
+              <View
+                key={entry.level}
+                style={[styles.levelChip, entry.isCurrent ? styles.levelChipCurrent : styles.levelChipPast]}
+              >
                 <Text
-                  style={[styles.badgeLabel, !b.unlocked && styles.badgeLabelLocked]}
-                  numberOfLines={2}
+                  style={[
+                    styles.levelChipText,
+                    entry.isCurrent ? styles.levelChipTextCurrent : styles.levelChipTextPast,
+                  ]}
+                  numberOfLines={1}
                 >
-                  {b.label}
-                </Text>
-                <Text
-                  style={[styles.badgeDescription, !b.unlocked && styles.badgeDescriptionLocked]}
-                >
-                  {b.description}
+                  {entry.level} · {entry.title}
                 </Text>
               </View>
-            </View>
-          ))}
+            ))}
+          </View>
+          {showLevelsToggle ? (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.levelsToggleHit}
+              onPress={() => setLevelsExpanded((expanded) => !expanded)}
+            >
+              <Text style={styles.levelsToggleText}>
+                {levelsExpanded ? 'Show fewer' : 'Show all levels'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <Text style={styles.leaderboardHint}>Leaderboards may come later — for now, this is your journey.</Text>
@@ -957,74 +980,58 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     marginTop: -4,
   },
-  achievementsHeading: {
+  levelsUnlockedSection: {
     marginTop: 4,
+    marginBottom: 16,
   },
-  badgesExplainer: {
-    fontSize: 12,
-    color: COLORS.muted,
-    lineHeight: 17,
-    marginBottom: 12,
-    marginTop: -4,
-  },
-  badgeGrid: {
+  levelChipWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
-  },
-  badgeCell: {
-    width: '30%',
-    flexGrow: 1,
-    minWidth: '28%',
-    maxWidth: '32%',
-    minHeight: 112,
-    borderRadius: 14,
-    backgroundColor: COLORS.cardBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    padding: 8,
-    paddingTop: 10,
     gap: 6,
+    marginTop: -2,
   },
-  badgeTextBlock: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 3,
+  levelChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    maxWidth: '100%',
   },
-  badgeCellLocked: {
-    opacity: 0.45,
-    backgroundColor: '#EFE8DC',
+  levelChipPast: {
+    backgroundColor: 'rgba(92, 83, 72, 0.04)',
+    borderColor: 'rgba(92, 83, 72, 0.16)',
   },
-  badgeIcon: {
-    fontSize: 22,
-    color: COLORS.accent,
+  levelChipCurrent: {
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
   },
-  badgeIconLocked: {
+  levelChipText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.medium,
     color: COLORS.muted,
+    letterSpacing: -0.05,
   },
-  badgeLabel: {
-    fontSize: 10,
+  levelChipTextCurrent: {
+    color: COLORS.buttonLabelOnAccent,
+    fontFamily: FONTS.sans.semibold,
+  },
+  levelChipTextPast: {
+    color: COLORS.muted,
+    opacity: 0.58,
+  },
+  levelsToggleHit: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingVertical: 2,
+  },
+  levelsToggleText: {
+    fontSize: 12,
     fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
-    textAlign: 'center',
-    lineHeight: 13,
-  },
-  badgeLabelLocked: {
-    color: COLORS.muted,
-  },
-  badgeDescription: {
-    fontSize: 9,
-    fontFamily: FONTS.sans.regular,
-    color: COLORS.muted,
-    textAlign: 'center',
-    lineHeight: 12,
-  },
-  badgeDescriptionLocked: {
-    color: COLORS.muted,
-    opacity: 0.85,
+    textDecorationLine: 'underline',
+    opacity: 0.75,
   },
   leaderboardHint: {
     fontSize: 11,
