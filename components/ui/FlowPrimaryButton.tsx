@@ -11,7 +11,7 @@ type Props = {
 };
 
 /**
- * Primary CTA — terracotta fill, white label. Matches rate/submit-style accent buttons app-wide.
+ * Primary CTA — black fill, light label. Shared across join, landing, onboarding, auth.
  */
 export function FlowPrimaryButton({ label, onPress, disabled, accessibilityLabel, style }: Props) {
   return (
@@ -39,18 +39,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pressed: {
-    opacity: 0.92,
+    opacity: 0.88,
   },
   disabled: {
-    opacity: 0.55,
+    opacity: 0.45,
   },
   label: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontSize: 17,
     fontFamily: FONTS.sans.bold,
     textAlign: 'center',

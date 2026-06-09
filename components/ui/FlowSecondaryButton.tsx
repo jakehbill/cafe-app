@@ -11,7 +11,7 @@ type Props = {
 };
 
 /**
- * Outline secondary — accent border + accent text (e.g. Log in on onboarding).
+ * Secondary CTA — cream/white surface, black text, warm neutral border.
  */
 export function FlowSecondaryButton({ label, onPress, disabled, accessibilityLabel, style }: Props) {
   return (
@@ -37,20 +37,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: COLORS.accent,
+    backgroundColor: COLORS.cardBackground,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pressed: {
-    opacity: 0.88,
+    opacity: 0.9,
+    backgroundColor: COLORS.chipBackground,
   },
   disabled: {
     opacity: 0.5,
   },
   label: {
-    color: COLORS.accent,
+    color: COLORS.text,
     fontSize: 17,
     fontFamily: FONTS.sans.bold,
     textAlign: 'center',

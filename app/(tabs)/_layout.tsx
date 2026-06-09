@@ -14,7 +14,7 @@ export default function TabLayout() {
         /** Prevent any default header title from surfacing the route group name "(tabs)". */
         headerTitle: '',
         tabBarButton: HapticTab,
-        tabBarActiveTintColor: COLORS.accent,
+        tabBarActiveTintColor: COLORS.text,
         tabBarInactiveTintColor: COLORS.muted,
         tabBarStyle: {
           backgroundColor: COLORS.background,

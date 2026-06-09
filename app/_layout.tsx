@@ -133,7 +133,7 @@ function RootNavigator() {
     headerShown: false,
     headerBackTitle: '',
     headerBackButtonMenuEnabled: false,
-    headerTintColor: COLORS.accent,
+    headerTintColor: COLORS.text,
     headerStyle: { backgroundColor: COLORS.background },
     headerTitleStyle: {
       fontSize: 17,

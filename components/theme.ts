@@ -1,35 +1,37 @@
 /**
- * Global design tokens — editorial, minimal (warm off-white, terracotta accent, Inter + Playfair).
+ * Global design tokens — editorial cream canvas, black type & actions (Framer-aligned).
  * Playfair: large headings & optional display names only (see FONTS.display).
  */
 
 export const COLORS = {
-  /** Warm off-white app canvas */
-  background: '#f6f4f0',
-  /** Near-black primary text */
-  text: '#1a1a1a',
-  /** Terracotta — use sparingly (tabs, selected chips, highlights) */
-  accent: '#e15c31',
-  /** Warm brown for secondary emphasis (less prominent than accent) */
-  roastedBrown: '#7a6352',
+  /** Warm cream app canvas */
+  background: '#FFFBF0',
+  /** Primary text */
+  text: '#000000',
+  /** Primary actions, active nav, emphasis (black — not orange) */
+  accent: '#000000',
+  /** Warm brown for secondary emphasis on tags/labels */
+  roastedBrown: '#6B5E52',
   sage: '#8a9a7e',
-  muted: '#5c5650',
+  /** Muted secondary text — dark warm grey */
+  muted: '#5C5348',
 
-  /** Very subtle warm gray borders */
-  cardBorder: '#e8e4de',
+  /** Soft warm neutral borders */
+  cardBorder: '#E8E0D4',
 
-  inputBackground: '#faf8f5',
-  /** Card surfaces: clean white on warm background */
-  cardBackground: '#ffffff',
-  imagePlaceholder: '#ebe6df',
-  chipBackground: '#f3ede6',
-  tagBackground: '#f6f4f0',
+  inputBackground: '#FFFBF0',
+  /** Card surfaces on cream canvas */
+  cardBackground: '#FFFFFF',
+  imagePlaceholder: '#EDE6DA',
+  chipBackground: '#F5F0E6',
+  tagBackground: '#FFFBF0',
 
-  coffeePillBackground: 'rgba(225, 92, 49, 0.08)',
-  coffeePillBorder: 'rgba(225, 92, 49, 0.22)',
-  /** Soft fill for selected chips / toggles (not solid accent blocks) */
-  accentSubtleFill: 'rgba(225, 92, 49, 0.1)',
-  accentSubtleBorder: 'rgba(225, 92, 49, 0.28)',
+  /** Coffee tag pills — warm neutral (no orange tint) */
+  coffeePillBackground: 'rgba(0, 0, 0, 0.05)',
+  coffeePillBorder: 'rgba(0, 0, 0, 0.1)',
+  /** Selected chips / toggles */
+  accentSubtleFill: 'rgba(0, 0, 0, 0.06)',
+  accentSubtleBorder: 'rgba(0, 0, 0, 0.14)',
   workPillBackground: 'rgba(138, 154, 126, 0.12)',
   workPillBorder: 'rgba(138, 154, 126, 0.28)',
 } as const;
@@ -62,7 +64,7 @@ export const SHADOWS = {
   },
   /** Barely-there card separation */
   card: {
-    shadowColor: '#1a1a1a',
+    shadowColor: '#000000',
     shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
