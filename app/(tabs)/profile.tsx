@@ -6,12 +6,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Keyboard,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -34,7 +32,12 @@ import {
   POINTS,
   type ActivitySnapshot,
 } from '@/lib/profileGamification';
-import { getCurrentUserProfile, updateProfile, type UserProfile } from '@/lib/profile';
+import {
+  resolveProfileHeadline,
+  resolveProfileUsernameLabel,
+  shouldShowProfileEmail,
+} from '@/lib/profileDisplayName';
+import { getCurrentUserProfile, type UserProfile } from '@/lib/profile';
 import { isModerator, logCurrentAuthUserId } from '@/lib/moderator';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -147,11 +150,6 @@ function formatPoints(n: number): string {
   return n.toLocaleString('en-US');
 }
 
-function emailLocalPart(email: string): string {
-  const i = email.indexOf('@');
-  return i > 0 ? email.slice(0, i) : email;
-}
-
 export default function ProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -163,9 +161,6 @@ export default function ProfileScreen() {
   const [countsLoading, setCountsLoading] = useState(true);
   const [profileRow, setProfileRow] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [displayNameDraft, setDisplayNameDraft] = useState('');
-  const [savingDisplayName, setSavingDisplayName] = useState(false);
-  const [editingDisplayName, setEditingDisplayName] = useState(false);
   const [showGamificationHelp, setShowGamificationHelp] = useState(false);
   const [levelsExpanded, setLevelsExpanded] = useState(false);
 
@@ -173,8 +168,6 @@ export default function ProfileScreen() {
     const userId = user?.id;
     if (!userId) {
       setProfileRow(null);
-      setDisplayNameDraft('');
-      setEditingDisplayName(false);
       setProfileLoading(false);
       return;
     }
@@ -185,7 +178,6 @@ export default function ProfileScreen() {
       setProfileRow(null);
     } else {
       setProfileRow(data ?? null);
-      setDisplayNameDraft(data?.display_name?.trim() ?? '');
     }
     setProfileLoading(false);
   }, [user?.id]);
@@ -304,46 +296,27 @@ export default function ProfileScreen() {
     []
   );
 
-  const headlineName = useMemo(() => {
-    const fromProfile = profileRow?.display_name?.trim();
-    if (fromProfile) return fromProfile;
-    if (email) return emailLocalPart(email);
-    return 'Your account';
-  }, [profileRow?.display_name, email]);
+  const headlineName = useMemo(
+    () =>
+      resolveProfileHeadline(
+        profileRow,
+        user?.user_metadata as Record<string, unknown> | undefined,
+        email
+      ),
+    [profileRow, user?.user_metadata, email]
+  );
 
-  function beginEditDisplayName() {
-    setDisplayNameDraft(profileRow?.display_name?.trim() ?? '');
-    setEditingDisplayName(true);
-  }
+  const usernameLabel = useMemo(() => {
+    const label = resolveProfileUsernameLabel(profileRow);
+    if (!label) return null;
+    if (headlineName.startsWith('@')) return null;
+    return label;
+  }, [profileRow, headlineName]);
 
-  function cancelEditDisplayName() {
-    Keyboard.dismiss();
-    setDisplayNameDraft(profileRow?.display_name?.trim() ?? '');
-    setEditingDisplayName(false);
-  }
-
-  async function handleSaveDisplayName() {
-    const trimmed = displayNameDraft.trim();
-    const current = profileRow?.display_name?.trim() ?? '';
-    if (trimmed === current) {
-      Keyboard.dismiss();
-      setEditingDisplayName(false);
-      return;
-    }
-    setSavingDisplayName(true);
-    try {
-      const res = await updateProfile({ display_name: trimmed || null });
-      if (!res.ok) {
-        Alert.alert('Could not save', res.error);
-        return;
-      }
-      await loadProfileRow();
-      Keyboard.dismiss();
-      setEditingDisplayName(false);
-    } finally {
-      setSavingDisplayName(false);
-    }
-  }
+  const showEmailUnderHeadline = useMemo(
+    () => shouldShowProfileEmail(headlineName, email),
+    [headlineName, email]
+  );
 
   async function handleLogOut() {
     try {
@@ -385,65 +358,19 @@ export default function ProfileScreen() {
           <Text style={styles.title}>Profile</Text>
           {email ? (
             <>
-              {editingDisplayName ? (
-                <View style={styles.displayNameEditRow}>
-                  <TextInput
-                    style={styles.displayNameInput}
-                    value={displayNameDraft}
-                    onChangeText={setDisplayNameDraft}
-                    placeholder="Display name"
-                    placeholderTextColor={COLORS.muted}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                    maxLength={80}
-                    editable={!savingDisplayName}
-                    autoFocus
-                    returnKeyType="done"
-                    onSubmitEditing={() => void handleSaveDisplayName()}
-                    blurOnSubmit={false}
-                  />
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Save display name"
-                    style={styles.inlineIconButton}
-                    disabled={savingDisplayName}
-                    onPress={() => void handleSaveDisplayName()}
-                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                  >
-                    {savingDisplayName ? (
-                      <ActivityIndicator color={COLORS.accent} size="small" />
-                    ) : (
-                      <Ionicons name="checkmark-circle" size={26} color={COLORS.accent} />
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Cancel editing display name"
-                    style={styles.inlineIconButton}
-                    disabled={savingDisplayName}
-                    onPress={cancelEditDisplayName}
-                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                  >
-                    <Ionicons name="close-circle" size={26} color={COLORS.muted} />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.displayNameRow}>
-                  <Text style={styles.displayNameHeadline} numberOfLines={2}>
-                    {profileLoading ? '…' : headlineName}
-                  </Text>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    accessibilityLabel="Edit display name"
-                    style={styles.inlineIconButton}
-                    onPress={beginEditDisplayName}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="create-outline" size={22} color={COLORS.muted} />
-                  </TouchableOpacity>
-                </View>
-              )}
-              <Text style={styles.email}>{email}</Text>
+              <Text style={styles.displayNameHeadline} numberOfLines={2}>
+                {profileLoading ? '…' : headlineName}
+              </Text>
+              {usernameLabel ? (
+                <Text style={styles.usernameLine} numberOfLines={1}>
+                  {usernameLabel}
+                </Text>
+              ) : null}
+              {showEmailUnderHeadline ? (
+                <Text style={styles.email} numberOfLines={1}>
+                  {email}
+                </Text>
+              ) : null}
               {countsLoading ? (
                 <ActivityIndicator color={COLORS.muted} style={{ marginTop: 4 }} />
               ) : (
@@ -742,46 +669,20 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 22,
   },
-  displayNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-    paddingRight: 4,
-  },
   displayNameHeadline: {
-    flex: 1,
     fontSize: 26,
     fontFamily: FONTS.display.semibold,
     color: COLORS.text,
     letterSpacing: -0.4,
     lineHeight: 32,
-  },
-  displayNameEditRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     marginTop: 4,
-    paddingRight: 2,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.cardBorder,
-    paddingBottom: 6,
   },
-  displayNameInput: {
-    flex: 1,
-    fontSize: 26,
-    fontFamily: FONTS.display.semibold,
-    color: COLORS.text,
-    letterSpacing: -0.4,
-    lineHeight: 32,
-    paddingVertical: 2,
-    paddingHorizontal: 0,
-    margin: 0,
-  },
-  inlineIconButton: {
-    padding: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
+  usernameLine: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    marginTop: 2,
   },
   title: {
     fontSize: 34,

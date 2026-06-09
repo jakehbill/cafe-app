@@ -98,6 +98,18 @@ export const authStyles = StyleSheet.create({
   primaryButtonSlot: {
     marginTop: 8,
   },
+  stepBackLink: {
+    alignSelf: 'center',
+    marginTop: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  stepBackLinkText: {
+    color: THEME_COLORS.muted,
+    fontSize: 15,
+    fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
+  },
   footerRow: {
     marginTop: 20,
     flexDirection: 'row',

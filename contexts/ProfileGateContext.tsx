@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { createProfileIfMissing } from '@/data/profile';
+import { createProfileIfMissing, hydrateProfileIdentityFromAuth } from '@/data/profile';
 
 type ProfileGateContextValue = {
   /** True while resolving profile / onboarding for the signed-in user. */
@@ -34,6 +34,8 @@ export function ProfileGateProvider({ children }: { children: React.ReactNode })
         setNeedsOnboarding(false);
         return;
       }
+
+      await hydrateProfileIdentityFromAuth(user, created.data);
 
       const completed = created.data.onboarding_completed === true;
       setNeedsOnboarding(!completed);

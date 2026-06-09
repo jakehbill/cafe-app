@@ -1,3 +1,5 @@
+import type { User } from '@supabase/supabase-js';
+
 import { supabase } from '@/lib/supabase';
 
 /** Row shape for `public.profiles` (identity, taste preferences, onboarding). */
@@ -5,6 +7,8 @@ export type UserProfile = {
   user_id: string;
   /** Main user-facing name (editable; email stays in Supabase Auth only). */
   display_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   username: string | null;
   avatar_url: string | null;
   city: string | null;
@@ -85,9 +89,99 @@ export async function createProfileIfMissing(): Promise<ProfileResult<UserProfil
   return { data: insertRes.data as UserProfile, error: null };
 }
 
+function normalizeNameField(raw: string | null | undefined): string | null {
+  if (raw === undefined || raw === null) return null;
+  const t = raw.trim();
+  return t.length > 0 ? t : null;
+}
+
+export const USERNAME_MIN_LENGTH = 3;
+export const USERNAME_MAX_LENGTH = 30;
+
+function normalizeUsername(raw: string | null | undefined): string | null {
+  if (raw === undefined || raw === null) return null;
+  const t = raw.trim().replace(/^@+/, '').toLowerCase();
+  return t.length > 0 ? t : null;
+}
+
+/** Signup/editorial normalization — lowercase handle without leading @. */
+export function normalizeSignupUsername(raw: string): string {
+  return raw.trim().replace(/^@+/, '').toLowerCase();
+}
+
+/** Returns a user-facing error message, or null when the format is valid. */
+export function validateSignupUsernameFormat(raw: string): string | null {
+  const stripped = raw.trim().replace(/^@+/, '');
+  if (!stripped) return 'Please choose a username.';
+  if (/\s/.test(stripped)) return 'Username cannot contain spaces.';
+  const normalized = stripped.toLowerCase();
+  if (!/^[a-z0-9_.]+$/.test(normalized)) {
+    return 'Use only letters, numbers, underscores, or periods.';
+  }
+  if (normalized.length < USERNAME_MIN_LENGTH) {
+    return `Username must be at least ${USERNAME_MIN_LENGTH} characters.`;
+  }
+  if (normalized.length > USERNAME_MAX_LENGTH) {
+    return `Username must be ${USERNAME_MAX_LENGTH} characters or fewer.`;
+  }
+  return null;
+}
+
+/** Pre-signup availability check against `public.profiles.username`. */
+export async function isUsernameAvailable(
+  raw: string
+): Promise<{ available: boolean; error: string | null }> {
+  const formatError = validateSignupUsernameFormat(raw);
+  if (formatError) {
+    return { available: false, error: formatError };
+  }
+
+  const normalized = normalizeSignupUsername(raw);
+  const res = await supabase
+    .from('profiles')
+    .select('user_id')
+    .eq('username', normalized)
+    .maybeSingle();
+
+  if (res.error) {
+    return { available: false, error: 'Could not check username. Please try again.' };
+  }
+  if (res.data) {
+    return { available: false, error: 'That username is already taken.' };
+  }
+  return { available: true, error: null };
+}
+
+/** Copy signup metadata into profile when profile identity fields are still empty. */
+export async function hydrateProfileIdentityFromAuth(
+  user: User,
+  profile: UserProfile | null
+): Promise<void> {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const patch: UpdateProfileInput = {};
+
+  if (!normalizeNameField(profile?.first_name) && normalizeNameField(String(meta.first_name ?? ''))) {
+    patch.first_name = normalizeNameField(String(meta.first_name ?? ''));
+  }
+  if (!normalizeNameField(profile?.last_name) && normalizeNameField(String(meta.last_name ?? ''))) {
+    patch.last_name = normalizeNameField(String(meta.last_name ?? ''));
+  }
+  if (!normalizeDisplayName(profile?.display_name) && normalizeDisplayName(String(meta.display_name ?? ''))) {
+    patch.display_name = normalizeDisplayName(String(meta.display_name ?? ''));
+  }
+  if (!normalizeUsername(profile?.username) && normalizeUsername(String(meta.username ?? ''))) {
+    patch.username = normalizeUsername(String(meta.username ?? ''));
+  }
+
+  if (Object.keys(patch).length === 0) return;
+  await updateProfile(patch);
+}
+
 /** Partial update for `public.profiles` — only defined keys are sent. */
 export type UpdateProfileInput = {
   display_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   username?: string | null;
   avatar_url?: string | null;
   city?: string | null;
@@ -126,7 +220,15 @@ export async function updateProfile(
   if (patch.display_name !== undefined) {
     row.display_name = normalizeDisplayName(patch.display_name ?? null);
   }
-  if (patch.username !== undefined) row.username = patch.username;
+  if (patch.first_name !== undefined) {
+    row.first_name = normalizeNameField(patch.first_name ?? null);
+  }
+  if (patch.last_name !== undefined) {
+    row.last_name = normalizeNameField(patch.last_name ?? null);
+  }
+  if (patch.username !== undefined) {
+    row.username = normalizeUsername(patch.username ?? null);
+  }
   if (patch.avatar_url !== undefined) row.avatar_url = patch.avatar_url;
   if (patch.city !== undefined) row.city = patch.city;
   if (patch.coffee_preference !== undefined) row.coffee_preference = patch.coffee_preference;
