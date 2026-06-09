@@ -378,20 +378,27 @@ export function BetaWaitlistFlow() {
             ) : null}
 
             {step === 'email' ? (
-              <TextInput
-                value={email}
-                onChangeText={(t) => {
-                  setEmail(t);
-                  setFieldError(null);
-                }}
-                placeholder="you@email.com"
-                placeholderTextColor={COLORS.muted}
-                style={styles.input}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-              />
+              <View style={styles.emailStep}>
+                <TextInput
+                  value={email}
+                  onChangeText={(t) => {
+                    setEmail(t);
+                    setFieldError(null);
+                  }}
+                  placeholder="you@email.com"
+                  placeholderTextColor={COLORS.muted}
+                  style={styles.input}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                />
+                <Text style={styles.consentFinePrint}>
+                  By clicking “Join the beta”, you agree to receive emails from Beaned about beta
+                  access, café recommendations, product updates, and early tester opportunities.
+                  You can unsubscribe at any time.
+                </Text>
+              </View>
             ) : null}
 
             {fieldError ? <Text style={styles.error}>{fieldError}</Text> : null}
@@ -405,7 +412,7 @@ export function BetaWaitlistFlow() {
                       : step === 'email'
                         ? submitting
                           ? 'Joining…'
-                          : 'Join the waitlist'
+                          : 'Join the beta'
                         : 'Continue'
                   }
                   onPress={() => void handlePrimary()}
@@ -520,6 +527,7 @@ const styles = StyleSheet.create({
   },
   checkOn: { borderColor: COLORS.accent, backgroundColor: COLORS.accent },
   checkMark: { color: '#fff', fontSize: 12, fontFamily: FONTS.sans.bold },
+  emailStep: { gap: 12 },
   input: {
     borderRadius: 16,
     borderWidth: 1,
@@ -531,6 +539,14 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     color: COLORS.text,
     marginTop: 4,
+  },
+  consentFinePrint: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
   error: {
     fontSize: 14,
