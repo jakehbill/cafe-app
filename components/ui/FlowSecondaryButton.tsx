@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 20,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: COLORS.inputBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
     alignItems: 'center',

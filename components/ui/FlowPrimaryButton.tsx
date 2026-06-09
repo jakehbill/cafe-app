@@ -8,12 +8,21 @@ type Props = {
   disabled?: boolean;
   accessibilityLabel?: string;
   style?: ViewStyle;
+  /** Tighter padding for inline form CTAs */
+  compact?: boolean;
 };
 
 /**
  * Primary CTA — black fill, light label. Shared across join, landing, onboarding, auth.
  */
-export function FlowPrimaryButton({ label, onPress, disabled, accessibilityLabel, style }: Props) {
+export function FlowPrimaryButton({
+  label,
+  onPress,
+  disabled,
+  accessibilityLabel,
+  style,
+  compact = false,
+}: Props) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -22,12 +31,13 @@ export function FlowPrimaryButton({ label, onPress, disabled, accessibilityLabel
       disabled={disabled}
       style={({ pressed }) => [
         styles.base,
+        compact && styles.compact,
         pressed && !disabled && styles.pressed,
         disabled && styles.disabled,
         style,
       ]}
     >
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, compact && styles.labelCompact]}>{label}</Text>
     </Pressable>
   );
 }
@@ -43,6 +53,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  compact: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
   pressed: {
     opacity: 0.88,
   },
@@ -50,9 +65,13 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   label: {
-    color: '#FFFFFF',
+    color: COLORS.buttonLabelOnAccent,
     fontSize: 17,
     fontFamily: FONTS.sans.bold,
     textAlign: 'center',
+  },
+  labelCompact: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.semibold,
   },
 });

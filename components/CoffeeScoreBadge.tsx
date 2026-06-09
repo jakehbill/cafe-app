@@ -13,7 +13,7 @@ const BADGE_TOKENS: Record<CoffeeScoreBadgeSize, { diameter: number; fontSize: n
   large: { diameter: 36, fontSize: 16 },
 };
 
-/** Detail screen: typography-only hero score (Playfair, brand orange). */
+/** Detail screen: typography-only hero score (Playfair, black accent). */
 const DETAIL_TEXT = {
   fontSize: 26,
   lineHeight: 30,

@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   },
   pillSelected: {
     borderColor: COLORS.accent,
-    backgroundColor: COLORS.accentSubtleFill,
+    backgroundColor: COLORS.accent,
   },
   pillDisabled: {
     opacity: 0.55,
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   pillLabelSelected: {
     fontFamily: FONTS.sans.bold,
-    color: COLORS.accent,
+    color: COLORS.buttonLabelOnAccent,
   },
   clearHit: {
     alignSelf: 'flex-start',

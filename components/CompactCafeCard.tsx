@@ -6,7 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 
 import { type Cafe } from '@/data/cafes';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { EditorialTag } from '@/components/EditorialTag';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import { CafeImage } from '@/components/CafeImage';
@@ -250,15 +250,11 @@ export function CompactCafeCard({
               {showTagRow ? (
                 <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
                   {tagSlice.map((tag) => (
-                    <View key={tag} style={[styles.tagChip, tagsSubtle && styles.tagChipSubtle]}>
-                      <TagWithOptionalIcon
-                        tag={tag}
-                        iconSize={tagsSubtle ? 11 : 12}
-                        color={COLORS.muted}
-                        textStyle={[styles.tagChipText, tagsSubtle && styles.tagChipTextSubtle]}
-                        gap={4}
-                      />
-                    </View>
+                    <EditorialTag
+                      key={tag}
+                      tag={tag}
+                      variant={tagsSubtle ? 'secondary' : 'featured'}
+                    />
                   ))}
                 </View>
               ) : null}
@@ -301,15 +297,11 @@ export function CompactCafeCard({
                   ]}
                 >
                   {tagSlice.map((tag) => (
-                    <View key={tag} style={[styles.tagChip, tagsSubtle && styles.tagChipSubtle]}>
-                      <TagWithOptionalIcon
-                        tag={tag}
-                        iconSize={tagsSubtle ? 11 : 12}
-                        color={COLORS.muted}
-                        textStyle={[styles.tagChipText, tagsSubtle && styles.tagChipTextSubtle]}
-                        gap={4}
-                      />
-                    </View>
+                    <EditorialTag
+                      key={tag}
+                      tag={tag}
+                      variant={tagsSubtle ? 'secondary' : 'featured'}
+                    />
                   ))}
                 </View>
               ) : showTagSpacer ? (
@@ -464,17 +456,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.accentSubtleFill,
+    backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.accent,
     zIndex: 3,
   },
   topRightActionButtonPressed: {
     transform: [{ scale: 0.97 }],
-    backgroundColor: COLORS.accentSubtleFill,
+    opacity: 0.9,
   },
   cardTopRightActionText: {
-    color: COLORS.accent,
+    color: COLORS.buttonLabelOnAccent,
     fontSize: 12,
     fontFamily: FONTS.sans.semibold,
     letterSpacing: -0.1,
@@ -606,34 +598,6 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 3,
     maxWidth: '100%',
-  },
-  tagChip: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: COLORS.tagBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tagChipSubtle: {
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    backgroundColor: 'transparent',
-    borderColor: COLORS.cardBorder,
-  },
-  tagChipText: {
-    fontSize: 11,
-    fontFamily: FONTS.sans.medium,
-    color: COLORS.muted,
-    letterSpacing: -0.05,
-  },
-  tagChipTextSubtle: {
-    fontSize: 10,
-    fontFamily: FONTS.sans.regular,
-    color: COLORS.muted,
-    opacity: 0.85,
   },
 });
 

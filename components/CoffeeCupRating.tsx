@@ -161,8 +161,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.cardBackground,
   },
   cupWrapSelected: {
-    borderColor: 'rgba(225, 92, 49, 0.35)',
-    backgroundColor: COLORS.inputBackground,
+    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accentSubtleFill,
+    opacity: 1,
   },
   cupWrapUnselected: {
     borderColor: COLORS.cardBorder,

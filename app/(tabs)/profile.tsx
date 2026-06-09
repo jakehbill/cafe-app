@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.cardBackground,
+    backgroundColor: COLORS.inputBackground,
   },
   authSecondaryButtonText: {
     color: COLORS.text,

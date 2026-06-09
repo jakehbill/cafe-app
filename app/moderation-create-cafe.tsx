@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.accent,
     backgroundColor: COLORS.accent,
     alignItems: 'center',
   },
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: 14,
     lineHeight: 18,
-    color: '#ffffff',
+    color: COLORS.buttonLabelOnAccent,
     fontFamily: FONTS.sans.semibold,
   },
   secondaryButton: {

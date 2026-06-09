@@ -24,7 +24,7 @@ import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { EditorialTag } from '@/components/EditorialTag';
 import { CafeFlowHeaderCard } from '@/components/visit/CafeFlowHeaderCard';
 import { VisitPhotosSection } from '@/components/visit/VisitPhotosSection';
 import { ALL_RATING_TAGS, TAG_SECTIONS } from '@/lib/cafeTags';
@@ -374,26 +374,13 @@ export default function RateCafeScreen() {
               <Text style={styles.tagSectionTitle}>{section.title}</Text>
               <View style={styles.tagsWrap}>
                 {section.tags.map((tag) => (
-                  <TouchableOpacity
+                  <EditorialTag
                     key={tag}
-                    activeOpacity={0.85}
-                    style={[
-                      styles.tagChip,
-                      selectedTags.includes(tag) && styles.tagChipSelected,
-                    ]}
+                    tag={tag}
+                    variant="selectable"
+                    selected={selectedTags.includes(tag)}
                     onPress={() => toggleTag(tag)}
-                  >
-                    <TagWithOptionalIcon
-                      tag={tag}
-                      iconSize={14}
-                      color={selectedTags.includes(tag) ? COLORS.accent : COLORS.text}
-                      textStyle={[
-                        styles.tagChipText,
-                        selectedTags.includes(tag) && styles.tagChipTextSelected,
-                      ]}
-                      gap={5}
-                    />
-                  </TouchableOpacity>
+                  />
                 ))}
               </View>
             </View>
@@ -585,29 +572,6 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     letterSpacing: 0.2,
   },
-  tagChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: COLORS.inputBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tagChipSelected: {
-    backgroundColor: COLORS.accentSubtleFill,
-    borderColor: COLORS.accentSubtleBorder,
-  },
-  tagChipText: {
-    color: COLORS.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  tagChipTextSelected: {
-    color: COLORS.accent,
-  },
-
   feedbackBanner: {
     borderRadius: 12,
     paddingVertical: 10,
@@ -650,7 +614,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.accent,
     marginTop: 2,
   },
   submitButtonDisabled: {
@@ -661,7 +625,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(163, 177, 138, 0.8)',
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: COLORS.buttonLabelOnAccent,
     fontSize: 14,
     fontFamily: FONTS.sans.semibold,
     textAlign: 'center',

@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   ctaButtonText: {
-    color: '#ffffff',
+    color: COLORS.buttonLabelOnAccent,
     fontSize: 13,
     fontWeight: '700',
   },

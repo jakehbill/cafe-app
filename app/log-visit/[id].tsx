@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { EditorialTag } from '@/components/EditorialTag';
 import { CafeFlowHeaderCard } from '@/components/visit/CafeFlowHeaderCard';
 import { VisitPhotosSection } from '@/components/visit/VisitPhotosSection';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
@@ -357,23 +357,13 @@ export default function LogVisitScreen() {
                 <Text style={styles.tagSectionTitle}>{section.title}</Text>
                 <View style={styles.tagsWrap}>
                   {section.tags.map((tag) => (
-                    <TouchableOpacity
+                    <EditorialTag
                       key={tag}
-                      style={[styles.tagChip, selectedTags.includes(tag) && styles.tagChipSelected]}
+                      tag={tag}
+                      variant="selectable"
+                      selected={selectedTags.includes(tag)}
                       onPress={() => toggleTag(tag)}
-                      activeOpacity={0.85}
-                    >
-                      <TagWithOptionalIcon
-                        tag={tag}
-                        iconSize={14}
-                        color={selectedTags.includes(tag) ? COLORS.accent : COLORS.text}
-                        textStyle={[
-                          styles.tagChipText,
-                          selectedTags.includes(tag) && styles.tagChipTextSelected,
-                        ]}
-                        gap={5}
-                      />
-                    </TouchableOpacity>
+                    />
                   ))}
                 </View>
               </View>
@@ -461,17 +451,6 @@ const styles = StyleSheet.create({
   tagSection: { gap: 8 },
   tagSectionTitle: { fontSize: 12, color: COLORS.muted, fontFamily: FONTS.sans.semibold },
   tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tagChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: COLORS.inputBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-  },
-  tagChipSelected: { backgroundColor: COLORS.accentSubtleFill, borderColor: COLORS.accentSubtleBorder },
-  tagChipText: { color: COLORS.text, fontSize: 12, fontWeight: '600' },
-  tagChipTextSelected: { color: COLORS.accent },
   notesInput: {
     minHeight: 60,
     borderRadius: 14,
@@ -527,8 +506,13 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.accent,
   },
   submitButtonDisabled: { opacity: 0.8 },
-  submitButtonText: { color: '#ffffff', fontSize: 14, fontFamily: FONTS.sans.semibold, textAlign: 'center' },
+  submitButtonText: {
+    color: COLORS.buttonLabelOnAccent,
+    fontSize: 14,
+    fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
+  },
 });

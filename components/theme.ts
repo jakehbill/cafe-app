@@ -20,15 +20,20 @@ export const COLORS = {
   cardBorder: '#E8E0D4',
 
   inputBackground: '#FFFBF0',
-  /** Card surfaces on cream canvas */
-  cardBackground: '#FFFFFF',
+  /** Warm highlight panels — café cards, notes, highlights */
+  cardBackground: '#FFF5E0',
   imagePlaceholder: '#EDE6DA',
-  chipBackground: '#F5F0E6',
-  tagBackground: '#FFFBF0',
+  /** Unselected filter chips — border-forward, no grey fill */
+  chipBackground: 'transparent',
+  tagBackground: 'transparent',
+  /** Quieter editorial tag borders */
+  tagSecondaryBorder: '#C9B89A',
 
-  /** Coffee tag pills — warm neutral (no orange tint) */
-  coffeePillBackground: 'rgba(0, 0, 0, 0.05)',
-  coffeePillBorder: 'rgba(0, 0, 0, 0.1)',
+  /** Insight / highlight callouts on cards */
+  coffeePillBackground: '#FFF5E0',
+  coffeePillBorder: '#E0D4C4',
+  /** Primary button label on black */
+  buttonLabelOnAccent: '#FFFFFF',
   /** Selected chips / toggles */
   accentSubtleFill: 'rgba(0, 0, 0, 0.06)',
   accentSubtleBorder: 'rgba(0, 0, 0, 0.14)',

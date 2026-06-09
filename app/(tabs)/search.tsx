@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { EditorialTag } from '@/components/EditorialTag';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
@@ -457,25 +457,13 @@ export default function SearchScreen() {
                   {section.tags.map((tag) => {
                     const selected = selectedTagSlugs.includes(tag);
                     return (
-                      <TouchableOpacity
+                      <EditorialTag
                         key={tag}
-                        activeOpacity={0.85}
-                        style={[styles.tagChip, selected && styles.tagChipSelected]}
+                        tag={tag}
+                        variant="selectable"
+                        selected={selected}
                         onPress={() => toggleTagSlug(tag)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                      >
-                        <TagWithOptionalIcon
-                          tag={tag}
-                          iconSize={14}
-                          color={selected ? COLORS.accent : COLORS.text}
-                          textStyle={[
-                            styles.tagChipText,
-                            selected && styles.tagChipTextSelected,
-                          ]}
-                          gap={5}
-                        />
-                      </TouchableOpacity>
+                      />
                     );
                   })}
                 </View>
@@ -825,27 +813,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  tagChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.inputBackground,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  tagChipSelected: {
-    borderColor: COLORS.accentSubtleBorder,
-    backgroundColor: COLORS.accentSubtleFill,
-  },
-  tagChipText: {
-    fontSize: 14,
-    fontFamily: FONTS.sans.medium,
-    color: COLORS.text,
-  },
-  tagChipTextSelected: {
-    color: COLORS.accent,
-    fontFamily: FONTS.sans.semibold,
-  },
   clearTagsRow: {
     alignSelf: 'flex-start',
     paddingVertical: 2,
@@ -871,9 +838,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   viewTogglePillActive: {
-    backgroundColor: COLORS.accentSubtleFill,
+    backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.accent,
   },
   viewToggleLabel: {
     fontSize: 13,
@@ -881,7 +848,7 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
   viewToggleLabelActive: {
-    color: COLORS.accent,
+    color: COLORS.buttonLabelOnAccent,
   },
   distanceControlsWrap: {
     gap: 8,
@@ -903,8 +870,8 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   distancePillActive: {
-    borderColor: COLORS.accentSubtleBorder,
-    backgroundColor: COLORS.accentSubtleFill,
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accent,
   },
   distancePillLabel: {
     fontSize: 12,
@@ -912,7 +879,7 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
   distancePillLabelActive: {
-    color: COLORS.accent,
+    color: COLORS.buttonLabelOnAccent,
   },
   distanceUnavailableHint: {
     fontSize: 12,
@@ -949,18 +916,20 @@ const styles = StyleSheet.create({
   },
   logMissingButton: {
     marginTop: 2,
-    alignSelf: 'flex-start',
-    borderRadius: 999,
+    alignSelf: 'stretch',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
-    backgroundColor: COLORS.accentSubtleFill,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    alignItems: 'center',
   },
   logMissingButtonText: {
     fontSize: 13,
-    color: COLORS.accent,
+    color: COLORS.buttonLabelOnAccent,
     fontFamily: FONTS.sans.semibold,
+    textAlign: 'center',
   },
   logMissingInlineText: {
     fontSize: 13,

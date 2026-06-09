@@ -291,9 +291,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1E9DC',
+    backgroundColor: COLORS.chipBackground,
     borderWidth: 1,
-    borderColor: '#E7DDCD',
+    borderColor: COLORS.cardBorder,
   },
   emptyIcon: {
     fontSize: 22,
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   ctaButtonText: {
-    color: '#ffffff',
+    color: COLORS.buttonLabelOnAccent,
     fontSize: 13,
     fontFamily: FONTS.sans.bold,
   },

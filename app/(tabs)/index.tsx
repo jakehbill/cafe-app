@@ -26,7 +26,7 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useCafesWithApprovedPhotos } from '@/hooks/useCafesWithApprovedPhotos';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { EditorialTag } from '@/components/EditorialTag';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
@@ -264,15 +264,7 @@ function HomeCafeCard({
         {hasTopTags ? (
           <View style={styles.tagsWithIcons}>
             {topTags.map((tag) => (
-              <View key={tag} style={styles.tagChip}>
-                <TagWithOptionalIcon
-                  tag={tag}
-                  iconSize={12}
-                  color={COLORS.muted}
-                  textStyle={styles.tagChipLabel}
-                  gap={5}
-                />
-              </View>
+              <EditorialTag key={tag} tag={tag} variant="featured" />
             ))}
           </View>
         ) : null}
@@ -1044,22 +1036,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-  },
-  tagChip: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: COLORS.tagBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tagChipLabel: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.medium,
-    color: COLORS.muted,
-    letterSpacing: -0.1,
   },
   featuredSummary: {
     color: COLORS.muted,

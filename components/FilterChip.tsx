@@ -32,12 +32,12 @@ export function FilterChip({ label, icon, selected = false, onPress }: FilterChi
 
 const styles = StyleSheet.create({
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 6,
     backgroundColor: COLORS.chipBackground,
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: COLORS.tagSecondaryBorder,
     justifyContent: 'center',
   },
   chipInner: {
@@ -50,7 +50,7 @@ const styles = StyleSheet.create({
   },
   chipSelected: {
     backgroundColor: COLORS.accentSubtleFill,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.text,
   },
   chipText: {
     color: COLORS.text,

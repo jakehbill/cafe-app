@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { EditorialTag } from '@/components/EditorialTag';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
@@ -712,25 +712,15 @@ export default function SuggestCafeScreen() {
                     <View key={`visit-${section.title}`} style={styles.tagSection}>
                       <Text style={styles.tagSectionTitle}>{section.title}</Text>
                       <View style={styles.tagsWrap}>
-                        {section.tags.map((tag) => {
-                          const selected = visitTags.includes(tag);
-                          return (
-                            <TouchableOpacity
-                              key={`visit-tag-${tag}`}
-                              activeOpacity={0.85}
-                              style={[styles.tagChip, selected && styles.tagChipSelected]}
-                              onPress={() => toggleVisitTag(tag)}
-                            >
-                              <TagWithOptionalIcon
-                                tag={tag}
-                                iconSize={14}
-                                color={selected ? COLORS.accent : COLORS.text}
-                                textStyle={[styles.tagChipText, selected && styles.tagChipTextSelected]}
-                                gap={5}
-                              />
-                            </TouchableOpacity>
-                          );
-                        })}
+                        {section.tags.map((tag) => (
+                          <EditorialTag
+                            key={`visit-tag-${tag}`}
+                            tag={tag}
+                            variant="selectable"
+                            selected={visitTags.includes(tag)}
+                            onPress={() => toggleVisitTag(tag)}
+                          />
+                        ))}
                       </View>
                     </View>
                   ))}
@@ -913,27 +903,15 @@ export default function SuggestCafeScreen() {
                       <View key={section.title} style={styles.tagSection}>
                         <Text style={styles.tagSectionTitle}>{section.title}</Text>
                         <View style={styles.tagsWrap}>
-                          {section.tags.map((tag) => {
-                            const selected = selectedTags.includes(tag);
-                            return (
-                              <TouchableOpacity
-                                key={tag}
-                                activeOpacity={0.85}
-                                style={[styles.tagChip, selected && styles.tagChipSelected]}
-                                onPress={() => toggleTag(tag)}
-                                accessibilityRole="button"
-                                accessibilityState={{ selected }}
-                              >
-                                <TagWithOptionalIcon
-                                  tag={tag}
-                                  iconSize={14}
-                                  color={selected ? COLORS.accent : COLORS.text}
-                                  textStyle={[styles.tagChipText, selected && styles.tagChipTextSelected]}
-                                  gap={5}
-                                />
-                              </TouchableOpacity>
-                            );
-                          })}
+                          {section.tags.map((tag) => (
+                            <EditorialTag
+                              key={tag}
+                              tag={tag}
+                              variant="selectable"
+                              selected={selectedTags.includes(tag)}
+                              onPress={() => toggleTag(tag)}
+                            />
+                          ))}
                         </View>
                       </View>
                     ))}
@@ -1253,26 +1231,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  tagChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.inputBackground,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  tagChipSelected: {
-    borderColor: COLORS.accentSubtleBorder,
-    backgroundColor: COLORS.accentSubtleFill,
-  },
-  tagChipText: {
-    color: COLORS.text,
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-  },
-  tagChipTextSelected: {
-    color: COLORS.accent,
-  },
   photoSlotsWrap: {
     gap: 10,
   },
@@ -1374,7 +1332,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1382,7 +1340,7 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   submitButtonText: {
-    color: '#ffffff',
+    color: COLORS.buttonLabelOnAccent,
     fontSize: 14,
     fontFamily: FONTS.sans.semibold,
     textAlign: 'center',

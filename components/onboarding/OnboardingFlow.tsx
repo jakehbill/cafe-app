@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   filterPillOn: {
     backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.accentSubtleBorder,
+    borderColor: COLORS.accent,
   },
   filterPillOff: {
     backgroundColor: COLORS.inputBackground,
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   filterPillTextOn: {
-    color: '#ffffff',
+    color: COLORS.buttonLabelOnAccent,
     fontFamily: FONTS.sans.semibold,
   },
   savedCard: {

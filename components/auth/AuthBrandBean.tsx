@@ -5,7 +5,7 @@ import { BeanCoffeeBackdrop, isBeanCoffeeSvgAvailable } from '@/components/BeanC
 
 /**
  * Shared hero-scale bean for auth + onboarding CTA.
- * SVG uses brand orange fills (`#e15c31`); size is consistent across surfaces.
+ * SVG uses black fills; size is consistent across surfaces.
  */
 export const AUTH_BRAND_BEAN_SIZE = 52;
 

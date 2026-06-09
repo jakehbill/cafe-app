@@ -1,6 +1,6 @@
 import { CafeImage } from '@/components/CafeImage';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { EditorialTag } from '@/components/EditorialTag';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useUserLocation } from '@/contexts/UserLocationContext';
@@ -606,15 +606,7 @@ export default function CafeDetailScreen() {
               <Text style={styles.sectionHeading}>Features</Text>
             <View style={styles.featuresGrid}>
               {featureTags.map((tag) => (
-                <View key={tag} style={styles.featureTag}>
-                  <TagWithOptionalIcon
-                    tag={tag}
-                    iconSize={16}
-                    color={COLORS.roastedBrown}
-                    textStyle={styles.featureTagLabel}
-                    gap={6}
-                  />
-                </View>
+                <EditorialTag key={tag} tag={tag} variant="featured" />
               ))}
             </View>
             </>
@@ -662,9 +654,11 @@ export default function CafeDetailScreen() {
           {remainingTags.length > 0 ? (
             <View style={styles.alsoGoodForSection}>
               <Text style={styles.alsoGoodForHeading}>Also good for</Text>
-              <Text style={styles.alsoGoodForText}>
-                {remainingTags.map((tag) => formatTagLabel(tag)).join(' · ')}
-              </Text>
+              <View style={styles.alsoGoodForTagsRow}>
+                {remainingTags.map((tag) => (
+                  <EditorialTag key={tag} tag={tag} variant="secondary" />
+                ))}
+              </View>
             </View>
           ) : null}
 
@@ -874,27 +868,27 @@ const styles = StyleSheet.create({
   compactActionButton: {
     flex: 1,
     borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 11,
     paddingHorizontal: 12,
-    backgroundColor: COLORS.inputBackground,
+    backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: COLORS.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   compactActionButtonAccent: {
-    backgroundColor: COLORS.accentSubtleFill,
-    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
   },
   compactActionButtonText: {
-    color: COLORS.text,
+    color: COLORS.buttonLabelOnAccent,
     fontSize: 13,
     fontFamily: FONTS.sans.semibold,
     textAlign: 'center',
     letterSpacing: -0.1,
   },
   compactActionButtonTextAccent: {
-    color: COLORS.accent,
+    color: COLORS.buttonLabelOnAccent,
   },
   identitySummaryDivider: {
     height: 1,
@@ -929,22 +923,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
-  featureTag: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    backgroundColor: COLORS.chipBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-  },
-  featureTagLabel: {
-    fontSize: 15,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    letterSpacing: -0.2,
-  },
   reviewsSection: {
     gap: 10,
   },
@@ -957,7 +935,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.cardBorder,
-    backgroundColor: 'rgba(248, 243, 235, 0.96)',
+    backgroundColor: COLORS.cardBackground,
     paddingTop: 7,
     paddingBottom: 8,
     paddingHorizontal: 11,
@@ -1027,12 +1005,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.45,
     textTransform: 'uppercase',
   },
-  alsoGoodForText: {
-    fontSize: 13,
-    lineHeight: 19,
-    fontFamily: FONTS.sans.regular,
-    color: COLORS.muted,
-    letterSpacing: -0.05,
+  alsoGoodForTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2,
   },
   actionsWrap: {
     marginTop: 8,
@@ -1048,22 +1025,22 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 15,
     paddingHorizontal: 16,
-    backgroundColor: COLORS.inputBackground,
+    backgroundColor: COLORS.accent,
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: COLORS.accent,
   },
   actionButtonAccent: {
-    backgroundColor: COLORS.accentSubtleFill,
-    borderColor: COLORS.accentSubtleBorder,
+    backgroundColor: COLORS.accent,
+    borderColor: COLORS.accent,
   },
   actionButtonText: {
-    color: COLORS.text,
+    color: COLORS.buttonLabelOnAccent,
     fontSize: 15,
     fontFamily: FONTS.sans.semibold,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
   actionButtonTextAccent: {
-    color: COLORS.accent,
+    color: COLORS.buttonLabelOnAccent,
   },
 });

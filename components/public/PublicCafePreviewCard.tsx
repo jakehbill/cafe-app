@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { CafeImage } from '@/components/CafeImage';
-import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { EditorialTag } from '@/components/EditorialTag';
 import { COLORS, FONTS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
 import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
@@ -49,9 +49,7 @@ export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
         {tags.length > 0 ? (
           <View style={styles.tags}>
             {tags.map((tag) => (
-              <View key={`${cafe.id}-${tag}`} style={styles.tagChip}>
-                <TagWithOptionalIcon tag={tag} iconSize={11} color={COLORS.muted} textStyle={styles.tagText} gap={4} />
-              </View>
+              <EditorialTag key={`${cafe.id}-${tag}`} tag={tag} variant="featured" />
             ))}
           </View>
         ) : null}
@@ -116,18 +114,5 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 6,
     marginTop: 4,
-  },
-  tagChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: COLORS.tagBackground,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-  },
-  tagText: {
-    fontSize: 11,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
   },
 });

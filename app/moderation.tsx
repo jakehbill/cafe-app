@@ -506,12 +506,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   approveButton: {
-    borderColor: COLORS.accentSubtleBorder,
-    backgroundColor: COLORS.accentSubtleFill,
+    borderColor: COLORS.accent,
+    backgroundColor: COLORS.accent,
   },
   approvePrimaryButton: {
     borderColor: COLORS.accent,
-    backgroundColor: COLORS.accentSubtleFill,
+    backgroundColor: COLORS.accent,
   },
   manageCafePhotosLink: {
     alignSelf: 'flex-start',
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.semibold,
   },
   approveButtonText: {
-    color: COLORS.accent,
+    color: COLORS.buttonLabelOnAccent,
   },
   createButtonText: {
     color: '#ffffff',

@@ -95,6 +95,7 @@ export function PublicLandingPage({ config }: Props) {
             <View style={styles.tagCloud}>
               {config.tagLabels.map((label) => (
                 <View key={label} style={styles.tagPill}>
+                  <Text style={styles.tagPillDot}>·</Text>
                   <Text style={styles.tagPillText}>{label}</Text>
                 </View>
               ))}
@@ -204,17 +205,28 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tagPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: COLORS.chipBackground,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 5,
+    backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: COLORS.cardBorder,
+    borderColor: COLORS.text,
+  },
+  tagPillDot: {
+    fontSize: 14,
+    lineHeight: 14,
+    fontFamily: FONTS.sans.bold,
+    color: COLORS.text,
+    marginTop: -1,
   },
   tagPillText: {
     fontSize: 12,
     fontFamily: FONTS.sans.semibold,
-    color: COLORS.roastedBrown,
+    color: COLORS.text,
+    letterSpacing: 0.12,
   },
   steps: { gap: 10, marginTop: 4 },
   stepCard: {
