@@ -22,6 +22,7 @@ import {
 
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
 import { COLORS, FONTS } from '@/components/theme';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
@@ -648,6 +649,7 @@ export default function SuggestCafeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <DesktopWebPageContainer variant="form" style={styles.pageContainer}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -1108,11 +1110,15 @@ export default function SuggestCafeScreen() {
           </View> : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      </DesktopWebPageContainer>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  pageContainer: {
+    flex: 1,
+  },
   authLoading: {
     flex: 1,
     alignItems: 'center',

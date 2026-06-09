@@ -21,6 +21,7 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { SUGGEST_CAFE_RETURN_PROFILE } from '@/lib/authGate';
 import { buildAuthPath, buildLoginPath } from '@/lib/authGate';
 import { useCafeState } from '@/contexts/CafeStateContext';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { GamificationHelpModal } from '@/components/profile/GamificationHelpModal';
 import {
   computeProfileBadges,
@@ -363,6 +364,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -689,6 +691,7 @@ export default function ProfileScreen() {
           </View>
         ) : null}
       </ScrollView>
+      </DesktopWebPageContainer>
       <GamificationHelpModal
         visible={showGamificationHelp}
         onClose={() => setShowGamificationHelp(false)}
@@ -702,6 +705,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  pageContainer: {
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,

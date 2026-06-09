@@ -10,7 +10,6 @@ import {
   Share,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +19,8 @@ import { type Cafe } from '../../data/cafes';
 import type { CafeRating } from '@/contexts/CafeStateContext';
 import { CafeImage } from '@/components/CafeImage';
 import { BrandTopBar } from '@/components/BrandTopBar';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
+import { useDesktopWebLayout } from '@/hooks/use-desktop-web-layout';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
@@ -579,18 +580,21 @@ export default function HomeScreen() {
       });
   }, [noticeBoardNotes, cafesWithApprovedPhotos]);
 
-  const { width: windowWidth } = useWindowDimensions();
+  const { layoutWidth } = useDesktopWebLayout('list');
   const picksCarousel = useMemo(() => {
     const cardWidthRatio = 0.84;
     const peek = 26;
     const gap = 14;
     const cardWidth = Math.max(
       260,
-      Math.min(windowWidth * cardWidthRatio, windowWidth - SCREEN_HORIZONTAL_PADDING * 2 - peek)
+      Math.min(
+        layoutWidth * cardWidthRatio,
+        layoutWidth - SCREEN_HORIZONTAL_PADDING * 2 - peek
+      )
     );
     const snapInterval = cardWidth + gap;
     return { cardWidth, gap, snapInterval };
-  }, [windowWidth]);
+  }, [layoutWidth]);
 
   useEffect(() => {
     if (!__DEV__) return;
@@ -607,6 +611,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+      <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
@@ -788,6 +793,7 @@ export default function HomeScreen() {
           ) : null}
         </View>
       </ScrollView>
+      </DesktopWebPageContainer>
     </SafeAreaView>
   );
 }
@@ -796,6 +802,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  pageContainer: {
+    flex: 1,
   },
   scrollContent: {
     paddingHorizontal: SCREEN_HORIZONTAL_PADDING,

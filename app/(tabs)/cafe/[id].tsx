@@ -1,4 +1,5 @@
 import { CafeImage } from '@/components/CafeImage';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -413,6 +414,7 @@ export default function CafeDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <DesktopWebPageContainer variant="detail" style={styles.pageContainer}>
       <ScrollView
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
@@ -691,6 +693,7 @@ export default function CafeDetailScreen() {
           </View>
         </View>
       </ScrollView>
+      </DesktopWebPageContainer>
     </SafeAreaView>
   );
 }
@@ -721,6 +724,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  pageContainer: {
+    flex: 1,
   },
   content: {
     paddingBottom: 40,

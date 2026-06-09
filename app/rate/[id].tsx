@@ -22,6 +22,7 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { type Cafe } from '@/data/cafes';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { CafeFlowHeaderCard } from '@/components/visit/CafeFlowHeaderCard';
@@ -303,6 +304,7 @@ export default function RateCafeScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <DesktopWebPageContainer variant="form" style={styles.pageContainer}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -453,11 +455,15 @@ export default function RateCafeScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+      </DesktopWebPageContainer>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  pageContainer: {
+    flex: 1,
+  },
   authLoading: {
     flex: 1,
     alignItems: 'center',

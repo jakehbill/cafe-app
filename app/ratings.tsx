@@ -17,6 +17,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import type { Cafe } from '@/data/cafes';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
+import { CafeCardGrid } from '@/components/layout/CafeCardGrid';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { COLORS, FONTS } from '@/components/theme';
 
@@ -114,6 +116,7 @@ export default function MyRatingsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
       {loading ? (
         <>
           <View style={styles.headerBlock}>
@@ -143,6 +146,7 @@ export default function MyRatingsScreen() {
         >
           {backRow}
           <Text style={styles.screenTitle}>Ratings</Text>
+          <CafeCardGrid>
           {items.map(({ cafe, rating }) => (
             <CompactCafeCard
               key={rating.cafe_id}
@@ -154,8 +158,10 @@ export default function MyRatingsScreen() {
               onPress={() => router.push(`/cafe/${cafe.id}`)}
             />
           ))}
+          </CafeCardGrid>
         </ScrollView>
       )}
+      </DesktopWebPageContainer>
     </SafeAreaView>
   );
 }
@@ -164,6 +170,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  pageContainer: {
+    flex: 1,
   },
   headerBlock: {
     paddingHorizontal: 20,

@@ -14,6 +14,8 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { buildLoginPath } from '@/lib/authGate';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 
+import { CafeCardGrid } from '@/components/layout/CafeCardGrid';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { FilterChip } from '@/components/FilterChip';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -96,6 +98,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
   };
 
   return (
+    <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
     <ScrollView contentContainerStyle={styles.content}>
       {showPageTitle ? <Text style={styles.title}>Saved for later</Text> : null}
 
@@ -178,7 +181,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.listWrap}>
+            <CafeCardGrid style={styles.listWrap}>
               {filteredSaved.map((cafe) => {
                 return (
                   <CompactCafeCard
@@ -191,15 +194,19 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
                   />
                 );
               })}
-            </View>
+            </CafeCardGrid>
           )}
         </>
       )}
     </ScrollView>
+    </DesktopWebPageContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  pageContainer: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: 20,
     paddingTop: 18,

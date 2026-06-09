@@ -23,6 +23,8 @@ import { SUGGEST_CAFE_RETURN_SEARCH } from '@/lib/authGate';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { buildTasteProfileFromState, cafeMatchesSearchQuery, rankCafesForSearch } from '@/lib/cafeRanking';
+import { CafeCardGrid } from '@/components/layout/CafeCardGrid';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
 import { SearchResultListSkeleton } from '@/components/skeleton/CafeSkeletons';
 import SearchResultsMap from '@/components/maps/SearchResultsMap';
@@ -86,7 +88,7 @@ const SearchResultCards = React.memo(function SearchResultCards({
   onPressCafe: (id: string) => void;
 }) {
   return (
-    <>
+    <CafeCardGrid>
       {cafes.map((cafe) => (
         <CompactCafeCard
           key={cafe.id}
@@ -97,7 +99,7 @@ const SearchResultCards = React.memo(function SearchResultCards({
           onPress={() => onPressCafe(cafe.id)}
         />
       ))}
-    </>
+    </CafeCardGrid>
   );
 });
 
@@ -397,6 +399,7 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <Text style={styles.title}>Search</Text>
@@ -709,6 +712,7 @@ export default function SearchScreen() {
           )}
         </View>
       )}
+      </DesktopWebPageContainer>
     </SafeAreaView>
   );
 }
@@ -717,6 +721,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  pageContainer: {
+    flex: 1,
   },
   header: {
     paddingHorizontal: 20,

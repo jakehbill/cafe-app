@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CafeCardGrid } from '@/components/layout/CafeCardGrid';
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { VisitedCafeDiaryCard } from '@/components/visit/VisitedCafeDiaryCard';
 import type { Cafe } from '@/data/cafes';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
@@ -156,6 +158,7 @@ export default function MyCafesScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
       {!hasVisits ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
@@ -197,7 +200,7 @@ export default function MyCafesScreen() {
           <Text style={styles.hint}>
             Your personal coffee diary — visit photos, ratings, and notes you&apos;ve saved.
           </Text>
-          <View style={styles.timelineList}>
+          <CafeCardGrid style={styles.timelineList}>
             {compactRows.map(({ cafe, visit }) => (
               <VisitedCafeDiaryCard
                 key={`${cafe.id}-${visit.id}`}
@@ -213,14 +216,18 @@ export default function MyCafesScreen() {
                 }
               />
             ))}
-          </View>
+          </CafeCardGrid>
         </ScrollView>
       )}
+      </DesktopWebPageContainer>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  pageContainer: {
+    flex: 1,
+  },
   authLoading: {
     flex: 1,
     alignItems: 'center',

@@ -13,12 +13,6 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { useDesktopWeb } from '@/hooks/use-desktop-web';
-import {
-  DESKTOP_APP_MAX_WIDTH,
-  getDesktopWebInnerColumnStyle,
-  getDesktopWebOuterShellStyle,
-} from '@/lib/responsiveWebLayout';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
@@ -90,10 +84,7 @@ function RootNavigator() {
   const { user, session, loading } = useAuth();
   const { profileLoading, needsOnboarding } = useProfileGate();
   const prevSessionRef = useRef<typeof session>(null);
-  const { isDesktopWeb } = useDesktopWeb();
-
   const isPublicRoute = isPublicStandaloneRoute(segments[0]);
-  const constrainAppWidth = isDesktopWeb && !isPublicRoute;
   const showBootstrapOverlay =
     !isPublicRoute && (loading || (user != null && profileLoading));
 
@@ -157,13 +148,8 @@ function RootNavigator() {
   const stackHeaderOn = { headerShown: true as const };
 
   return (
-    <View style={[styles.root, constrainAppWidth ? getDesktopWebOuterShellStyle() : null]}>
-    <View
-      style={[
-        styles.stackHost,
-        constrainAppWidth ? getDesktopWebInnerColumnStyle(DESKTOP_APP_MAX_WIDTH) : null,
-      ]}
-    >
+    <View style={styles.root}>
+    <View style={styles.stackHost}>
     <Stack
       screenOptions={({ navigation }) => ({
         ...stackScreenBase,

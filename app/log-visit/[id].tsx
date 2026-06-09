@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { CafeFlowHeaderCard } from '@/components/visit/CafeFlowHeaderCard';
@@ -243,6 +244,7 @@ export default function LogVisitScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+      <DesktopWebPageContainer variant="form" style={styles.pageContainer}>
       <KeyboardAvoidingView
         style={styles.keyboardAvoid}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -406,11 +408,15 @@ export default function LogVisitScreen() {
           </TouchableOpacity> : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      </DesktopWebPageContainer>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  pageContainer: {
+    flex: 1,
+  },
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
