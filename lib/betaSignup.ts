@@ -1,37 +1,38 @@
 import { supabase } from '@/lib/supabase';
 
 export const BETA_PERSONA_OPTIONS = [
-  'Coffee Lover',
-  'Remote Worker',
-  'I Love Finding New Places',
-  'A Bit of Everything',
+  'I care about great coffee',
+  'I need good places to work',
+  'I love finding hidden gems',
+  'A bit of everything',
 ] as const;
 
 export const BETA_VISIT_FREQUENCY_OPTIONS = [
-  'Daily',
-  'A Few Times a Week',
-  'Weekly',
-  'Occasionally',
+  'Almost every day',
+  'A few times a week',
+  'Once a week',
+  'Every now and then',
 ] as const;
 
 export const BETA_PRIORITY_OPTIONS = [
-  'Coffee Quality',
+  'Coffee quality',
   'Atmosphere',
-  'Work-Friendly',
+  'Work friendliness',
   'Food',
-  'Hidden Gems',
+  'Hidden gems',
   'Location',
 ] as const;
 
-export const BETA_CITY_OPTIONS = ['London', 'Manchester', 'Edinburgh', 'Other'] as const;
+/** Default when the join flow no longer asks for city (London-only beta). */
+export const DEFAULT_BETA_SIGNUP_CITY = 'London';
 
 export const BETA_DRINK_OPTIONS = [
-  'Flat White',
+  'Flat white',
   'Latte',
   'Espresso',
-  'Filter',
+  'Filter coffee',
   'Matcha',
-  'Other',
+  'Something else',
 ] as const;
 
 export type BetaSignupInsert = {

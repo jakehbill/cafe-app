@@ -2,11 +2,11 @@ import { AuthBrandBean } from '@/components/auth/AuthBrandBean';
 import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 import { COLORS, FONTS } from '@/components/theme';
 import {
-  BETA_CITY_OPTIONS,
   BETA_DRINK_OPTIONS,
   BETA_PERSONA_OPTIONS,
   BETA_PRIORITY_OPTIONS,
   BETA_VISIT_FREQUENCY_OPTIONS,
+  DEFAULT_BETA_SIGNUP_CITY,
   isValidBetaSignupEmail,
   normalizeBetaSignupSource,
   submitBetaSignup,
@@ -25,9 +25,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type StepId = 'intro' | 'persona' | 'frequency' | 'priorities' | 'city' | 'drink' | 'email' | 'success';
+type StepId = 'intro' | 'persona' | 'frequency' | 'priorities' | 'drink' | 'email' | 'success';
 
-const QUESTION_STEPS: StepId[] = ['persona', 'frequency', 'priorities', 'city', 'drink', 'email'];
+const QUESTION_STEPS: StepId[] = ['persona', 'frequency', 'priorities', 'drink', 'email'];
 const TOTAL_PROGRESS_STEPS = QUESTION_STEPS.length;
 
 function ProgressBar({ stepIndex }: { stepIndex: number }) {
@@ -87,8 +87,6 @@ export function BetaWaitlistFlow() {
   const [persona, setPersona] = useState<string | null>(null);
   const [visitFrequency, setVisitFrequency] = useState<string | null>(null);
   const [priorities, setPriorities] = useState<string[]>([]);
-  const [cityChoice, setCityChoice] = useState<string | null>(null);
-  const [cityOther, setCityOther] = useState('');
   const [drinkChoice, setDrinkChoice] = useState<string | null>(null);
   const [drinkOther, setDrinkOther] = useState('');
   const [email, setEmail] = useState('');
@@ -100,10 +98,10 @@ export function BetaWaitlistFlow() {
   const showProgress = progressIndex >= 0;
   const showBack = step !== 'intro' && step !== 'success';
 
-  const resolvedCity =
-    cityChoice === 'Other' ? cityOther.trim() || 'Other' : cityChoice ?? '';
   const resolvedDrink =
-    drinkChoice === 'Other' ? drinkOther.trim() || 'Other' : drinkChoice ?? '';
+    drinkChoice === 'Something else'
+      ? drinkOther.trim() || 'Something else'
+      : drinkChoice ?? '';
 
   function goBack() {
     setFieldError(null);
@@ -131,7 +129,7 @@ export function BetaWaitlistFlow() {
     switch (step) {
       case 'persona':
         if (!persona) {
-          setFieldError('Choose the option that fits you best.');
+          setFieldError('Pick the one that sounds most like you.');
           return false;
         }
         return true;
@@ -143,13 +141,7 @@ export function BetaWaitlistFlow() {
         return true;
       case 'priorities':
         if (priorities.length === 0) {
-          setFieldError('Select at least one priority.');
-          return false;
-        }
-        return true;
-      case 'city':
-        if (!cityChoice) {
-          setFieldError('Choose where you are based.');
+          setFieldError('Pick at least one thing you care about.');
           return false;
         }
         return true;
@@ -181,7 +173,7 @@ export function BetaWaitlistFlow() {
         persona,
         visit_frequency: visitFrequency,
         priorities,
-        city: resolvedCity,
+        city: DEFAULT_BETA_SIGNUP_CITY,
         favorite_drink: resolvedDrink,
         source,
         completed: true,
@@ -206,13 +198,11 @@ export function BetaWaitlistFlow() {
         ? 'How often do you visit cafés?'
         : step === 'priorities'
           ? 'What do you care about most?'
-          : step === 'city'
-            ? 'Where are you based?'
-            : step === 'drink'
-              ? "What's your go-to order?"
-              : step === 'email'
-                ? 'Where should we send your invite?'
-                : null;
+          : step === 'drink'
+            ? "What's your go-to order?"
+            : step === 'email'
+              ? 'Where should we send your beta invite?'
+              : null;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
@@ -241,9 +231,11 @@ export function BetaWaitlistFlow() {
             {step === 'intro' ? (
               <View style={styles.hero}>
                 <AuthBrandBean />
-                <Text style={styles.displayTitle}>Discover great cafes.{'\n'}Track the ones you love.</Text>
+                <Text style={styles.displayTitle}>
+                  Find cafés you&apos;ll actually want to come back to.
+                </Text>
                 <Text style={styles.displaySubtitle}>
-                  A few quick questions — then your beta invite by email.
+                  Answer a few quick questions so we can make Beaned better for early users.
                 </Text>
               </View>
             ) : null}
@@ -326,32 +318,6 @@ export function BetaWaitlistFlow() {
               </View>
             ) : null}
 
-            {step === 'city' ? (
-              <View style={styles.optionList}>
-                {BETA_CITY_OPTIONS.map((opt) => (
-                  <OptionRow
-                    key={opt}
-                    label={opt}
-                    selected={cityChoice === opt}
-                    onPress={() => {
-                      setCityChoice(opt);
-                      setFieldError(null);
-                    }}
-                  />
-                ))}
-                {cityChoice === 'Other' ? (
-                  <TextInput
-                    value={cityOther}
-                    onChangeText={setCityOther}
-                    placeholder="Your city (optional)"
-                    placeholderTextColor={COLORS.muted}
-                    style={styles.input}
-                    autoCapitalize="words"
-                  />
-                ) : null}
-              </View>
-            ) : null}
-
             {step === 'drink' ? (
               <View style={styles.optionList}>
                 {BETA_DRINK_OPTIONS.map((opt) => (
@@ -365,11 +331,11 @@ export function BetaWaitlistFlow() {
                     }}
                   />
                 ))}
-                {drinkChoice === 'Other' ? (
+                {drinkChoice === 'Something else' ? (
                   <TextInput
                     value={drinkOther}
                     onChangeText={setDrinkOther}
-                    placeholder="Your usual order (optional)"
+                    placeholder="What do you usually order?"
                     placeholderTextColor={COLORS.muted}
                     style={styles.input}
                   />
@@ -408,7 +374,7 @@ export function BetaWaitlistFlow() {
                 <FlowPrimaryButton
                   label={
                     step === 'intro'
-                      ? 'Get Started'
+                      ? 'Get started'
                       : step === 'email'
                         ? submitting
                           ? 'Joining…'
