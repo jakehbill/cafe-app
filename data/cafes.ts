@@ -28,6 +28,8 @@ export type Cafe = {
    * Google Maps URL from Supabase `google_maps_url` (optional when absent in the row).
    */
   googleMapsUrl?: string;
+  /** Google Place ID from Supabase `google_place_id` when present. */
+  googlePlaceId?: string;
   /**
    * Primary photo for list cards — always `imageUrls[0]` when available.
    * Legacy single-image columns are still accepted as fallback while migrating.

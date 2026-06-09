@@ -92,7 +92,55 @@ function ImageHeroBottomFade({ cafeId, width, height }: { cafeId: string; width:
 function formatIdentityAddress(cafe: Cafe): string {
   const line = (cafe.addressLine ?? '').trim();
   if (line.length > 0) return line;
-  return `${cafe.neighborhood}\nOpen in Google Maps for the exact pin`;
+  const neighborhood = (cafe.neighborhood ?? '').trim();
+  if (neighborhood.length > 0) return neighborhood;
+  return 'Open in Google Maps for the exact pin';
+}
+
+function identityAddressPrimaryLabel(cafe: Cafe): string {
+  const line = (cafe.addressLine ?? '').trim();
+  if (line.length > 0) return line;
+  return (cafe.neighborhood ?? '').trim();
+}
+
+function CafeIdentityAddress({
+  cafe,
+  onOpenMaps,
+}: {
+  cafe: Cafe;
+  onOpenMaps: () => void;
+}) {
+  const mapsUrl = resolveCafeMapsUrl(cafe);
+  const primaryLabel = identityAddressPrimaryLabel(cafe);
+
+  if (!mapsUrl) {
+    const fallback = formatIdentityAddress(cafe);
+    return fallback.length > 0 ? <Text style={styles.identityAddress}>{fallback}</Text> : null;
+  }
+
+  const label = primaryLabel.length > 0 ? primaryLabel : 'View on Google Maps';
+
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={`Open ${label} in Google Maps`}
+      onPress={onOpenMaps}
+      style={({ pressed, hovered }) => [
+        styles.identityAddressRow,
+        pressed && styles.identityAddressPressed,
+        Platform.OS === 'web' && hovered && styles.identityAddressHovered,
+      ]}
+    >
+      <Ionicons
+        name="location-outline"
+        size={14}
+        color={COLORS.muted}
+        style={styles.identityAddressIcon}
+      />
+      <Text style={[styles.identityAddress, styles.identityAddressLinkText]}>{label}</Text>
+      <Text style={styles.identityAddressLinkCue}>{'\u2197'}</Text>
+    </Pressable>
+  );
 }
 
 function ActionButton({
@@ -562,7 +610,7 @@ export default function CafeDetailScreen() {
                 </>
               ) : null}
             </Text>
-            <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
+            <CafeIdentityAddress cafe={cafe} onOpenMaps={() => void handleOpenGoogleMaps()} />
 
             {Platform.OS !== 'web' && hasValidCafeCoordinates(cafe) ? (
               <View style={styles.identityActionsRow}>
@@ -838,6 +886,35 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     color: 'rgba(103,94,83,0.82)',
     letterSpacing: -0.1,
+    flexShrink: 1,
+  },
+  identityAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    alignSelf: 'flex-start',
+    gap: 5,
+    maxWidth: '100%',
+  },
+  identityAddressIcon: {
+    marginTop: 2,
+    opacity: 0.88,
+  },
+  identityAddressLinkText: {
+    flexShrink: 1,
+  },
+  identityAddressLinkCue: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+    opacity: 0.75,
+    marginTop: 1,
+  },
+  identityAddressPressed: {
+    opacity: 0.72,
+  },
+  identityAddressHovered: {
+    opacity: 0.88,
   },
   identityActionsRow: {
     marginTop: 10,

@@ -141,6 +141,7 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
   const googleMapsUrl = str(
     row.google_maps_url ?? row.googleMapsUrl ?? row.google_maps_link ?? row.maps_url
   ).trim();
+  const googlePlaceId = str(row.google_place_id ?? row.googlePlaceId ?? row.place_id).trim();
 
   return {
     id,
@@ -157,6 +158,7 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     tags: tagsFromRow(row),
     short_description: str(row.short_description ?? row.summary ?? row.description),
     ...(googleMapsUrl.length > 0 ? { googleMapsUrl } : {}),
+    ...(googlePlaceId.length > 0 ? { googlePlaceId } : {}),
     ...(primaryUrl.length > 0
       ? photoUrls.length > 1
         ? { imageUrl: primaryUrl, imageUrls: photoUrls }

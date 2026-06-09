@@ -2,7 +2,7 @@ import { Linking, Platform } from 'react-native';
 
 import type { Cafe } from '@/data/cafes';
 
-const MAPS_SEARCH_BASE = 'https://www.google.com/maps/search/?api=1&query=';
+const MAPS_SEARCH_ORIGIN = 'https://www.google.com/maps/search/';
 
 function hasValidCoordinatePair(latitude: unknown, longitude: unknown): boolean {
   return (
@@ -30,64 +30,78 @@ export function normalizeExternalMapsUrl(url: string): string {
 }
 
 /**
- * Opens a Google Maps (or maps) URL without leaving a blank tab on mobile web.
- * Web: same-tab navigation. Native: system handler via Linking.
+ * Opens a Google Maps (or maps) URL in a new browser tab on web.
+ * Native: system handler via Linking.
  */
 export async function openExternalMapsUrl(url: string): Promise<void> {
   const normalized = normalizeExternalMapsUrl(url);
   if (Platform.OS === 'web') {
     if (typeof window !== 'undefined') {
-      window.location.href = normalized;
+      window.open(normalized, '_blank', 'noopener,noreferrer');
     }
     return;
   }
   await Linking.openURL(normalized);
 }
 
+/** Name + address (or neighborhood) for Maps search / place-id query text. */
+function buildCafeMapsSearchQuery(cafe: Cafe): string {
+  const name = (cafe.name ?? '').trim();
+  const address = (cafe.addressLine ?? '').trim();
+  const neighborhood = (cafe.neighborhood ?? '').trim();
+
+  if (name.length > 0 && address.length > 0) return `${name} ${address}`;
+  if (address.length > 0) return address;
+  if (name.length > 0 && neighborhood.length > 0) return `${name} ${neighborhood}`;
+  if (name.length > 0) return name;
+  if (neighborhood.length > 0) return neighborhood;
+  return '';
+}
+
+function buildMapsSearchUrl(query: string, placeId?: string): string {
+  const params = new URLSearchParams();
+  params.set('api', '1');
+  params.set('query', query);
+  const pid = placeId?.trim();
+  if (pid) params.set('query_place_id', pid);
+  return `${MAPS_SEARCH_ORIGIN}?${params.toString()}`;
+}
+
 /**
- * Resolves a Google Maps URL for opening or sharing.
- * 1. Search URL from coordinates (preferred source of truth when valid)
- * 2. `googleMapsUrl` from Supabase when present
- * 3. Search URL from street / formatted address when present
- * 4. Search URL from name + neighborhood
+ * Resolves the best Google Maps URL for a café listing.
+ *
+ * Priority:
+ * 1. Stored `googleMapsUrl` (actual listing link when curated)
+ * 2. Google Place ID + name/address search query
+ * 3. Name + address (or neighborhood) text search
+ * 4. Coordinates (last resort)
  */
 export function resolveCafeMapsUrl(cafe: Cafe): string | null {
-  const { latitude, longitude } = cafe;
-  if (hasValidCoordinatePair(latitude, longitude)) {
-    // Google Maps query expects latitude,longitude ordering.
-    return `${MAPS_SEARCH_BASE}${encodeURIComponent(`${latitude},${longitude}`)}`;
-  }
-
   const direct = cafe.googleMapsUrl?.trim();
   if (direct) return normalizeExternalMapsUrl(direct);
 
-  const addr = (cafe.addressLine ?? '').trim();
-  if (addr.length > 0) {
-    return `${MAPS_SEARCH_BASE}${encodeURIComponent(addr)}`;
+  const searchQuery = buildCafeMapsSearchQuery(cafe);
+  const placeId = cafe.googlePlaceId?.trim();
+
+  if (placeId) {
+    const placeQuery =
+      searchQuery.length > 0 ? searchQuery : (cafe.name ?? '').trim() || placeId;
+    return buildMapsSearchUrl(placeQuery, placeId);
   }
 
-  const q = `${cafe.name} ${cafe.neighborhood}`.trim();
-  if (q.length > 0) {
-    return `${MAPS_SEARCH_BASE}${encodeURIComponent(q)}`;
+  if (searchQuery.length > 0) {
+    return buildMapsSearchUrl(searchQuery);
+  }
+
+  const { latitude, longitude } = cafe;
+  if (hasValidCoordinatePair(latitude, longitude)) {
+    return buildMapsSearchUrl(`${latitude},${longitude}`);
   }
 
   return null;
 }
 
-/**
- * Google Maps link for web cafe detail (no in-app Beaned map).
- * 1. Stored `googleMapsUrl` from Supabase
- * 2. Search URL from cafe name + street address
- */
+/** @deprecated Use `resolveCafeMapsUrl` — same priority order. */
 export function resolveCafeGoogleMapsWebUrl(cafe: Cafe): string | null {
-  const direct = cafe.googleMapsUrl?.trim();
-  if (direct) return normalizeExternalMapsUrl(direct);
-
-  const addr = (cafe.addressLine ?? '').trim();
-  const name = (cafe.name ?? '').trim();
-  if (addr.length > 0 && name.length > 0) {
-    return `${MAPS_SEARCH_BASE}${encodeURIComponent(`${name} ${addr}`)}`;
-  }
-
-  return null;
+  return resolveCafeMapsUrl(cafe);
 }
