@@ -60,6 +60,7 @@ export default function MyCafesScreen() {
   const navigation = useNavigation();
   const [visitLogs, setVisitLogs] = useState<UserCafeVisit[]>([]);
   const [cafesById, setCafesById] = useState<Record<string, Cafe>>({});
+  const [visitsLoading, setVisitsLoading] = useState(true);
   const [showMovedToast, setShowMovedToast] = useState(false);
 
   useEffect(() => {
@@ -76,16 +77,21 @@ export default function MyCafesScreen() {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const logs = await getUserCafeVisitTimeline();
-      const visitCafeIds = Array.from(
-        new Set(logs.map((row) => row.cafeId).filter((id): id is string => Boolean(id)))
-      );
-      const cafes = await fetchCafesByIdsOrdered(visitCafeIds);
-      if (cancelled) return;
-      const nextMap: Record<string, Cafe> = {};
-      for (const cafe of cafes) nextMap[cafe.id] = cafe;
-      setVisitLogs(logs);
-      setCafesById(nextMap);
+      setVisitsLoading(true);
+      try {
+        const logs = await getUserCafeVisitTimeline();
+        const visitCafeIds = Array.from(
+          new Set(logs.map((row) => row.cafeId).filter((id): id is string => Boolean(id)))
+        );
+        const cafes = await fetchCafesByIdsOrdered(visitCafeIds);
+        if (cancelled) return;
+        const nextMap: Record<string, Cafe> = {};
+        for (const cafe of cafes) nextMap[cafe.id] = cafe;
+        setVisitLogs(logs);
+        setCafesById(nextMap);
+      } finally {
+        if (!cancelled) setVisitsLoading(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -145,6 +151,7 @@ export default function MyCafesScreen() {
   }, [latestVisitByCafe]);
 
   const hasVisits = compactRows.length > 0;
+  const showInitialVisitsLoading = visitsLoading && visitLogs.length === 0;
 
   if (authLoading || !authReady) {
     return (
@@ -159,7 +166,16 @@ export default function MyCafesScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
-      {!hasVisits ? (
+      {showInitialVisitsLoading ? (
+        <ScrollView contentContainerStyle={styles.content}>
+          {backRow}
+          <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
+          <View style={styles.visitsLoadingWrap}>
+            <ActivityIndicator color={COLORS.accent} size="large" />
+            <Text style={styles.visitsLoadingText}>Loading your visited cafés…</Text>
+          </View>
+        </ScrollView>
+      ) : !hasVisits ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
           <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
@@ -232,6 +248,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  visitsLoadingWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    paddingVertical: 48,
+    paddingHorizontal: 12,
+  },
+  visitsLoadingText: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.text,
+    textAlign: 'center',
   },
   safeArea: {
     flex: 1,
