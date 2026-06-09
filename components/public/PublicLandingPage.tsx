@@ -8,6 +8,7 @@ import {
   setAnalyticsAttribution,
   trackAnalyticsEvent,
 } from '@/lib/analyticsEvents';
+import { useDesktopWeb } from '@/hooks/use-desktop-web';
 import { getLandingPageCafes, PUBLIC_LANDING_CAFE_MAX } from '@/lib/publicLandingCafes';
 import type { Cafe } from '@/data/cafes';
 import * as Linking from 'expo-linking';
@@ -24,6 +25,7 @@ type Props = {
 
 export function PublicLandingPage({ config }: Props) {
   const router = useRouter();
+  const { isDesktopWeb } = useDesktopWeb();
   const { source: sourceParam, page: pageParam } = useLocalSearchParams<{
     source?: string | string[];
     page?: string | string[];
@@ -80,7 +82,7 @@ export function PublicLandingPage({ config }: Props) {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right', 'bottom']}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.inner}>
+        <View style={[styles.inner, isDesktopWeb && styles.innerDesktop]}>
           <View style={styles.brandRow}>
             <AuthBrandBean />
           </View>
@@ -119,9 +121,14 @@ export function PublicLandingPage({ config }: Props) {
                 <Text style={styles.loadingText}>Loading cafés…</Text>
               </View>
             ) : cafes.length > 0 ? (
-              <View style={styles.cafeList}>
+              <View style={[styles.cafeList, isDesktopWeb && styles.cafeListDesktop]}>
                 {cafes.map((cafe) => (
-                  <PublicCafePreviewCard key={cafe.id} cafe={cafe} />
+                  <View
+                    key={cafe.id}
+                    style={isDesktopWeb ? styles.cafeGridItem : styles.cafeListItem}
+                  >
+                    <PublicCafePreviewCard cafe={cafe} />
+                  </View>
                 ))}
               </View>
             ) : (
@@ -160,6 +167,10 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     width: '100%',
     alignSelf: 'center',
+  },
+  innerDesktop: {
+    maxWidth: 960,
+    paddingHorizontal: 32,
   },
   brandRow: { alignItems: 'center', marginBottom: 4 },
   hero: {
@@ -243,6 +254,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   cafeList: { gap: 10 },
+  cafeListItem: { width: '100%' },
+  cafeListDesktop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'center',
+  },
+  cafeGridItem: {
+    width: '100%',
+    maxWidth: 320,
+    flexGrow: 1,
+    flexBasis: '31%',
+    minWidth: 280,
+  },
   loadingWrap: { alignItems: 'center', gap: 8, paddingVertical: 24 },
   loadingText: { fontSize: 14, fontFamily: FONTS.sans.regular, color: COLORS.muted },
   fallbackCard: {
