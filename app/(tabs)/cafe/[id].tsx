@@ -9,7 +9,6 @@ import { withCafeDistances } from '@/lib/cafeDistance';
 import {
   hasValidCafeCoordinates,
   openExternalMapsUrl,
-  resolveCafeGoogleMapsWebUrl,
   resolveCafeMapsUrl,
 } from '@/lib/cafeMapsUrl';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
@@ -374,15 +373,6 @@ export default function CafeDetailScreen() {
     });
   }
 
-  function handleShowOnGoogleMapsWeb() {
-    if (!cafe) return;
-    const url = resolveCafeGoogleMapsWebUrl(cafe);
-    if (!url) return;
-    void openExternalMapsUrl(url).catch(() => {
-      Alert.alert('Cannot open link', 'This maps link could not be opened on your device.');
-    });
-  }
-
   async function handleSavePress() {
     if (!cafe) return;
     if (__DEV__) {
@@ -409,8 +399,6 @@ export default function CafeDetailScreen() {
       /* dismissed */
     }
   };
-
-  const webGoogleMapsUrl = Platform.OS === 'web' ? resolveCafeGoogleMapsWebUrl(cafe) : null;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
@@ -576,18 +564,11 @@ export default function CafeDetailScreen() {
             </Text>
             <Text style={styles.identityAddress}>{formatIdentityAddress(cafe)}</Text>
 
+            {Platform.OS !== 'web' && hasValidCafeCoordinates(cafe) ? (
               <View style={styles.identityActionsRow}>
-                {Platform.OS === 'web' ? (
-                  webGoogleMapsUrl ? (
-                    <CompactActionButton
-                      label="Show on Google Maps"
-                      onPress={handleShowOnGoogleMapsWeb}
-                    />
-                  ) : null
-                ) : hasValidCafeCoordinates(cafe) ? (
-                  <CompactActionButton label="Show on Beaned map" onPress={handleShowOnBeanedMap} />
-                ) : null}
+                <CompactActionButton label="Show on Beaned map" onPress={handleShowOnBeanedMap} />
               </View>
+            ) : null}
           </View>
 
           {cafe.short_description ? <View style={styles.identitySummaryDivider} /> : null}
