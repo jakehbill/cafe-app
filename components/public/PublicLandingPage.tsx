@@ -3,11 +3,16 @@ import { PublicCafePreviewCard } from '@/components/public/PublicCafePreviewCard
 import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 import { COLORS, FONTS } from '@/components/theme';
 import type { PublicLandingPageConfig } from '@/lib/publicLandingConfig';
+import {
+  parseAnalyticsAttribution,
+  setAnalyticsAttribution,
+  trackAnalyticsEvent,
+} from '@/lib/analyticsEvents';
 import { getLandingPageCafes, PUBLIC_LANDING_CAFE_MAX } from '@/lib/publicLandingCafes';
 import type { Cafe } from '@/data/cafes';
 import * as Linking from 'expo-linking';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -19,8 +24,29 @@ type Props = {
 
 export function PublicLandingPage({ config }: Props) {
   const router = useRouter();
+  const { source: sourceParam, page: pageParam } = useLocalSearchParams<{
+    source?: string | string[];
+    page?: string | string[];
+  }>();
   const [cafes, setCafes] = useState<Cafe[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const attribution = useMemo(() => {
+    const fromUrl = parseAnalyticsAttribution({ source: sourceParam, page: pageParam });
+    return {
+      source: fromUrl.source === 'direct' ? 'landing' : fromUrl.source,
+      page_slug: fromUrl.page_slug ?? config.slug,
+    };
+  }, [config.slug, pageParam, sourceParam]);
+
+  useEffect(() => {
+    void setAnalyticsAttribution(attribution);
+    trackAnalyticsEvent({
+      event_name: 'lead_page_viewed',
+      source: attribution.source,
+      page_slug: attribution.page_slug,
+    });
+  }, [attribution]);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +67,14 @@ export function PublicLandingPage({ config }: Props) {
   }, [config.slug, config.tagSlugs, config.londonOnly]);
 
   function openJoin() {
-    router.push(`/join?source=${encodeURIComponent(config.joinSource)}`);
+    trackAnalyticsEvent({
+      event_name: 'lead_cta_clicked',
+      source: attribution.source,
+      page_slug: attribution.page_slug,
+    });
+    const joinSource = encodeURIComponent(attribution.source);
+    const joinPage = encodeURIComponent(attribution.page_slug ?? config.slug);
+    router.push(`/join?source=${joinSource}&page=${joinPage}`);
   }
 
   return (

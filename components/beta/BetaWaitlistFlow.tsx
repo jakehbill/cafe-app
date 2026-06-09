@@ -2,6 +2,12 @@ import { AuthBrandBean } from '@/components/auth/AuthBrandBean';
 import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 import { COLORS, FONTS } from '@/components/theme';
 import {
+  parseAnalyticsAttribution,
+  setAnalyticsAttribution,
+  trackAnalyticsEvent,
+  type JoinAnalyticsStepKey,
+} from '@/lib/analyticsEvents';
+import {
   BETA_DRINK_OPTIONS,
   BETA_PERSONA_OPTIONS,
   BETA_PRIORITY_OPTIONS,
@@ -12,7 +18,7 @@ import {
   submitBetaSignup,
 } from '@/lib/betaSignup';
 import { useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -29,6 +35,12 @@ type StepId = 'intro' | 'persona' | 'frequency' | 'priorities' | 'drink' | 'emai
 
 const QUESTION_STEPS: StepId[] = ['persona', 'frequency', 'priorities', 'drink', 'email'];
 const TOTAL_PROGRESS_STEPS = QUESTION_STEPS.length;
+
+function joinAnalyticsStepKey(step: StepId): JoinAnalyticsStepKey | null {
+  if (step === 'success') return 'confirmation';
+  if (step === 'intro') return null;
+  return step;
+}
 
 function ProgressBar({ stepIndex }: { stepIndex: number }) {
   const progress = (stepIndex + 1) / TOTAL_PROGRESS_STEPS;
@@ -77,11 +89,23 @@ function OptionRow({
  * Used only by `/join`.
  */
 export function BetaWaitlistFlow() {
-  const { source: sourceParam } = useLocalSearchParams<{ source?: string | string[] }>();
+  const { source: sourceParam, page: pageParam } = useLocalSearchParams<{
+    source?: string | string[];
+    page?: string | string[];
+  }>();
   const source = useMemo(() => {
     const raw = Array.isArray(sourceParam) ? sourceParam[0] : sourceParam;
     return normalizeBetaSignupSource(raw);
   }, [sourceParam]);
+
+  const analyticsAttribution = useMemo(
+    () => parseAnalyticsAttribution({ source: sourceParam, page: pageParam }),
+    [pageParam, sourceParam]
+  );
+
+  useEffect(() => {
+    void setAnalyticsAttribution(analyticsAttribution);
+  }, [analyticsAttribution]);
 
   const [step, setStep] = useState<StepId>('intro');
   const [persona, setPersona] = useState<string | null>(null);
@@ -93,6 +117,12 @@ export function BetaWaitlistFlow() {
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [duplicateSignup, setDuplicateSignup] = useState(false);
+
+  useEffect(() => {
+    const stepKey = joinAnalyticsStepKey(step);
+    if (!stepKey) return;
+    trackAnalyticsEvent({ event_name: 'join_step_viewed', step_key: stepKey });
+  }, [step]);
 
   const progressIndex = QUESTION_STEPS.indexOf(step);
   const showProgress = progressIndex >= 0;
@@ -166,6 +196,7 @@ export function BetaWaitlistFlow() {
     if (step === 'success') return;
     if (step === 'email') {
       if (!validateStep() || !persona || !visitFrequency) return;
+      trackAnalyticsEvent({ event_name: 'join_step_completed', step_key: 'email' });
       setSubmitting(true);
       setFieldError(null);
       const result = await submitBetaSignup({
@@ -180,6 +211,8 @@ export function BetaWaitlistFlow() {
       });
       setSubmitting(false);
       if (result.ok || result.duplicate) {
+        trackAnalyticsEvent({ event_name: 'join_email_submitted', step_key: 'email' });
+        trackAnalyticsEvent({ event_name: 'join_completed', step_key: 'confirmation' });
         setDuplicateSignup(!!result.duplicate);
         setStep('success');
         return;
@@ -188,6 +221,10 @@ export function BetaWaitlistFlow() {
       return;
     }
     if (!validateStep()) return;
+    const stepKey = joinAnalyticsStepKey(step);
+    if (stepKey) {
+      trackAnalyticsEvent({ event_name: 'join_step_completed', step_key: stepKey });
+    }
     goNext();
   }
 
