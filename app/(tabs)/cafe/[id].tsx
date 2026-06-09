@@ -987,9 +987,14 @@ const styles = StyleSheet.create({
   reviewsRow: {
     gap: 10,
     paddingRight: 6,
+    /** Prevent horizontal scroll children stretching to the tallest card. */
+    alignItems: 'flex-start',
   },
   reviewCard: {
     width: 260,
+    alignSelf: 'flex-start',
+    flexGrow: 0,
+    flexShrink: 0,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.cardBorder,
