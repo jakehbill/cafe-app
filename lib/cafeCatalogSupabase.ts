@@ -110,7 +110,7 @@ function scoreTriple(row: Record<string, unknown>): { coffee: number; work: numb
 function internalCoffeeScoreFromPublic(publicCoffee: number | null | undefined): number {
   const n = rawPublicCoffeeToOutOf5(publicCoffee);
   if (n == null) return 0;
-  return n * 2;
+  return n;
 }
 
 /**

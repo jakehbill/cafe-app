@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { COLORS, FONTS } from '@/components/theme';
 import { COFFEE_RATING_MAX, quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 
-const RATING_OPTIONS = [1, 2, 3, 4, 5] as const;
+const RATING_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 export type CoffeeRatingPickerProps = {
   value: number | null;
@@ -20,8 +20,8 @@ export function CoffeeRatingPicker({
   value,
   onChange,
   onClear,
-  title = 'How was the workspace?',
-  helperText = null,
+  title = '💼 Overall Work Score',
+  helperText = 'How likely are you to recommend this workspace to a friend?',
   showClear = false,
   disabled = false,
 }: CoffeeRatingPickerProps) {
@@ -32,29 +32,35 @@ export function CoffeeRatingPicker({
     <View style={styles.wrap}>
       <Text style={styles.title}>{title}</Text>
       {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
-      <View style={styles.row} accessibilityRole="radiogroup">
-        {RATING_OPTIONS.map((option) => {
-          const isSelected = selected === option;
-          return (
-            <Pressable
-              key={option}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: isSelected, disabled }}
-              accessibilityLabel={`${option} out of ${COFFEE_RATING_MAX}`}
-              disabled={disabled}
-              onPress={() => onChange(option)}
-              style={({ pressed, hovered }) => [
-                styles.pill,
-                isSelected && styles.pillSelected,
-                !disabled && pressed && styles.pillPressed,
-                !disabled && hovered && !isSelected && styles.pillHovered,
-                disabled && styles.pillDisabled,
-              ]}
-            >
-              <Text style={[styles.pillLabel, isSelected && styles.pillLabelSelected]}>{option}</Text>
-            </Pressable>
-          );
-        })}
+      <View style={styles.rows} accessibilityRole="radiogroup">
+        {[RATING_OPTIONS.slice(0, 5), RATING_OPTIONS.slice(5)].map((row, rowIndex) => (
+          <View key={`row-${rowIndex}`} style={styles.row}>
+            {row.map((option) => {
+              const isSelected = selected === option;
+              return (
+                <Pressable
+                  key={option}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isSelected, disabled }}
+                  accessibilityLabel={`${option} out of ${COFFEE_RATING_MAX}`}
+                  disabled={disabled}
+                  onPress={() => onChange(option)}
+                  style={({ pressed, hovered }) => [
+                    styles.pill,
+                    isSelected && styles.pillSelected,
+                    !disabled && pressed && styles.pillPressed,
+                    !disabled && hovered && !isSelected && styles.pillHovered,
+                    disabled && styles.pillDisabled,
+                  ]}
+                >
+                  <Text style={[styles.pillLabel, isSelected && styles.pillLabelSelected]}>
+                    {option}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ))}
       </View>
       {showClear && onClear ? (
         <Pressable
@@ -91,11 +97,14 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     marginTop: -4,
   },
+  rows: {
+    gap: 8,
+    marginTop: 2,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 2,
   },
   pill: {
     flex: 1,
@@ -123,7 +132,7 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   pillLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: FONTS.sans.medium,
     color: COLORS.muted,
     letterSpacing: -0.2,

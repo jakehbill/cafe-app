@@ -24,10 +24,14 @@ export const WORK_CARD_PRIORITY_SLUGS: readonly CanonicalTagSlug[] = [
   'quiet',
   'good_wifi',
   'has_outlets',
+  'comfortable_seating',
   'spacious',
   'good_natural_light',
+  'long_stays_welcome',
+  'air_conditioning',
   'good_for_working',
   'open_late',
+  'friendly_staff',
 ];
 
 function tagKey(raw: string): string {

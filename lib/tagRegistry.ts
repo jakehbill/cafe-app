@@ -28,7 +28,12 @@ export type CanonicalTagSlug =
   | 'neighborhood_feel'
   | 'outdoor_seating'
   | 'quick_stop'
-  | 'pet_friendly';
+  | 'pet_friendly'
+  | 'comfortable_seating'
+  | 'long_stays_welcome'
+  | 'good_coffee'
+  | 'air_conditioning'
+  | 'friendly_staff';
 
 export type CanonicalTagDef = {
   category: TagCategory;
@@ -206,9 +211,16 @@ export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
   has_outlets: {
     category: 'Work',
     slug: 'has_outlets',
-    displayLabel: 'Has Outlets',
+    displayLabel: 'Lots Of Outlets',
     icon: 'flash-outline',
-    aliases: ['has outlets', 'outlets', 'power outlets', 'power', 'has_outlets'],
+    aliases: [
+      'has outlets',
+      'lots of outlets',
+      'outlets',
+      'power outlets',
+      'power',
+      'has_outlets',
+    ],
   },
   quiet: {
     category: 'Work',
@@ -220,9 +232,9 @@ export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
   spacious: {
     category: 'Work',
     slug: 'spacious',
-    displayLabel: 'Spacious',
+    displayLabel: 'Spacious Tables',
     icon: 'expand-outline',
-    aliases: ['spacious', 'space', 'roomy'],
+    aliases: ['spacious', 'space', 'roomy', 'spacious tables', 'big tables'],
   },
   open_late: {
     category: 'Work',
@@ -234,9 +246,58 @@ export const TAG_REGISTRY: Record<CanonicalTagSlug, CanonicalTagDef> = {
   good_for_calls: {
     category: 'Work',
     slug: 'good_for_calls',
-    displayLabel: 'Good For Calls',
+    displayLabel: 'Great For Calls',
     icon: 'call-outline',
-    aliases: ['good for calls', 'good for meetings', 'calls', 'call friendly', 'meetings', 'good_for_calls'],
+    aliases: [
+      'good for calls',
+      'great for calls',
+      'good for meetings',
+      'calls',
+      'call friendly',
+      'meetings',
+      'good_for_calls',
+    ],
+  },
+  comfortable_seating: {
+    category: 'Work',
+    slug: 'comfortable_seating',
+    displayLabel: 'Comfortable Seating',
+    icon: null,
+    aliases: ['comfortable seating', 'comfy seats', 'comfortable seats', 'comfortable_seating'],
+  },
+  long_stays_welcome: {
+    category: 'Work',
+    slug: 'long_stays_welcome',
+    displayLabel: 'Long Stays Welcome',
+    icon: null,
+    aliases: [
+      'long stays welcome',
+      'long stay',
+      'laptop friendly',
+      'laptop-friendly',
+      'long_stays_welcome',
+    ],
+  },
+  good_coffee: {
+    category: 'Coffee',
+    slug: 'good_coffee',
+    displayLabel: 'Good Coffee',
+    icon: 'cafe-outline',
+    aliases: ['good coffee', 'nice coffee', 'good_coffee'],
+  },
+  air_conditioning: {
+    category: 'Work',
+    slug: 'air_conditioning',
+    displayLabel: 'Air Conditioning',
+    icon: null,
+    aliases: ['air conditioning', 'ac', 'a/c', 'air con', 'air_conditioning'],
+  },
+  friendly_staff: {
+    category: 'Vibe',
+    slug: 'friendly_staff',
+    displayLabel: 'Friendly Staff',
+    icon: null,
+    aliases: ['friendly staff', 'nice staff', 'friendly_staff'],
   },
 
   busy: {

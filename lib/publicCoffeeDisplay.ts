@@ -1,20 +1,22 @@
 import type { Cafe } from '@/data/cafes';
 
 /**
- * Normalize `public_coffee_score` from `cafe_public_scores` to a 0–5 average.
- * Legacy rows may store ~0–10; values already on 1–5 are left as-is.
- * Does not round to integers — public averages may be 4.5, 4.7, etc.
+ * Normalize `public_coffee_score` from `cafe_public_scores` to a 0–10 Work Score average.
+ * After Sprint 4, `ratings.coffee_rating` is 1–10 (legacy 1–5 rows should be migrated ×2).
+ * Does not round to integers — public averages may be 8.5, 9.2, etc.
  */
 export function rawPublicCoffeeToOutOf5(raw: number | null | undefined): number | null {
   if (raw == null || !Number.isFinite(raw)) return null;
-  const n = raw > 5 ? raw / 2 : raw;
-  const clamped = Math.min(5, Math.max(0, n));
+  const clamped = Math.min(10, Math.max(0, raw));
   if (clamped <= 0) return null;
   return Math.round(clamped * 10) / 10;
 }
 
+/** Alias — Work Score is stored/displayed on a 0–10 scale. */
+export const rawPublicWorkScoreToOutOf10 = rawPublicCoffeeToOutOf5;
+
 /** UI-only fallback when a café has no community ratings (`coffee_rating_count` is 0). */
-export const UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE = 4.0;
+export const UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE = 8.0;
 
 function normalizeCoffeeRatingCount(ratingCount?: number | null): number {
   if (ratingCount == null || !Number.isFinite(ratingCount)) return 0;
@@ -22,7 +24,7 @@ function normalizeCoffeeRatingCount(ratingCount?: number | null): number {
 }
 
 /**
- * Public café score for cards/detail — one decimal (e.g. 4.5, 5.0).
+ * Public Work Score for cards/detail — one decimal on a 0–10 scale (e.g. 8.5, 9.0).
  * When `ratingCount` is 0 and there is no stored average, shows {@link UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE}.
  * Does not modify Supabase data or averages.
  */
@@ -50,7 +52,7 @@ export function formatPublicCoffeeForCafe(
 }
 
 /**
- * Numeric Work Score out of 5 for a café (same rules as {@link formatPublicCoffeeForCafe}).
+ * Numeric Work Score out of 10 for a café (same rules as {@link formatPublicCoffeeForCafe}).
  * `null` when there is nothing to show (including no baseline).
  */
 export function publicCoffeeOutOf5ForCafe(
@@ -65,8 +67,7 @@ export function publicCoffeeOutOf5ForCafe(
 }
 
 /**
- * Editorial qualitative band for a Work Score.
- * Product bands are defined on a 0–10 scale; UI scores are out of 5, so we compare `outOf5 * 2`.
+ * Editorial qualitative band for a Work Score (0–10 scale).
  *
  * | 0–10 | Label |
  * |------|-------|
@@ -85,15 +86,14 @@ export type WorkScoreQualitativeLabel =
   | 'Okay';
 
 export function workScoreQualitativeLabel(
-  outOf5: number | null | undefined
+  outOf10: number | null | undefined
 ): WorkScoreQualitativeLabel | null {
-  if (outOf5 == null || !Number.isFinite(outOf5) || outOf5 <= 0) return null;
-  const on10 = outOf5 * 2;
-  if (on10 >= 9.8) return 'Outstanding';
-  if (on10 >= 9.3) return 'Excellent';
-  if (on10 >= 8.7) return 'Great';
-  if (on10 >= 8.0) return 'Solid';
-  if (on10 >= 7.0) return 'Okay';
+  if (outOf10 == null || !Number.isFinite(outOf10) || outOf10 <= 0) return null;
+  if (outOf10 >= 9.8) return 'Outstanding';
+  if (outOf10 >= 9.3) return 'Excellent';
+  if (outOf10 >= 8.7) return 'Great';
+  if (outOf10 >= 8.0) return 'Solid';
+  if (outOf10 >= 7.0) return 'Okay';
   return null;
 }
 
@@ -114,7 +114,7 @@ export function formatWorkScoreCardLabel(
   return formatPublicCoffeeForCafe(cafe).trim() || '—';
 }
 
-/** User-entered coffee (1–5) for detail “your rating” line. */
+/** User-entered Work Score (1–10) for detail “your rating” line. */
 export function formatPrivateCoffeeOneDecimal(raw: number): string {
   if (!Number.isFinite(raw) || raw <= 0) return '—';
   return Number(raw).toFixed(1);

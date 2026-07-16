@@ -22,7 +22,7 @@ import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
 import { getRecentCafeReviews, type CafeRecentReview } from '@/lib/supabase';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { resolveCafeDetailBackPath } from '@/lib/authGate';
-import { getMostRecentUserVisitForCafe } from '@/lib/userCafeVisits';
+import { getCafeCostToWorkSummary, getMostRecentUserVisitForCafe } from '@/lib/userCafeVisits';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -194,6 +194,7 @@ export default function CafeDetailScreen() {
   const [featureTags, setFeatureTags] = useState<string[]>([]);
   const [remainingTags, setRemainingTags] = useState<string[]>([]);
   const [recentReviews, setRecentReviews] = useState<CafeRecentReview[]>([]);
+  const [costToWorkLabel, setCostToWorkLabel] = useState<string | null>(null);
   const [approvedUserPhotoUrls, setApprovedUserPhotoUrls] = useState<string[]>([]);
   const [mostRecentVisitId, setMostRecentVisitId] = useState<string | null>(null);
   const { coords: userLocation, refreshLocation } = useUserLocation();
@@ -283,20 +284,23 @@ export default function CafeDetailScreen() {
       setFeatureTags([]);
       setRemainingTags([]);
       setRecentReviews([]);
+      setCostToWorkLabel(null);
       return;
     }
     let cancelled = false;
     void (async () => {
       const c = cafe;
       if (!c) return;
-      const [tagSets, reviews] = await Promise.all([
+      const [tagSets, reviews, costLabel] = await Promise.all([
         resolveCafeTagDisplaySets(c, CAFE_FEATURED_TAG_COUNT),
         getRecentCafeReviews(c.id, 3),
+        getCafeCostToWorkSummary(c.id),
       ]);
       if (cancelled) return;
       setFeatureTags(tagSets.featured);
       setRemainingTags(tagSets.remaining.slice(0, CAFE_DETAIL_ALSO_GOOD_FOR_MAX));
       setRecentReviews(reviews);
+      setCostToWorkLabel(costLabel);
     })();
     return () => {
       cancelled = true;
@@ -597,6 +601,12 @@ export default function CafeDetailScreen() {
             <Text style={styles.identityName}>{cafe.name}</Text>
             {cafe.isCertified ? <BeanedPickBadge style={styles.identityPickBadge} /> : null}
             <WorkScoreHero cafe={cafe} size="hero" style={styles.identityWorkScore} />
+            {costToWorkLabel ? (
+              <View style={styles.costToWorkBlock}>
+                <Text style={styles.costToWorkLabel}>Cost to work</Text>
+                <Text style={styles.costToWorkValue}>≈ {costToWorkLabel}</Text>
+              </View>
+            ) : null}
             {(detailNeighborhood || (detailDistanceMiles != null && detailDistanceText)) ? (
               <Text style={styles.identityMeta} numberOfLines={1}>
                 {detailNeighborhood ? <Text>{detailNeighborhood}</Text> : null}
@@ -869,6 +879,25 @@ const styles = StyleSheet.create({
   identityWorkScore: {
     marginTop: 4,
     marginBottom: 2,
+  },
+  costToWorkBlock: {
+    marginTop: 2,
+    marginBottom: 2,
+    gap: 2,
+  },
+  costToWorkLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    letterSpacing: -0.05,
+  },
+  costToWorkValue: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.2,
   },
   identityMeta: {
     fontSize: 15,

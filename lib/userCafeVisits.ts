@@ -3,6 +3,19 @@ import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { rateCafe, supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { uploadCafePhotoAssetToStorage } from '@/lib/cafePhotoSubmissions';
 import { MAX_VISIT_PHOTOS, type VisitPhotoAsset } from '@/lib/visitPhotoLimits';
+import {
+  formatCostToWorkDisplay,
+  isBusynessValue,
+  isCostToWorkValue,
+  isQualityValue,
+  isStayDurationValue,
+  isWifiReliabilityValue,
+  type BusynessValue,
+  type CostToWorkValue,
+  type QualityValue,
+  type StayDurationValue,
+  type WifiReliabilityValue,
+} from '@/lib/workReview';
 
 export type { VisitPhotoAsset } from '@/lib/visitPhotoLimits';
 
@@ -16,6 +29,12 @@ export type UserCafeVisit = {
   rating: number | null;
   tags: string[];
   note: string;
+  stayDuration: StayDurationValue | null;
+  costToWork: CostToWorkValue | null;
+  wifiReliability: WifiReliabilityValue | null;
+  busyness: BusynessValue | null;
+  coffeeQuality: QualityValue | null;
+  foodQuality: QualityValue | null;
   isPublic: boolean;
   /** Primary visit photo (first by sort_order). */
   imageUrl: string | null;
@@ -29,8 +48,23 @@ type SaveVisitInput = {
   rating?: number | null;
   tags?: string[];
   note?: string;
+  stayDuration?: StayDurationValue | null;
+  costToWork?: CostToWorkValue | null;
+  wifiReliability?: WifiReliabilityValue | null;
+  busyness?: BusynessValue | null;
+  coffeeQuality?: QualityValue | null;
+  foodQuality?: QualityValue | null;
   photoAssets?: VisitPhotoAsset[];
 };
+
+function normalizeOptionalEnum<T extends string>(
+  raw: string | null | undefined,
+  guard: (v: string) => v is T
+): T | null {
+  const v = String(raw ?? '').trim();
+  if (!v) return null;
+  return guard(v) ? v : null;
+}
 
 async function buildSignedUrl(storagePath: string | null): Promise<string | null> {
   const path = String(storagePath ?? '').trim();
@@ -319,6 +353,12 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
   const rating = normalizeCoffeeRatingInput(input.rating);
   const tags = normalizeTags(input.tags);
   const note = String(input.note ?? '').trim();
+  const stayDuration = normalizeOptionalEnum(input.stayDuration, isStayDurationValue);
+  const costToWork = normalizeOptionalEnum(input.costToWork, isCostToWorkValue);
+  const wifiReliability = normalizeOptionalEnum(input.wifiReliability, isWifiReliabilityValue);
+  const busyness = normalizeOptionalEnum(input.busyness, isBusynessValue);
+  const coffeeQuality = normalizeOptionalEnum(input.coffeeQuality, isQualityValue);
+  const foodQuality = normalizeOptionalEnum(input.foodQuality, isQualityValue);
 
   const isRapidDuplicate = await detectRapidDuplicate({
     userId,
@@ -345,6 +385,12 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
       rating,
       tags,
       note,
+      stay_duration: stayDuration,
+      cost_to_work: costToWork,
+      wifi_reliability: wifiReliability,
+      busyness,
+      coffee_quality: coffeeQuality,
+      food_quality: foodQuality,
     })
     .select('id')
     .single();
@@ -420,6 +466,30 @@ function mapVisitRowToUserCafeVisit(
     rating: typeof row.rating === 'number' ? row.rating : null,
     tags: Array.isArray(row.tags) ? row.tags.map(String) : [],
     note: typeof row.note === 'string' ? row.note : '',
+    stayDuration: normalizeOptionalEnum(
+      typeof row.stay_duration === 'string' ? row.stay_duration : null,
+      isStayDurationValue
+    ),
+    costToWork: normalizeOptionalEnum(
+      typeof row.cost_to_work === 'string' ? row.cost_to_work : null,
+      isCostToWorkValue
+    ),
+    wifiReliability: normalizeOptionalEnum(
+      typeof row.wifi_reliability === 'string' ? row.wifi_reliability : null,
+      isWifiReliabilityValue
+    ),
+    busyness: normalizeOptionalEnum(
+      typeof row.busyness === 'string' ? row.busyness : null,
+      isBusynessValue
+    ),
+    coffeeQuality: normalizeOptionalEnum(
+      typeof row.coffee_quality === 'string' ? row.coffee_quality : null,
+      isQualityValue
+    ),
+    foodQuality: normalizeOptionalEnum(
+      typeof row.food_quality === 'string' ? row.food_quality : null,
+      isQualityValue
+    ),
     isPublic: row.is_public === true,
     imageUrl: photoUrls[0] ?? null,
     imageUrls: photoUrls,
@@ -434,7 +504,7 @@ export async function getUserCafeVisitById(visitId: string): Promise<UserCafeVis
   const res = await supabase
     .from('user_cafe_visits')
     .select(
-      'id, cafe_id, submission_id, created_at, rating, tags, note, is_public, cafe_submissions(cafe_name,status)'
+      'id, cafe_id, submission_id, created_at, rating, tags, note, stay_duration, cost_to_work, wifi_reliability, busyness, coffee_quality, food_quality, is_public, cafe_submissions(cafe_name,status)'
     )
     .eq('id', key)
     .eq('user_id', data.user.id)
@@ -451,6 +521,12 @@ export async function updateUserCafeVisit(
     rating?: number | null;
     tags?: string[];
     note?: string;
+    stayDuration?: StayDurationValue | null;
+    costToWork?: CostToWorkValue | null;
+    wifiReliability?: WifiReliabilityValue | null;
+    busyness?: BusynessValue | null;
+    coffeeQuality?: QualityValue | null;
+    foodQuality?: QualityValue | null;
     photoAssets?: VisitPhotoAsset[];
   }
 ): Promise<SupabaseActionResult> {
@@ -476,6 +552,30 @@ export async function updateUserCafeVisit(
   const nextRating = normalizeCoffeeRatingInput(input.rating ?? existing.rating);
   const nextTags = normalizeTags(input.tags ?? existing.tags);
   const nextNote = String(input.note ?? existing.note).trim();
+  const nextStay =
+    input.stayDuration !== undefined
+      ? normalizeOptionalEnum(input.stayDuration, isStayDurationValue)
+      : existing.stayDuration;
+  const nextCost =
+    input.costToWork !== undefined
+      ? normalizeOptionalEnum(input.costToWork, isCostToWorkValue)
+      : existing.costToWork;
+  const nextWifi =
+    input.wifiReliability !== undefined
+      ? normalizeOptionalEnum(input.wifiReliability, isWifiReliabilityValue)
+      : existing.wifiReliability;
+  const nextBusy =
+    input.busyness !== undefined
+      ? normalizeOptionalEnum(input.busyness, isBusynessValue)
+      : existing.busyness;
+  const nextCoffeeQ =
+    input.coffeeQuality !== undefined
+      ? normalizeOptionalEnum(input.coffeeQuality, isQualityValue)
+      : existing.coffeeQuality;
+  const nextFoodQ =
+    input.foodQuality !== undefined
+      ? normalizeOptionalEnum(input.foodQuality, isQualityValue)
+      : existing.foodQuality;
 
   const updateRes = await supabase
     .from('user_cafe_visits')
@@ -483,6 +583,12 @@ export async function updateUserCafeVisit(
       rating: nextRating,
       tags: nextTags,
       note: nextNote,
+      stay_duration: nextStay,
+      cost_to_work: nextCost,
+      wifi_reliability: nextWifi,
+      busyness: nextBusy,
+      coffee_quality: nextCoffeeQ,
+      food_quality: nextFoodQ,
       updated_at: new Date().toISOString(),
     })
     .eq('id', visitId);
@@ -545,7 +651,7 @@ export async function getUserCafeVisitTimeline(): Promise<UserCafeVisit[]> {
   const res = await supabase
     .from('user_cafe_visits')
     .select(
-      'id, cafe_id, submission_id, created_at, rating, tags, note, is_public, cafe_submissions(cafe_name,status)'
+      'id, cafe_id, submission_id, created_at, rating, tags, note, stay_duration, cost_to_work, wifi_reliability, busyness, coffee_quality, food_quality, is_public, cafe_submissions(cafe_name,status)'
     )
     .eq('user_id', data.user.id)
     .order('created_at', { ascending: false });
@@ -572,7 +678,7 @@ export async function getMostRecentUserVisitForCafe(cafeId: string): Promise<Use
   const res = await supabase
     .from('user_cafe_visits')
     .select(
-      'id, cafe_id, submission_id, created_at, rating, tags, note, is_public, cafe_submissions(cafe_name,status)'
+      'id, cafe_id, submission_id, created_at, rating, tags, note, stay_duration, cost_to_work, wifi_reliability, busyness, coffee_quality, food_quality, is_public, cafe_submissions(cafe_name,status)'
     )
     .eq('user_id', data.user.id)
     .eq('cafe_id', normalizedCafeId)
@@ -584,4 +690,46 @@ export async function getMostRecentUserVisitForCafe(cafeId: string): Promise<Use
   const row = res.data;
   const imageMap = await fetchVisitPhotoUrlsByVisitId([String(row.id)]);
   return mapVisitRowToUserCafeVisit(row as Record<string, unknown>, imageMap.get(String(row.id)) ?? []);
+}
+
+/**
+ * Community “Cost to work” for detail — mode of `cost_to_work` on visits for this cafe.
+ * Not part of Work Score. Prefers security-definer RPC when deployed.
+ */
+export async function getCafeCostToWorkSummary(cafeId: string): Promise<string | null> {
+  const id = String(cafeId ?? '').trim();
+  if (!id) return null;
+
+  const rpc = await supabase.rpc('get_cafe_cost_to_work_summary', { p_cafe_id: id });
+  if (!rpc.error && Array.isArray(rpc.data) && rpc.data.length > 0) {
+    const raw = String((rpc.data[0] as { cost_to_work?: unknown }).cost_to_work ?? '').trim();
+    return formatCostToWorkDisplay(raw);
+  }
+
+  // Fallback: own visits only (RLS) if RPC not deployed yet.
+  const res = await supabase
+    .from('user_cafe_visits')
+    .select('cost_to_work')
+    .eq('cafe_id', id)
+    .not('cost_to_work', 'is', null)
+    .limit(200);
+  if (res.error || !res.data?.length) return null;
+
+  const counts = new Map<string, number>();
+  for (const row of res.data) {
+    const raw = String((row as { cost_to_work?: unknown }).cost_to_work ?? '').trim();
+    if (!isCostToWorkValue(raw)) continue;
+    counts.set(raw, (counts.get(raw) ?? 0) + 1);
+  }
+  if (counts.size === 0) return null;
+
+  let best: string | null = null;
+  let bestCount = 0;
+  for (const [value, count] of counts) {
+    if (count > bestCount) {
+      best = value;
+      bestCount = count;
+    }
+  }
+  return formatCostToWorkDisplay(best);
 }

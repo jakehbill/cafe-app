@@ -31,8 +31,8 @@ export function WorkScoreHero({ cafe, tone = 'default', size = 'card', style }: 
     score === '—'
       ? 'No public Work Score'
       : qualitative
-        ? `Work Score ${score} out of 5, ${qualitative}`
-        : `Work Score ${score} out of 5`;
+        ? `Work Score ${score} out of 10, ${qualitative}`
+        : `Work Score ${score} out of 10`;
 
   return (
     <View

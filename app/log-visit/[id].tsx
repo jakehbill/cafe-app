@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
-import { EditorialTag } from '@/components/EditorialTag';
+import { OptionChipGroup } from '@/components/review/OptionChipGroup';
 import { CafeFlowHeaderCard } from '@/components/visit/CafeFlowHeaderCard';
 import { VisitPhotosSection } from '@/components/visit/VisitPhotosSection';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
@@ -25,7 +25,6 @@ import { useCafeState } from '@/contexts/CafeStateContext';
 import { type Cafe } from '@/data/cafes';
 import { fetchCafeByIdFromSupabase } from '@/lib/cafeCatalogSupabase';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
-import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
 import {
@@ -36,6 +35,19 @@ import {
 } from '@/lib/userCafeVisits';
 import { MAX_VISIT_PHOTOS, VISIT_PHOTO_MAX_MESSAGE } from '@/lib/visitPhotoLimits';
 import { pickVisitPhotoFromLibrary } from '@/lib/visitPhotoPicker';
+import {
+  COST_TO_WORK_OPTIONS,
+  QUALITY_OPTIONS,
+  SEAT_FINDING_OPTIONS,
+  STAY_DURATION_OPTIONS,
+  WIFI_RELIABILITY_OPTIONS,
+  WORKSPACE_REVIEW_TAGS,
+  type CostToWorkValue,
+  type QualityValue,
+  type SeatFindingValue,
+  type StayDurationValue,
+  type WifiReliabilityValue,
+} from '@/lib/workReview';
 
 export default function LogVisitScreen() {
   const router = useRouter();
@@ -53,7 +65,13 @@ export default function LogVisitScreen() {
 
   const [cafe, setCafe] = useState<Cafe | null>(null);
   const [rating, setRating] = useState<number | null>(null);
+  const [stayDuration, setStayDuration] = useState<StayDurationValue | null>(null);
+  const [costToWork, setCostToWork] = useState<CostToWorkValue | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [wifiReliability, setWifiReliability] = useState<WifiReliabilityValue | null>(null);
+  const [seatFinding, setSeatFinding] = useState<SeatFindingValue | null>(null);
+  const [coffeeQuality, setCoffeeQuality] = useState<QualityValue | null>(null);
+  const [foodQuality, setFoodQuality] = useState<QualityValue | null>(null);
   const [note, setNote] = useState('');
   const [existingPhotoPreviews, setExistingPhotoPreviews] = useState<{ uri: string; key: string }[]>([]);
   const [newPhotoAssets, setNewPhotoAssets] = useState<VisitPhotoAsset[]>([]);
@@ -92,7 +110,13 @@ export default function LogVisitScreen() {
         return;
       }
       setRating(normalizeCoffeeRatingInput(existing.rating));
+      setStayDuration(existing.stayDuration);
+      setCostToWork(existing.costToWork);
       setSelectedTags(existing.tags);
+      setWifiReliability(existing.wifiReliability);
+      setSeatFinding(existing.busyness);
+      setCoffeeQuality(existing.coffeeQuality);
+      setFoodQuality(existing.foodQuality);
       setNote(existing.note);
       setExistingPendingName(existing.submissionCafeName);
       setExistingPhotoPreviews(
@@ -125,10 +149,6 @@ export default function LogVisitScreen() {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  function toggleTag(tag: string) {
-    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
-  }
-
   const totalPhotoCount = existingPhotoPreviews.length + newPhotoAssets.length;
 
   async function handlePickPhoto() {
@@ -157,24 +177,40 @@ export default function LogVisitScreen() {
     setError(null);
   }
 
+  function validateRequired(): string | null {
+    if (rating == null) return 'Please add a Work Score (1–10).';
+    if (!stayDuration) return 'Please choose how long you could work here.';
+    if (selectedTags.length === 0) return 'Please select at least one thing that stood out.';
+    return null;
+  }
+
   async function handleSaveVisit() {
     if ((!targetCafeId && !editingVisitId) || saving) return;
+    const validationError = validateRequired();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     setError(null);
     setSaving(true);
     try {
+      const payload = {
+        rating,
+        tags: selectedTags,
+        note,
+        stayDuration,
+        costToWork,
+        wifiReliability,
+        busyness: seatFinding,
+        coffeeQuality,
+        foodQuality,
+        photoAssets: newPhotoAssets,
+      };
       const res = editingVisitId
-        ? await updateUserCafeVisit(editingVisitId, {
-            rating,
-            tags: selectedTags,
-            note,
-            photoAssets: newPhotoAssets,
-          })
+        ? await updateUserCafeVisit(editingVisitId, payload)
         : await saveUserCafeVisit({
             cafeId: targetCafeId,
-            rating,
-            tags: selectedTags,
-            note,
-            photoAssets: newPhotoAssets,
+            ...payload,
           });
       if (!res.ok) {
         setError(res.error);
@@ -206,6 +242,10 @@ export default function LogVisitScreen() {
     [existingPhotoPreviews, newPhotoAssets]
   );
   const canRenderVisitForm = Boolean(targetCafeId) || Boolean(cafe) || Boolean(editingVisitId);
+  const workspaceTagOptions = useMemo(
+    () => WORKSPACE_REVIEW_TAGS.map((t) => ({ value: t.slug, label: t.label })),
+    []
+  );
 
   function openSuggestPrefilled() {
     router.push({
@@ -245,159 +285,213 @@ export default function LogVisitScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
       <DesktopWebPageContainer variant="form" style={styles.pageContainer}>
-      <KeyboardAvoidingView
-        style={styles.keyboardAvoid}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.heroBackRow}>
-          <StackHeaderBackButton canGoBack tintColor={COLORS.text} onPress={handleBack} />
-        </View>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoid}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.heroBackRow}>
+            <StackHeaderBackButton canGoBack tintColor={COLORS.text} onPress={handleBack} />
+          </View>
 
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          {successState ? (
-            <View style={styles.sectionCard}>
-              <Text style={styles.pageTitle}>Visit saved</Text>
-              <Text style={styles.pageSubtitle}>
-                {successState.movedFromSaved
-                  ? 'Moved from Saved Spaces to Spaces You\'ve Worked From.'
-                  : "Added to Spaces You've Worked From."}
-              </Text>
-              <Text style={styles.successProgressText}>
-                Logged. Your Beaned progress has been updated.
-              </Text>
-              {successState.hadPhoto ? (
-                <Text style={styles.successHintText}>Your photos have been submitted for review.</Text>
-              ) : null}
-              {successState.movedFromSaved ? (
-                <Text style={styles.successHintText}>Moved to Spaces You&apos;ve Worked From</Text>
-              ) : null}
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={styles.submitButton}
-                onPress={() =>
-                  router.replace({
-                    pathname: '/my-cafes',
-                    params: successState.movedFromSaved ? { movedFromSaved: '1' } : undefined,
-                  })
-                }
-              >
-                <Text style={styles.submitButtonText}>View my visits</Text>
-              </TouchableOpacity>
-              {targetCafeId ? (
+          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+            {successState ? (
+              <View style={styles.sectionCard}>
+                <Text style={styles.pageTitle}>Visit saved</Text>
+                <Text style={styles.pageSubtitle}>
+                  {successState.movedFromSaved
+                    ? 'Moved from Saved Spaces to Spaces You\'ve Worked From.'
+                    : "Added to Spaces You've Worked From."}
+                </Text>
+                <Text style={styles.successProgressText}>
+                  Logged. Your Beaned progress has been updated.
+                </Text>
+                {successState.hadPhoto ? (
+                  <Text style={styles.successHintText}>Your photos have been submitted for review.</Text>
+                ) : null}
+                {successState.movedFromSaved ? (
+                  <Text style={styles.successHintText}>Moved to Spaces You&apos;ve Worked From</Text>
+                ) : null}
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={styles.submitButton}
+                  onPress={() =>
+                    router.replace({
+                      pathname: '/my-cafes',
+                      params: successState.movedFromSaved ? { movedFromSaved: '1' } : undefined,
+                    })
+                  }
+                >
+                  <Text style={styles.submitButtonText}>View my visits</Text>
+                </TouchableOpacity>
+                {targetCafeId ? (
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={[styles.photoButton, styles.secondaryButton]}
+                    onPress={() => router.replace(`/cafe/${targetCafeId}`)}
+                  >
+                    <Text style={styles.secondaryButtonText}>Back to space</Text>
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
                   activeOpacity={0.9}
                   style={[styles.photoButton, styles.secondaryButton]}
-                  onPress={() => router.replace(`/cafe/${targetCafeId}`)}
+                  onPress={() => router.replace('/')}
                 >
-                  <Text style={styles.secondaryButtonText}>Back to space</Text>
+                  <Text style={styles.secondaryButtonText}>Find another space</Text>
                 </TouchableOpacity>
-              ) : null}
+              </View>
+            ) : null}
+
+            {!successState ? (
+              <View style={styles.titleBlock}>
+                <Text style={styles.pageTitle}>{editingVisitId ? 'Edit review' : 'Log workspace'}</Text>
+                <Text style={styles.pageSubtitle}>
+                  Quick taps — help someone decide if they should work here today.
+                </Text>
+              </View>
+            ) : null}
+
+            {!successState && !canRenderVisitForm ? (
+              <View style={styles.sectionCard}>
+                <ActivityIndicator color={COLORS.accent} />
+                <Text style={styles.pageSubtitle}>
+                  {redirectingMissingCafe ? 'Opening Log a space flow...' : 'Loading space...'}
+                </Text>
+              </View>
+            ) : null}
+
+            {!successState && canRenderVisitForm ? (
+              <CafeFlowHeaderCard
+                name={cafe?.name ?? existingPendingName ?? 'Space'}
+                subtitle={cafe?.neighborhood ?? 'Neighborhood'}
+                imageUri={cafeListingImageUri}
+              />
+            ) : null}
+
+            {!successState && canRenderVisitForm ? (
+              <View style={styles.sectionCard}>
+                <CoffeeRatingPicker
+                  value={rating}
+                  onChange={setRating}
+                  disabled={saving}
+                  showClear={false}
+                />
+              </View>
+            ) : null}
+
+            {!successState && canRenderVisitForm ? (
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>⏱️ Work Session</Text>
+                <Text style={styles.sectionHint}>How long could you comfortably work here?</Text>
+                <OptionChipGroup
+                  options={STAY_DURATION_OPTIONS}
+                  value={stayDuration}
+                  disabled={saving}
+                  onChange={(next) => setStayDuration(next as StayDurationValue | null)}
+                />
+              </View>
+            ) : null}
+
+            {!successState && canRenderVisitForm ? (
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>✨ What stood out?</Text>
+                <Text style={styles.sectionHint}>Tap anything that fits today</Text>
+                <OptionChipGroup
+                  options={workspaceTagOptions}
+                  value={selectedTags}
+                  multi
+                  disabled={saving}
+                  onChange={(next) => setSelectedTags(next as string[])}
+                />
+              </View>
+            ) : null}
+
+            {!successState && canRenderVisitForm ? (
+              <View style={styles.sectionCard}>
+                <Text style={styles.optionalEyebrow}>Optional</Text>
+                <Text style={styles.sectionTitle}>📶 Wi-Fi</Text>
+                <Text style={styles.sectionHint}>How reliable was it?</Text>
+                <OptionChipGroup
+                  options={WIFI_RELIABILITY_OPTIONS}
+                  value={wifiReliability}
+                  disabled={saving}
+                  onChange={(next) => setWifiReliability(next as WifiReliabilityValue | null)}
+                />
+                <Text style={[styles.sectionTitle, styles.quickFollowUp]}>👥 Finding a Seat</Text>
+                <Text style={styles.sectionHint}>How easy was it to find a seat?</Text>
+                <OptionChipGroup
+                  options={SEAT_FINDING_OPTIONS}
+                  value={seatFinding}
+                  disabled={saving}
+                  onChange={(next) => setSeatFinding(next as SeatFindingValue | null)}
+                />
+                <Text style={[styles.sectionTitle, styles.quickFollowUp]}>💰 Cost to Work</Text>
+                <Text style={styles.sectionHint}>
+                  What would someone typically spend to work here comfortably for a few hours?
+                </Text>
+                <OptionChipGroup
+                  options={COST_TO_WORK_OPTIONS}
+                  value={costToWork}
+                  disabled={saving}
+                  onChange={(next) => setCostToWork(next as CostToWorkValue | null)}
+                />
+                <Text style={[styles.sectionTitle, styles.quickFollowUp]}>☕ Coffee</Text>
+                <Text style={styles.sectionHint}>How was the coffee?</Text>
+                <OptionChipGroup
+                  options={QUALITY_OPTIONS}
+                  value={coffeeQuality}
+                  disabled={saving}
+                  onChange={(next) => setCoffeeQuality(next as QualityValue | null)}
+                />
+                <Text style={[styles.sectionTitle, styles.quickFollowUp]}>🍔 Food</Text>
+                <Text style={styles.sectionHint}>How was the food?</Text>
+                <OptionChipGroup
+                  options={QUALITY_OPTIONS}
+                  value={foodQuality}
+                  disabled={saving}
+                  onChange={(next) => setFoodQuality(next as QualityValue | null)}
+                />
+                <Text style={[styles.sectionTitle, styles.quickFollowUp]}>💬 Notes</Text>
+                <Text style={styles.sectionHint}>Anything other remote workers should know?</Text>
+                <TextInput
+                  style={styles.notesInput}
+                  placeholder="Noise, seating quirks, best hours…"
+                  placeholderTextColor={COLORS.muted}
+                  numberOfLines={2}
+                  multiline
+                  maxLength={180}
+                  value={note}
+                  onChangeText={setNote}
+                />
+              </View>
+            ) : null}
+
+            {!successState && canRenderVisitForm ? (
+              <VisitPhotosSection
+                photos={visitPhotoPreviews}
+                onPressAdd={() => void handlePickPhoto()}
+                onPressRemove={handleRemovePhoto}
+                disabled={saving || loadingExisting}
+                error={error && totalPhotoCount >= MAX_VISIT_PHOTOS ? error : null}
+              />
+            ) : null}
+
+            {!successState && error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+            {!successState && canRenderVisitForm ? (
               <TouchableOpacity
                 activeOpacity={0.9}
-                style={[styles.photoButton, styles.secondaryButton]}
-                onPress={() => router.replace('/')}
+                style={[styles.submitButton, saving && styles.submitButtonDisabled]}
+                onPress={() => void handleSaveVisit()}
+                disabled={saving || loadingExisting}
               >
-                <Text style={styles.secondaryButtonText}>Find another space</Text>
+                <Text style={styles.submitButtonText}>
+                  {saving ? 'Saving…' : editingVisitId ? 'Save changes' : 'Save review'}
+                </Text>
               </TouchableOpacity>
-            </View>
-          ) : null}
-
-          {!successState ? (
-          <View style={styles.titleBlock}>
-            <Text style={styles.pageTitle}>{editingVisitId ? 'Edit visit log' : 'Log workspace'}</Text>
-            <Text style={styles.pageSubtitle}>
-              Save a few notes from this space so you can remember where you&apos;ve worked.
-            </Text>
-          </View>
-          ) : null}
-
-          {!successState && !canRenderVisitForm ? (
-            <View style={styles.sectionCard}>
-              <ActivityIndicator color={COLORS.accent} />
-              <Text style={styles.pageSubtitle}>
-                {redirectingMissingCafe ? 'Opening Log a space flow...' : 'Loading space...'}
-              </Text>
-            </View>
-          ) : null}
-
-          {!successState && canRenderVisitForm ? (
-            <CafeFlowHeaderCard
-              name={cafe?.name ?? existingPendingName ?? 'Space'}
-              subtitle={cafe?.neighborhood ?? 'Neighborhood'}
-              imageUri={cafeListingImageUri}
-            />
-          ) : null}
-
-          {!successState && canRenderVisitForm ? (
-            <VisitPhotosSection
-              photos={visitPhotoPreviews}
-              onPressAdd={() => void handlePickPhoto()}
-              onPressRemove={handleRemovePhoto}
-              disabled={saving || loadingExisting}
-              error={error && totalPhotoCount >= MAX_VISIT_PHOTOS ? error : null}
-            />
-          ) : null}
-
-          {!successState && canRenderVisitForm ? (
-            <View style={styles.sectionCard}>
-              <CoffeeRatingPicker
-                value={rating}
-                onChange={setRating}
-                onClear={() => setRating(null)}
-                showClear
-                disabled={saving}
-              />
-            </View>
-          ) : null}
-
-          {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>What stood out?</Text>
-            {TAG_SECTIONS.map((section) => (
-              <View key={section.title} style={styles.tagSection}>
-                <Text style={styles.tagSectionTitle}>{section.title}</Text>
-                <View style={styles.tagsWrap}>
-                  {section.tags.map((tag) => (
-                    <EditorialTag
-                      key={tag}
-                      tag={tag}
-                      variant="selectable"
-                      selected={selectedTags.includes(tag)}
-                      onPress={() => toggleTag(tag)}
-                    />
-                  ))}
-                </View>
-              </View>
-            ))}
-          </View> : null}
-
-          {!successState && canRenderVisitForm ? <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Describe your experience</Text>
-            <TextInput
-              style={styles.notesInput}
-              placeholder="What made this place worth remembering?"
-              placeholderTextColor={COLORS.muted}
-              numberOfLines={2}
-              multiline
-              maxLength={180}
-              value={note}
-              onChangeText={setNote}
-            />
-          </View> : null}
-
-          {!successState && error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          {!successState && canRenderVisitForm ? <TouchableOpacity
-            activeOpacity={0.9}
-            style={[styles.submitButton, saving && styles.submitButtonDisabled]}
-            onPress={() => void handleSaveVisit()}
-            disabled={saving || loadingExisting}
-          >
-            <Text style={styles.submitButtonText}>
-              {saving ? 'Saving…' : editingVisitId ? 'Save changes' : 'Save to my diary'}
-            </Text>
-          </TouchableOpacity> : null}
-        </ScrollView>
-      </KeyboardAvoidingView>
+            ) : null}
+          </ScrollView>
+        </KeyboardAvoidingView>
       </DesktopWebPageContainer>
     </SafeAreaView>
   );
@@ -427,7 +521,24 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
-  sectionTitle: { fontSize: 13, fontFamily: FONTS.sans.semibold, color: COLORS.text },
+  sectionTitle: { fontSize: 13, fontFamily: FONTS.sans.semibold, color: COLORS.text, lineHeight: 18 },
+  sectionHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.muted,
+    fontFamily: FONTS.sans.regular,
+    marginTop: -6,
+  },
+  optionalEyebrow: {
+    fontSize: 11,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  quickFollowUp: {
+    marginTop: 8,
+  },
   photoButton: {
     borderRadius: 12,
     paddingVertical: 12,
@@ -436,7 +547,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.cardBorder,
     alignItems: 'center',
   },
-  photoButtonText: { fontSize: 14, fontFamily: FONTS.sans.semibold, color: COLORS.text },
   secondaryButton: {
     backgroundColor: COLORS.background,
   },
@@ -446,11 +556,6 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     textAlign: 'center',
   },
-  ratingValue: { fontSize: 20, fontFamily: FONTS.sans.bold, color: COLORS.text },
-  clearRatingText: { fontSize: 13, color: COLORS.muted, fontFamily: FONTS.sans.medium },
-  tagSection: { gap: 8 },
-  tagSectionTitle: { fontSize: 12, color: COLORS.muted, fontFamily: FONTS.sans.semibold },
-  tagsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   notesInput: {
     minHeight: 60,
     borderRadius: 14,
@@ -462,31 +567,6 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: 14,
     lineHeight: 20,
-  },
-  notePrivacyRow: {
-    marginTop: 4,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.cardBorder,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  notePrivacyTextWrap: {
-    flex: 1,
-    gap: 2,
-  },
-  notePrivacyLabel: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.semibold,
-  },
-  notePrivacyHint: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: COLORS.muted,
-    fontFamily: FONTS.sans.regular,
   },
   errorText: { fontSize: 13, lineHeight: 18, color: '#8B4A4A', fontFamily: FONTS.sans.medium },
   successProgressText: {

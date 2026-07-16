@@ -66,8 +66,8 @@ export type CompactCafeCardProps = {
   /**
    * Where the public coffee score appears (compact list cards only).
    * `bottomRight` (default) — on the thumbnail; Ratings, etc.
-   * `cardTopRight` — Search + Saved: inline metadata (`score · location`) under title; not on image.
-   * `contentColumn` — Visited: same inline metadata directly under title; not on image.
+   * `cardTopRight` — Search + Saved: numeric score on the area/distance row (`score · area · mi`); no qualitative label.
+   * `contentColumn` — Visited: Work Score block under title; not on image.
    */
   scorePosition?: 'bottomRight' | 'cardTopRight' | 'contentColumn';
   /** Search-only: tighten title + inline metadata block. */
@@ -281,13 +281,28 @@ export function CompactCafeCard({
                 </Text>
                 {cafe.isCertified ? <BeanedPickBadge /> : null}
                 {scoreOnCardTopRight ? (
-                  <WorkScoreHero cafe={cafe} size="card" style={styles.workScoreHero} />
-                ) : null}
-                <Text style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]} numberOfLines={1}>
-                  {scoreOnCardTopRight
-                    ? (metadataLineOverride ?? renderSecondaryLocationMeta(metadataLine))
-                    : metadataLineOverride ?? cafe.neighborhood}
-                </Text>
+                  metadataLineOverride ? (
+                    <Text
+                      style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]}
+                      numberOfLines={1}
+                    >
+                      {metadataLineOverride}
+                    </Text>
+                  ) : (
+                    <View
+                      style={[styles.scoreLocationRow, compactNameMetaGap && styles.locationCompactMetaGap]}
+                    >
+                      {renderInlineScoreAndLocation(metadataLine)}
+                    </View>
+                  )
+                ) : (
+                  <Text
+                    style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]}
+                    numberOfLines={1}
+                  >
+                    {metadataLineOverride ?? cafe.neighborhood}
+                  </Text>
+                )}
                 {metadataSublineOverride ? (
                   <Text style={styles.metadataSubline} numberOfLines={1}>
                     {metadataSublineOverride}
@@ -356,6 +371,42 @@ function renderSecondaryLocationMeta(meta: { location: string; distance: string 
   if (hasLocation) return meta.location;
   if (hasDistance) return <Text style={styles.locationDistance}>{meta.distance}</Text>;
   return null;
+}
+
+/** Search/Saved: numeric score only (same size as card Work Score) · area · distance. */
+function renderInlineScoreAndLocation(meta: {
+  score: string;
+  location: string;
+  distance: string;
+}) {
+  const hasScore = meta.score.length > 0;
+  const hasLocation = meta.location.length > 0;
+  const hasDistance = meta.distance.length > 0;
+  if (!hasScore && !hasLocation && !hasDistance) return null;
+
+  return (
+    <>
+      {hasScore ? (
+        <Text style={styles.inlineScore} numberOfLines={1}>
+          {meta.score}
+        </Text>
+      ) : null}
+      {hasScore && (hasLocation || hasDistance) ? (
+        <Text style={styles.inlineScoreDot}> · </Text>
+      ) : null}
+      {hasLocation ? (
+        <Text style={styles.location} numberOfLines={1}>
+          {meta.location}
+        </Text>
+      ) : null}
+      {hasLocation && hasDistance ? <Text style={styles.locationDot}> {'\u2022'} </Text> : null}
+      {hasDistance ? (
+        <Text style={styles.locationDistance} numberOfLines={1}>
+          {meta.distance}
+        </Text>
+      ) : null}
+    </>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -509,6 +560,30 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 1,
   },
+  scoreLocationRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    minWidth: 0,
+  },
+  /** Matches `WorkScoreHero` card score size — numeric only on search/saved meta row. */
+  inlineScore: {
+    flexShrink: 0,
+    fontFamily: FONTS.sans.bold,
+    fontSize: 18,
+    lineHeight: 22,
+    letterSpacing: -0.35,
+    color: COLORS.text,
+  },
+  inlineScoreDot: {
+    flexShrink: 0,
+    fontFamily: FONTS.sans.regular,
+    fontSize: 12,
+    lineHeight: 16,
+    color: COLORS.muted,
+    opacity: 0.7,
+  },
   name: {
     flex: 1,
     minWidth: 0,
@@ -547,6 +622,8 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
   },
   location: {
+    flexShrink: 1,
+    minWidth: 0,
     fontSize: 12,
     color: COLORS.muted,
     lineHeight: 16,
@@ -572,10 +649,17 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
   locationDot: {
+    flexShrink: 0,
+    fontSize: 12,
+    lineHeight: 16,
     color: COLORS.muted,
     opacity: 0.7,
   },
   locationDistance: {
+    flexShrink: 0,
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
     opacity: 0.82,
   },
