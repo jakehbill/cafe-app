@@ -5,11 +5,11 @@ import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { CafeImage } from '@/components/CafeImage';
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
+import { WorkScoreHero } from '@/components/WorkScoreHero';
 import { COLORS, FONTS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
 import { prioritizeWorkTagsForCards } from '@/lib/cafeFeaturedTags';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
-import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 
 const THUMB = 72;
 
@@ -22,7 +22,6 @@ type Props = {
 /** Display-only space row for public landing pages — no auth, no navigation hooks. */
 export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
   const photo = resolveLiveCafePrimaryImageUrl({ cafe });
-  const scoreLabel = formatWorkScoreCardLabel(cafe);
   const area = (cafe.neighborhood ?? '').trim();
   const tags = useMemo(() => {
     const source = highlightTags ?? cafe.tags ?? [];
@@ -35,28 +34,23 @@ export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
         <CafeImage uri={photo} style={styles.thumb} displayWidth={THUMB} displayHeight={THUMB} priority="low" />
       </View>
       <View style={styles.body}>
+        <VenueTypeBadge venueType={cafe.venueType} />
         <Text style={styles.name} numberOfLines={2}>
           {cafe.name}
         </Text>
-        <View style={styles.curationRow}>
-          <VenueTypeBadge venueType={cafe.venueType} />
-          {cafe.isCertified ? <BeanedPickBadge /> : null}
-        </View>
-        <Text style={styles.meta} numberOfLines={1}>
-          <Text style={styles.score}>{scoreLabel}</Text>
-          {area ? (
-            <>
-              <Text style={styles.dot}> · </Text>
-              <Text>{area}</Text>
-            </>
-          ) : null}
-        </Text>
+        {cafe.isCertified ? <BeanedPickBadge /> : null}
+        <WorkScoreHero cafe={cafe} size="card" style={styles.workScore} />
         {tags.length > 0 ? (
           <View style={styles.tags}>
             {tags.map((tag) => (
               <EditorialTag key={`${cafe.id}-${tag}`} tag={tag} variant="featured" />
             ))}
           </View>
+        ) : null}
+        {area ? (
+          <Text style={styles.meta} numberOfLines={1}>
+            {area}
+          </Text>
         ) : null}
         {cafe.short_description ? (
           <Text style={styles.summary} numberOfLines={2}>
@@ -100,22 +94,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.25,
   },
-  curationRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
+  workScore: {
+    marginTop: 2,
   },
   meta: {
     fontSize: 13,
     fontFamily: FONTS.sans.regular,
-    color: COLORS.muted,
-  },
-  score: {
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-  },
-  dot: {
     color: COLORS.muted,
   },
   summary: {

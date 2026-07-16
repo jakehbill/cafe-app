@@ -50,15 +50,68 @@ export function formatPublicCoffeeForCafe(
 }
 
 /**
- * Card / detail meta label — Work Score is the primary visible metric.
+ * Numeric Work Score out of 5 for a café (same rules as {@link formatPublicCoffeeForCafe}).
+ * `null` when there is nothing to show (including no baseline).
+ */
+export function publicCoffeeOutOf5ForCafe(
+  cafe: Pick<Cafe, 'publicCoffeeScore' | 'coffeeRatingCount'>
+): number | null {
+  const normalized = rawPublicCoffeeToOutOf5(cafe.publicCoffeeScore);
+  if (normalized != null) return normalized;
+  if (normalizeCoffeeRatingCount(cafe.coffeeRatingCount) <= 0) {
+    return UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE;
+  }
+  return null;
+}
+
+/**
+ * Editorial qualitative band for a Work Score.
+ * Product bands are defined on a 0–10 scale; UI scores are out of 5, so we compare `outOf5 * 2`.
+ *
+ * | 0–10 | Label |
+ * |------|-------|
+ * | 9.8–10.0 | Outstanding |
+ * | 9.3–9.7 | Excellent |
+ * | 8.7–9.2 | Great |
+ * | 8.0–8.6 | Solid |
+ * | 7.0–7.9 | Okay |
+ * | below 7.0 | none |
+ */
+export type WorkScoreQualitativeLabel =
+  | 'Outstanding'
+  | 'Excellent'
+  | 'Great'
+  | 'Solid'
+  | 'Okay';
+
+export function workScoreQualitativeLabel(
+  outOf5: number | null | undefined
+): WorkScoreQualitativeLabel | null {
+  if (outOf5 == null || !Number.isFinite(outOf5) || outOf5 <= 0) return null;
+  const on10 = outOf5 * 2;
+  if (on10 >= 9.8) return 'Outstanding';
+  if (on10 >= 9.3) return 'Excellent';
+  if (on10 >= 8.7) return 'Great';
+  if (on10 >= 8.0) return 'Solid';
+  if (on10 >= 7.0) return 'Okay';
+  return null;
+}
+
+/** Qualitative label for a café’s displayed Work Score, or `null` below 7.0 / missing. */
+export function workScoreQualitativeLabelForCafe(
+  cafe: Pick<Cafe, 'publicCoffeeScore' | 'coffeeRatingCount'>
+): WorkScoreQualitativeLabel | null {
+  return workScoreQualitativeLabel(publicCoffeeOutOf5ForCafe(cafe));
+}
+
+/**
+ * Card / detail meta — numeric Work Score only (caption lives in `WorkScoreHero`).
  * Calculation unchanged; presentation only.
  */
 export function formatWorkScoreCardLabel(
   cafe: Pick<Cafe, 'publicCoffeeScore' | 'coffeeRatingCount'>
 ): string {
-  const score = formatPublicCoffeeForCafe(cafe).trim();
-  if (!score || score === '—') return 'Work Score —';
-  return `Work Score ${score}`;
+  return formatPublicCoffeeForCafe(cafe).trim() || '—';
 }
 
 /** User-entered coffee (1–5) for detail “your rating” line. */

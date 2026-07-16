@@ -5,7 +5,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import type { Cafe } from '@/data/cafes';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
-import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
+import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 
 export type MapCafeCalloutProps = {
   cafe: Cafe;
@@ -48,8 +48,8 @@ export function MapCafeCallout({ cafe }: MapCafeCalloutProps) {
 
 function buildMapMetadataLine(cafe: Cafe): string {
   const parts: string[] = [];
-  const score = formatWorkScoreCardLabel(cafe).trim();
-  if (score && !score.endsWith('—')) parts.push(score);
+  const score = formatPublicCoffeeForCafe(cafe).trim();
+  if (score && score !== '—') parts.push(score);
 
   const neighborhood = (cafe.neighborhood ?? '').trim();
   if (neighborhood.length > 0) parts.push(neighborhood);

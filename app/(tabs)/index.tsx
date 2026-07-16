@@ -29,10 +29,10 @@ import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPrefere
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
+import { WorkScoreHero } from '@/components/WorkScoreHero';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
-import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 import {
   getRecentPublicVisitNotes,
   hideBulletinVisit,
@@ -148,7 +148,6 @@ function HomeCafeCard({
     heroGSize.h > 0
       ? Math.min(600, Math.round(heroGSize.h * 1.5))
       : Math.round(heroDisplayWidth * (isCarousel ? 3 / 4 : 2 / 3));
-  const scoreLabel = formatWorkScoreCardLabel(cafe);
   const hasTopTags = topTags.length > 0;
   const areaText = (cafe.neighborhood ?? '').trim();
 
@@ -236,26 +235,21 @@ function HomeCafeCard({
         ) : null}
 
         <View style={styles.heroTextBlock} pointerEvents="none">
+          <VenueTypeBadge venueType={cafe.venueType} tone="onDark" style={styles.heroVenueBadge} />
           <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
             {cafe.name}
           </Text>
-          <VenueTypeBadge venueType={cafe.venueType} tone="onDark" style={styles.heroVenueBadge} />
           {cafe.isCertified ? <BeanedPickBadge tone="onDark" style={styles.heroPickBadge} /> : null}
-          <Text style={styles.heroLocation} numberOfLines={1}>
-            <Text style={styles.heroLocationScore}>{scoreLabel}</Text>
-            {areaText ? (
-              <>
-                <Text style={styles.heroLocationDot}> {'\u00b7'} </Text>
-                <Text>{areaText}</Text>
-              </>
-            ) : null}
-            {distanceLabel ? (
-              <>
+          <WorkScoreHero cafe={cafe} tone="onDark" size="hero" style={styles.heroWorkScore} />
+          {(areaText || distanceLabel) ? (
+            <Text style={styles.heroLocation} numberOfLines={1}>
+              {areaText ? <Text>{areaText}</Text> : null}
+              {areaText && distanceLabel ? (
                 <Text style={styles.heroLocationDot}> {'\u2022'} </Text>
-                <Text>{distanceLabel}</Text>
-              </>
-            ) : null}
-          </Text>
+              ) : null}
+              {distanceLabel ? <Text>{distanceLabel}</Text> : null}
+            </Text>
+          ) : null}
           {hoursLabel ? (
             <Text style={styles.heroMeta} numberOfLines={1}>
               {hoursLabel}
@@ -989,41 +983,42 @@ const styles = StyleSheet.create({
     right: 14,
     bottom: 14,
     zIndex: 2,
-    gap: 4,
+    gap: 3,
   },
   heroVenueBadge: {
-    marginBottom: 2,
+    marginBottom: 0,
   },
   heroPickBadge: {
-    marginBottom: 2,
+    marginTop: 2,
+    marginBottom: 0,
+  },
+  heroWorkScore: {
+    marginTop: 2,
+    marginBottom: 0,
   },
   heroTitle: {
-    fontSize: 22,
-    fontFamily: FONTS.display.semibold,
+    fontSize: 26,
+    fontFamily: FONTS.display.bold,
     color: '#faf8f5',
-    lineHeight: 28,
-    letterSpacing: -0.35,
+    lineHeight: 30,
+    letterSpacing: -0.4,
     textShadowColor: 'rgba(0,0,0,0.35)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
   heroTitleCarousel: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 28,
+    lineHeight: 32,
   },
   heroLocation: {
     fontSize: 13,
     fontFamily: FONTS.sans.regular,
-    color: 'rgba(250,248,245,0.88)',
+    color: 'rgba(250,248,245,0.82)',
     letterSpacing: -0.05,
-  },
-  heroLocationScore: {
-    fontFamily: FONTS.sans.semibold,
-    color: 'rgba(250,248,245,0.98)',
-    letterSpacing: -0.1,
+    marginTop: 2,
   },
   heroLocationDot: {
-    color: 'rgba(250,248,245,0.7)',
+    color: 'rgba(250,248,245,0.6)',
   },
   heroMeta: {
     fontSize: 12,

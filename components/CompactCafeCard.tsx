@@ -9,8 +9,9 @@ import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
+import { WorkScoreHero } from '@/components/WorkScoreHero';
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
+import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import { CafeImage } from '@/components/CafeImage';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { resolveCafeDisplayTags } from '@/lib/cafeFeaturedTags';
@@ -235,24 +236,18 @@ export function CompactCafeCard({
           {scoreInContentColumn ? (
             <>
               <View style={[styles.nameMetaStack, compactNameMetaGap && styles.nameMetaStackCompact]}>
+                <VenueTypeBadge venueType={cafe.venueType} />
                 <Text style={[styles.name, styles.nameContentColumn]} numberOfLines={2}>
                   {cafe.name}
                 </Text>
-                <View style={styles.curationRow}>
-                  <VenueTypeBadge venueType={cafe.venueType} />
-                  {cafe.isCertified ? <BeanedPickBadge /> : null}
-                </View>
-                <Text style={styles.location} numberOfLines={1}>
-                  {metadataLineOverride ?? renderScoreLocationMeta(metadataLine)}
-                </Text>
-              </View>
-              {recommendationReason ? (
-                <View style={styles.recommendationReasonWrap}>
-                  <Text style={styles.recommendationReason} numberOfLines={1}>
-                    {recommendationReason}
+                {cafe.isCertified ? <BeanedPickBadge /> : null}
+                <WorkScoreHero cafe={cafe} size="card" style={styles.workScoreHero} />
+                {(metadataLine.location || metadataLine.distance) ? (
+                  <Text style={styles.location} numberOfLines={1}>
+                    {metadataLineOverride ?? renderSecondaryLocationMeta(metadataLine)}
                   </Text>
-                </View>
-              ) : null}
+                ) : null}
+              </View>
               {showTagRow ? (
                 <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
                   {tagSlice.map((tag) => (
@@ -264,6 +259,13 @@ export function CompactCafeCard({
                   ))}
                 </View>
               ) : null}
+              {recommendationReason ? (
+                <View style={styles.recommendationReasonWrap}>
+                  <Text style={styles.recommendationReason} numberOfLines={1}>
+                    {recommendationReason}
+                  </Text>
+                </View>
+              ) : null}
               {notePreview ? (
                 <Text style={styles.notePreviewText} numberOfLines={3}>
                   {notePreview}
@@ -273,23 +275,17 @@ export function CompactCafeCard({
           ) : (
             <>
               <View style={[styles.nameMetaStack, compactNameMetaGap && styles.nameMetaStackCompact]}>
+                <VenueTypeBadge venueType={cafe.venueType} />
                 <Text style={[styles.name, compactNameMetaGap && styles.nameCompactMetaGap]} numberOfLines={2}>
                   {cafe.name}
                 </Text>
-                <View style={styles.curationRow}>
-                  <VenueTypeBadge venueType={cafe.venueType} />
-                  {cafe.isCertified ? <BeanedPickBadge /> : null}
-                </View>
-              {recommendationReason ? (
-                <View style={styles.recommendationReasonWrap}>
-                  <Text style={styles.recommendationReason} numberOfLines={1}>
-                    {recommendationReason}
-                  </Text>
-                </View>
-              ) : null}
+                {cafe.isCertified ? <BeanedPickBadge /> : null}
+                {scoreOnCardTopRight ? (
+                  <WorkScoreHero cafe={cafe} size="card" style={styles.workScoreHero} />
+                ) : null}
                 <Text style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]} numberOfLines={1}>
                   {scoreOnCardTopRight
-                    ? (metadataLineOverride ?? renderScoreLocationMeta(metadataLine))
+                    ? (metadataLineOverride ?? renderSecondaryLocationMeta(metadataLine))
                     : metadataLineOverride ?? cafe.neighborhood}
                 </Text>
                 {metadataSublineOverride ? (
@@ -317,6 +313,13 @@ export function CompactCafeCard({
               ) : showTagSpacer ? (
                 <View style={[styles.tagsSpacer, compactNameMetaGap && styles.tagsSpacerAfterCompactMeta]} />
               ) : null}
+              {recommendationReason ? (
+                <View style={styles.recommendationReasonWrap}>
+                  <Text style={styles.recommendationReason} numberOfLines={1}>
+                    {recommendationReason}
+                  </Text>
+                </View>
+              ) : null}
               {notePreview ? (
                 <Text style={styles.notePreviewText} numberOfLines={3}>
                   {notePreview}
@@ -332,50 +335,27 @@ export function CompactCafeCard({
 }
 
 function buildScoreLocationMeta(cafe: Cafe): { score: string; location: string; distance: string } {
-  const score = formatWorkScoreCardLabel(cafe).trim();
+  const score = formatPublicCoffeeForCafe(cafe).trim();
   const location = (cafe.neighborhood ?? '').trim();
   const distance = (cafe.distanceLabel ?? '').trim();
   return { score, location, distance };
 }
 
-function renderScoreLocationMeta(meta: { score: string; location: string; distance: string }) {
-  const hasScore = meta.score.length > 0;
+function renderSecondaryLocationMeta(meta: { location: string; distance: string }) {
   const hasLocation = meta.location.length > 0;
   const hasDistance = meta.distance.length > 0;
-  if (hasScore && hasLocation) {
+  if (hasLocation && hasDistance) {
     return (
       <>
-        <Text style={styles.locationScore}>{meta.score}</Text>
-        <Text style={styles.locationDot}> {'\u00b7'} </Text>
         <Text>{meta.location}</Text>
-        {hasDistance ? (
-          <>
-            <Text style={styles.locationDot}> {'\u2022'} </Text>
-            <Text style={styles.locationDistance}>{meta.distance}</Text>
-          </>
-        ) : null}
+        <Text style={styles.locationDot}> {'\u2022'} </Text>
+        <Text style={styles.locationDistance}>{meta.distance}</Text>
       </>
     );
   }
-  if (hasLocation) {
-    return hasDistance ? (
-      <>
-        <Text>{meta.location}</Text>
-        <Text style={styles.locationDot}> {'\u2022'} </Text>
-        <Text style={styles.locationDistance}>{meta.distance}</Text>
-      </>
-    ) : meta.location;
-  }
-  if (hasScore) {
-    return hasDistance ? (
-      <>
-        <Text style={styles.locationScore}>{meta.score}</Text>
-        <Text style={styles.locationDot}> {'\u2022'} </Text>
-        <Text style={styles.locationDistance}>{meta.distance}</Text>
-      </>
-    ) : <Text style={styles.locationScore}>{meta.score}</Text>;
-  }
-  return <Text style={styles.locationDistance}>{meta.distance}</Text>;
+  if (hasLocation) return meta.location;
+  if (hasDistance) return <Text style={styles.locationDistance}>{meta.distance}</Text>;
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -525,6 +505,10 @@ const styles = StyleSheet.create({
     marginTop: 1,
     marginBottom: 1,
   },
+  workScoreHero: {
+    marginTop: 2,
+    marginBottom: 1,
+  },
   name: {
     flex: 1,
     minWidth: 0,
@@ -584,9 +568,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.05,
   },
   locationScore: {
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    opacity: 1,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
   },
   locationDot: {
     color: COLORS.muted,

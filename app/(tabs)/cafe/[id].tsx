@@ -3,6 +3,7 @@ import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageConta
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
+import { WorkScoreHero } from '@/components/WorkScoreHero';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useUserLocation } from '@/contexts/UserLocationContext';
@@ -18,7 +19,6 @@ import { formatTagLabel } from '@/lib/cafeTags';
 import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafeImageUrls } from '@/lib/cafeLiveImages';
 import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
-import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 import { getRecentCafeReviews, type CafeRecentReview } from '@/lib/supabase';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { resolveCafeDetailBackPath } from '@/lib/authGate';
@@ -351,9 +351,6 @@ export default function CafeDetailScreen() {
   }, [cafe, userLocation]);
   const detailDistanceMiles = cafeWithDistance?.distanceMiles ?? null;
   const detailDistanceLabel = cafeWithDistance?.distanceLabel ?? null;
-  const detailScoreLabel = cafeWithDistance
-    ? formatWorkScoreCardLabel(cafeWithDistance)
-    : formatWorkScoreCardLabel({ publicCoffeeScore: null, coffeeRatingCount: 0 });
   const detailNeighborhood = (cafeWithDistance?.neighborhood ?? '').trim();
   const detailDistanceText = detailDistanceLabel ? `${detailDistanceLabel} away` : null;
 
@@ -596,24 +593,21 @@ export default function CafeDetailScreen() {
 
         <View style={styles.mainPad}>
           <View style={styles.identityTextBlock}>
-            <Text style={styles.identityName}>{cafe.name}</Text>
             <VenueTypeBadge venueType={cafe.venueType} style={styles.identityVenueBadge} />
+            <Text style={styles.identityName}>{cafe.name}</Text>
             {cafe.isCertified ? <BeanedPickBadge style={styles.identityPickBadge} /> : null}
-            <Text style={styles.identityMeta} numberOfLines={1}>
-              <Text style={styles.identityMetaScore}>{detailScoreLabel}</Text>
-              {detailNeighborhood ? (
-                <>
-                  <Text style={styles.identityMetaDot}> {'\u00b7'} </Text>
-                  <Text>{detailNeighborhood}</Text>
-                </>
-              ) : null}
-              {detailDistanceMiles != null && detailDistanceText ? (
-                <>
+            <WorkScoreHero cafe={cafe} size="hero" style={styles.identityWorkScore} />
+            {(detailNeighborhood || (detailDistanceMiles != null && detailDistanceText)) ? (
+              <Text style={styles.identityMeta} numberOfLines={1}>
+                {detailNeighborhood ? <Text>{detailNeighborhood}</Text> : null}
+                {detailNeighborhood && detailDistanceMiles != null && detailDistanceText ? (
                   <Text style={styles.identityMetaDot}> {'\u2022'} </Text>
+                ) : null}
+                {detailDistanceMiles != null && detailDistanceText ? (
                   <Text style={styles.identityMetaDistance}>{detailDistanceText}</Text>
-                </>
-              ) : null}
-            </Text>
+                ) : null}
+              </Text>
+            ) : null}
             <CafeIdentityAddress cafe={cafe} onOpenMaps={() => void handleOpenGoogleMaps()} />
 
             {Platform.OS !== 'web' && hasValidCafeCoordinates(cafe) ? (
@@ -866,10 +860,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   identityVenueBadge: {
-    marginTop: 2,
+    marginTop: 0,
     marginBottom: 2,
   },
   identityPickBadge: {
+    marginBottom: 2,
+  },
+  identityWorkScore: {
+    marginTop: 4,
     marginBottom: 2,
   },
   identityMeta: {
