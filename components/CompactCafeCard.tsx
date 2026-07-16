@@ -10,7 +10,7 @@ import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
+import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 import { CafeImage } from '@/components/CafeImage';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import { resolveCafeDisplayTags } from '@/lib/cafeFeaturedTags';
@@ -332,7 +332,7 @@ export function CompactCafeCard({
 }
 
 function buildScoreLocationMeta(cafe: Cafe): { score: string; location: string; distance: string } {
-  const score = formatPublicCoffeeForCafe(cafe).trim();
+  const score = formatWorkScoreCardLabel(cafe).trim();
   const location = (cafe.neighborhood ?? '').trim();
   const distance = (cafe.distanceLabel ?? '').trim();
   return { score, location, distance };
@@ -584,9 +584,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.05,
   },
   locationScore: {
-    fontFamily: FONTS.sans.medium,
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
-    opacity: 0.92,
+    opacity: 1,
   },
   locationDot: {
     color: COLORS.muted,

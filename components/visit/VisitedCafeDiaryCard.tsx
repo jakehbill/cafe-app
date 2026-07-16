@@ -1,13 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { CafeImage } from '@/components/CafeImage';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
+import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { VisitPhotoLightbox } from '@/components/visit/VisitPhotoLightbox';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
+import { prioritizeWorkTagsForCards } from '@/lib/cafeFeaturedTags';
 import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
+import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 import type { UserCafeVisit } from '@/lib/userCafeVisits';
 
 const MAIN_W = 96;
@@ -53,15 +57,16 @@ export function VisitedCafeDiaryCard({
   const area =
     String((cafe as unknown as { area?: unknown }).area ?? '').trim() ||
     String(cafe.neighborhood ?? '').trim();
+  const workScoreText = formatWorkScoreCardLabel(cafe);
   const userRatingText =
-    visit.rating != null ? `${formatCoffeeRatingValue(visit.rating)} ★` : null;
-  const metaParts = [userRatingText, area].filter(Boolean);
+    visit.rating != null ? `Your rating ${formatCoffeeRatingValue(visit.rating)} ★` : null;
+  const metaParts = [workScoreText, area].filter(Boolean);
   const metaLine = metaParts.join(' · ');
 
   const notePreview = visit.note.trim().length > 0 ? visit.note.trim() : null;
   const tagSlice = useMemo(
-    () => (visit.tags.length > 0 ? visit.tags.slice(0, maxTags) : []),
-    [visit.tags, maxTags]
+    () => prioritizeWorkTagsForCards(visit.tags.length > 0 ? visit.tags : cafe.tags).slice(0, maxTags),
+    [visit.tags, cafe.tags, maxTags]
   );
 
   function openLightboxAt(index: number) {
@@ -209,19 +214,23 @@ export function VisitedCafeDiaryCard({
           <Text style={styles.name} numberOfLines={2}>
             {cafe.name}
           </Text>
+          <View style={styles.curationRow}>
+            <VenueTypeBadge venueType={cafe.venueType} />
+            {cafe.isCertified ? <BeanedPickBadge /> : null}
+          </View>
           {metaLine.length > 0 ? (
             <Text style={styles.metaLine} numberOfLines={1}>
               {metaLine}
             </Text>
           ) : null}
+          {userRatingText ? (
+            <Text style={styles.secondaryMeta} numberOfLines={1}>
+              {userRatingText}
+            </Text>
+          ) : null}
           {visitedDateLabel ? (
             <Text style={styles.dateLine} numberOfLines={1}>
               {visitedDateLabel}
-            </Text>
-          ) : null}
-          {notePreview ? (
-            <Text style={styles.notePreview} numberOfLines={2}>
-              {notePreview}
             </Text>
           ) : null}
           {tagSlice.length > 0 ? (
@@ -238,6 +247,11 @@ export function VisitedCafeDiaryCard({
                 </View>
               ))}
             </View>
+          ) : null}
+          {notePreview ? (
+            <Text style={styles.notePreview} numberOfLines={2}>
+              {notePreview}
+            </Text>
           ) : null}
         </Pressable>
       </View>
@@ -366,11 +380,23 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.2,
   },
+  curationRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
   metaLine: {
     fontSize: 14,
     lineHeight: 19,
-    fontFamily: FONTS.sans.medium,
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
+  },
+  secondaryMeta: {
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
   },
   dateLine: {
     fontSize: 13,

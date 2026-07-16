@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { CafeImage } from '@/components/CafeImage';
 import { EditorialTag } from '@/components/EditorialTag';
+import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { COLORS, FONTS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
-import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
+import { prioritizeWorkTagsForCards } from '@/lib/cafeFeaturedTags';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
+import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 
 const THUMB = 72;
 
@@ -16,12 +19,15 @@ type Props = {
   highlightTags?: string[];
 };
 
-/** Display-only café row for public landing pages — no auth, no navigation hooks. */
+/** Display-only space row for public landing pages — no auth, no navigation hooks. */
 export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
   const photo = resolveLiveCafePrimaryImageUrl({ cafe });
-  const scoreLabel = formatPublicCoffeeForCafe(cafe);
+  const scoreLabel = formatWorkScoreCardLabel(cafe);
   const area = (cafe.neighborhood ?? '').trim();
-  const tags = (highlightTags ?? cafe.tags).slice(0, 2);
+  const tags = useMemo(() => {
+    const source = highlightTags ?? cafe.tags ?? [];
+    return prioritizeWorkTagsForCards(source).slice(0, 2);
+  }, [cafe.tags, highlightTags]);
 
   return (
     <View style={styles.card}>
@@ -32,6 +38,10 @@ export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
         <Text style={styles.name} numberOfLines={2}>
           {cafe.name}
         </Text>
+        <View style={styles.curationRow}>
+          <VenueTypeBadge venueType={cafe.venueType} />
+          {cafe.isCertified ? <BeanedPickBadge /> : null}
+        </View>
         <Text style={styles.meta} numberOfLines={1}>
           <Text style={styles.score}>{scoreLabel}</Text>
           {area ? (
@@ -41,17 +51,17 @@ export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
             </>
           ) : null}
         </Text>
-        {cafe.short_description ? (
-          <Text style={styles.summary} numberOfLines={2}>
-            {cafe.short_description}
-          </Text>
-        ) : null}
         {tags.length > 0 ? (
           <View style={styles.tags}>
             {tags.map((tag) => (
               <EditorialTag key={`${cafe.id}-${tag}`} tag={tag} variant="featured" />
             ))}
           </View>
+        ) : null}
+        {cafe.short_description ? (
+          <Text style={styles.summary} numberOfLines={2}>
+            {cafe.short_description}
+          </Text>
         ) : null}
       </View>
     </View>
@@ -90,13 +100,19 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     letterSpacing: -0.25,
   },
+  curationRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
   meta: {
     fontSize: 13,
     fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
   },
   score: {
-    fontFamily: FONTS.sans.medium,
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
   },
   dot: {
@@ -113,6 +129,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 4,
+    marginTop: 2,
   },
 });

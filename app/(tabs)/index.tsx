@@ -32,7 +32,7 @@ import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
-import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
+import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 import {
   getRecentPublicVisitNotes,
   hideBulletinVisit,
@@ -148,7 +148,7 @@ function HomeCafeCard({
     heroGSize.h > 0
       ? Math.min(600, Math.round(heroGSize.h * 1.5))
       : Math.round(heroDisplayWidth * (isCarousel ? 3 / 4 : 2 / 3));
-  const scoreLabel = formatPublicCoffeeForCafe(cafe);
+  const scoreLabel = formatWorkScoreCardLabel(cafe);
   const hasTopTags = topTags.length > 0;
   const areaText = (cafe.neighborhood ?? '').trim();
 
@@ -1018,8 +1018,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.05,
   },
   heroLocationScore: {
-    fontFamily: FONTS.sans.medium,
-    color: 'rgba(250,248,245,0.96)',
+    fontFamily: FONTS.sans.semibold,
+    color: 'rgba(250,248,245,0.98)',
+    letterSpacing: -0.1,
   },
   heroLocationDot: {
     color: 'rgba(250,248,245,0.7)',

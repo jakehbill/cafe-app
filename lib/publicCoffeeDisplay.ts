@@ -49,6 +49,18 @@ export function formatPublicCoffeeForCafe(
   return formatPublicCoffeeOutOf5(cafe.publicCoffeeScore, cafe.coffeeRatingCount);
 }
 
+/**
+ * Card / detail meta label — Work Score is the primary visible metric.
+ * Calculation unchanged; presentation only.
+ */
+export function formatWorkScoreCardLabel(
+  cafe: Pick<Cafe, 'publicCoffeeScore' | 'coffeeRatingCount'>
+): string {
+  const score = formatPublicCoffeeForCafe(cafe).trim();
+  if (!score || score === '—') return 'Work Score —';
+  return `Work Score ${score}`;
+}
+
 /** User-entered coffee (1–5) for detail “your rating” line. */
 export function formatPrivateCoffeeOneDecimal(raw: number): string {
   if (!Number.isFinite(raw) || raw <= 0) return '—';

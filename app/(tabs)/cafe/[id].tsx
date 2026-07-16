@@ -18,7 +18,7 @@ import { formatTagLabel } from '@/lib/cafeTags';
 import { getApprovedCafePhotoUrls } from '@/lib/cafePhotoSubmissions';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafeImageUrls } from '@/lib/cafeLiveImages';
 import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
-import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
+import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 import { getRecentCafeReviews, type CafeRecentReview } from '@/lib/supabase';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { resolveCafeDetailBackPath } from '@/lib/authGate';
@@ -352,8 +352,8 @@ export default function CafeDetailScreen() {
   const detailDistanceMiles = cafeWithDistance?.distanceMiles ?? null;
   const detailDistanceLabel = cafeWithDistance?.distanceLabel ?? null;
   const detailScoreLabel = cafeWithDistance
-    ? formatPublicCoffeeForCafe(cafeWithDistance)
-    : formatPublicCoffeeForCafe({ publicCoffeeScore: null, coffeeRatingCount: 0 });
+    ? formatWorkScoreCardLabel(cafeWithDistance)
+    : formatWorkScoreCardLabel({ publicCoffeeScore: null, coffeeRatingCount: 0 });
   const detailNeighborhood = (cafeWithDistance?.neighborhood ?? '').trim();
   const detailDistanceText = detailDistanceLabel ? `${detailDistanceLabel} away` : null;
 
@@ -623,6 +623,17 @@ export default function CafeDetailScreen() {
             ) : null}
           </View>
 
+          {featureTags.length > 0 ? (
+            <>
+              <Text style={styles.sectionHeading}>Good for work</Text>
+              <View style={styles.featuresGrid}>
+                {featureTags.map((tag) => (
+                  <EditorialTag key={tag} tag={tag} variant="featured" />
+                ))}
+              </View>
+            </>
+          ) : null}
+
           {cafe.short_description ? <View style={styles.identitySummaryDivider} /> : null}
 
           {cafe.short_description ? (
@@ -631,17 +642,6 @@ export default function CafeDetailScreen() {
               <Text style={styles.summaryText} numberOfLines={8}>
                 {cafe.short_description}
               </Text>
-            </>
-          ) : null}
-
-          {featureTags.length > 0 ? (
-            <>
-              <Text style={styles.sectionHeading}>Features</Text>
-            <View style={styles.featuresGrid}>
-              {featureTags.map((tag) => (
-                <EditorialTag key={tag} tag={tag} variant="featured" />
-              ))}
-            </View>
             </>
           ) : null}
 
@@ -880,7 +880,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
   },
   identityMetaScore: {
-    fontFamily: FONTS.sans.medium,
+    fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
   },
   identityMetaDot: {

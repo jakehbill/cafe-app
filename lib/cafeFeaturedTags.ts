@@ -1,6 +1,10 @@
 import type { Cafe } from '@/data/cafes';
 import { parseCafeTagsField } from '@/lib/cafeTags';
-import { resolveToCanonicalTagSlug } from '@/lib/tagRegistry';
+import {
+  TAG_REGISTRY,
+  resolveToCanonicalTagSlug,
+  type CanonicalTagSlug,
+} from '@/lib/tagRegistry';
 import { getCafeTagPopularityOrdered } from '@/lib/supabase';
 
 /** Max tags on compact cards and café detail “Features” row. */
@@ -11,13 +15,80 @@ export const CAFE_DETAIL_MAX_VISIBLE_TAGS = 8;
 export const CAFE_DETAIL_ALSO_GOOD_FOR_MAX =
   CAFE_DETAIL_MAX_VISIBLE_TAGS - CAFE_FEATURED_TAG_COUNT;
 
+/**
+ * Work-first tag order for cards (“Would I work here today?”).
+ * Prefer these when present; do not invent empty placeholders.
+ */
+export const WORK_CARD_PRIORITY_SLUGS: readonly CanonicalTagSlug[] = [
+  'good_for_calls',
+  'quiet',
+  'good_wifi',
+  'has_outlets',
+  'spacious',
+  'good_natural_light',
+  'good_for_working',
+  'open_late',
+];
+
 function tagKey(raw: string): string {
   return resolveToCanonicalTagSlug(raw) ?? raw.trim().toLowerCase();
+}
+
+function isWorkOrientedTag(raw: string): boolean {
+  const slug = resolveToCanonicalTagSlug(raw);
+  if (!slug) return false;
+  if ((WORK_CARD_PRIORITY_SLUGS as readonly string[]).includes(slug)) return true;
+  return TAG_REGISTRY[slug]?.category === 'Work';
+}
+
+/**
+ * Reorder an already-deduped tag list so work attributes come first.
+ * Relative order within work / non-work groups is preserved.
+ */
+export function prioritizeWorkTagsForCards(orderedTags: string[]): string[] {
+  if (orderedTags.length <= 1) return orderedTags;
+
+  const bySlug = new Map<string, string>();
+  for (const raw of orderedTags) {
+    const key = tagKey(raw);
+    if (!key || bySlug.has(key)) continue;
+    bySlug.set(key, raw.trim());
+  }
+
+  const workFirst: string[] = [];
+  const seen = new Set<string>();
+
+  for (const slug of WORK_CARD_PRIORITY_SLUGS) {
+    const display = bySlug.get(slug);
+    if (!display) continue;
+    workFirst.push(display);
+    seen.add(slug);
+  }
+
+  for (const raw of orderedTags) {
+    const key = tagKey(raw);
+    if (!key || seen.has(key)) continue;
+    if (isWorkOrientedTag(raw)) {
+      workFirst.push(raw.trim());
+      seen.add(key);
+    }
+  }
+
+  const rest: string[] = [];
+  for (const raw of orderedTags) {
+    const key = tagKey(raw);
+    if (!key || seen.has(key)) continue;
+    rest.push(raw.trim());
+    seen.add(key);
+  }
+
+  return [...workFirst, ...rest];
 }
 
 /**
  * Merges editorial catalog tags with community popularity order.
  * Sort: highest community usage first; ties use catalog order, then slug order.
+ * Then work-oriented tags are promoted for card hierarchy.
  */
 export function orderCafeTagsByPopularity(
   catalogTags: string[],
@@ -59,7 +130,7 @@ export function orderCafeTagsByPopularity(
     return a.key.localeCompare(b.key);
   });
 
-  return entries.map((e) => e.display);
+  return prioritizeWorkTagsForCards(entries.map((e) => e.display));
 }
 
 export type CafeTagDisplaySets = {

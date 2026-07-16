@@ -5,14 +5,14 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import type { Cafe } from '@/data/cafes';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
-import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
+import { formatWorkScoreCardLabel } from '@/lib/publicCoffeeDisplay';
 
 export type MapCafeCalloutProps = {
   cafe: Cafe;
 };
 
 /**
- * Compact map marker preview card for opening cafe detail.
+ * Compact map marker preview card for opening space detail.
  */
 export function MapCafeCallout({ cafe }: MapCafeCalloutProps) {
   const imageUrl = resolveLiveCafePrimaryImageUrl({ cafe });
@@ -48,8 +48,8 @@ export function MapCafeCallout({ cafe }: MapCafeCalloutProps) {
 
 function buildMapMetadataLine(cafe: Cafe): string {
   const parts: string[] = [];
-  const score = formatPublicCoffeeForCafe(cafe).trim();
-  if (score && score !== '\u2014') parts.push(`${score} \u2605`);
+  const score = formatWorkScoreCardLabel(cafe).trim();
+  if (score && !score.endsWith('—')) parts.push(score);
 
   const neighborhood = (cafe.neighborhood ?? '').trim();
   if (neighborhood.length > 0) parts.push(neighborhood);
