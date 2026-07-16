@@ -17,11 +17,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!isMounted) return;
-      setSession(data.session ?? null);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!isMounted) return;
+        setSession(data.session ?? null);
+      })
+      .catch((err) => {
+        console.warn('[Auth] getSession failed', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {

@@ -11,14 +11,13 @@ import {
 } from 'react-native';
 
 import { COLORS } from '@/components/theme';
-import { optimizeCafeImageUrl } from '@/lib/cafeImageUrl';
 
 type Props = {
   uri: string;
   style?: StyleProp<ImageStyle>;
-  /** Target width in px (× device scale handled by caller). */
+  /** Kept for call-site compatibility; sizing is handled by style / layout, not CDN. */
   displayWidth?: number;
-  /** When set with width, enables CDN resize matching the frame aspect ratio. */
+  /** Kept for call-site compatibility; sizing is handled by style / layout, not CDN. */
   displayHeight?: number;
   lazy?: boolean;
   priority?: 'low' | 'normal' | 'high';
@@ -27,8 +26,8 @@ type Props = {
 function CafeImageInner({
   uri,
   style,
-  displayWidth = 480,
-  displayHeight,
+  displayWidth: _displayWidth = 480,
+  displayHeight: _displayHeight,
   lazy = Platform.OS === 'web',
   priority = 'normal',
 }: Props) {
@@ -64,12 +63,9 @@ function CafeImageInner({
 
   const webUri = useMemo(() => {
     if (Platform.OS !== 'web' || !inView) return '';
-    return optimizeCafeImageUrl(uri, {
-      width: displayWidth,
-      height: displayHeight,
-      resize: displayHeight != null ? 'cover' : undefined,
-    });
-  }, [uri, displayWidth, displayHeight, inView]);
+    // Use the public object URL / signed URL as-is — no Supabase image transforms.
+    return String(uri ?? '').trim();
+  }, [uri, inView]);
 
   if (Platform.OS === 'web') {
     const frameStyle: StyleProp<ViewStyle> = [
