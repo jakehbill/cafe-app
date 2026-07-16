@@ -15,7 +15,7 @@ const REASON = {
   /** Ranks 1–3 in your visited list */
   matchesTopPicks: 'Matches your top picks',
   /** Cafe scores/tags align with your top visited cluster */
-  similarToRankedHighly: 'Similar to cafes you ranked highly',
+  similarToRankedHighly: 'Similar to spaces you ranked highly',
 
   workPreference: 'Matches your favourite work spots',
   coffeePreference: 'Fits your coffee standards',

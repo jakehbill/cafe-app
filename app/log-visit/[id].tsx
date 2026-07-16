@@ -259,8 +259,8 @@ export default function LogVisitScreen() {
               <Text style={styles.pageTitle}>Visit saved</Text>
               <Text style={styles.pageSubtitle}>
                 {successState.movedFromSaved
-                  ? 'Moved from Saved for later to Visited.'
-                  : 'Added to your personal cafe log.'}
+                  ? 'Moved from Saved Spaces to Spaces You\'ve Worked From.'
+                  : "Added to Spaces You've Worked From."}
               </Text>
               <Text style={styles.successProgressText}>
                 Logged. Your Beaned progress has been updated.
@@ -269,7 +269,7 @@ export default function LogVisitScreen() {
                 <Text style={styles.successHintText}>Your photos have been submitted for review.</Text>
               ) : null}
               {successState.movedFromSaved ? (
-                <Text style={styles.successHintText}>Moved to Visited</Text>
+                <Text style={styles.successHintText}>Moved to Spaces You&apos;ve Worked From</Text>
               ) : null}
               <TouchableOpacity
                 activeOpacity={0.9}
@@ -289,7 +289,7 @@ export default function LogVisitScreen() {
                   style={[styles.photoButton, styles.secondaryButton]}
                   onPress={() => router.replace(`/cafe/${targetCafeId}`)}
                 >
-                  <Text style={styles.secondaryButtonText}>Back to cafe</Text>
+                  <Text style={styles.secondaryButtonText}>Back to space</Text>
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity
@@ -297,16 +297,16 @@ export default function LogVisitScreen() {
                 style={[styles.photoButton, styles.secondaryButton]}
                 onPress={() => router.replace('/')}
               >
-                <Text style={styles.secondaryButtonText}>Find another cafe</Text>
+                <Text style={styles.secondaryButtonText}>Find another space</Text>
               </TouchableOpacity>
             </View>
           ) : null}
 
           {!successState ? (
           <View style={styles.titleBlock}>
-            <Text style={styles.pageTitle}>{editingVisitId ? 'Edit visit log' : 'Log your visit'}</Text>
+            <Text style={styles.pageTitle}>{editingVisitId ? 'Edit visit log' : 'Log workspace'}</Text>
             <Text style={styles.pageSubtitle}>
-              Save a few notes from this cafe so you can remember where you&apos;ve been.
+              Save a few notes from this space so you can remember where you&apos;ve worked.
             </Text>
           </View>
           ) : null}
@@ -315,14 +315,14 @@ export default function LogVisitScreen() {
             <View style={styles.sectionCard}>
               <ActivityIndicator color={COLORS.accent} />
               <Text style={styles.pageSubtitle}>
-                {redirectingMissingCafe ? 'Opening Log a cafe flow...' : 'Loading cafe...'}
+                {redirectingMissingCafe ? 'Opening Log a space flow...' : 'Loading space...'}
               </Text>
             </View>
           ) : null}
 
           {!successState && canRenderVisitForm ? (
             <CafeFlowHeaderCard
-              name={cafe?.name ?? existingPendingName ?? 'Cafe'}
+              name={cafe?.name ?? existingPendingName ?? 'Space'}
               subtitle={cafe?.neighborhood ?? 'Neighborhood'}
               imageUri={cafeListingImageUri}
             />

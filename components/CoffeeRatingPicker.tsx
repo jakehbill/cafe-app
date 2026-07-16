@@ -20,7 +20,7 @@ export function CoffeeRatingPicker({
   value,
   onChange,
   onClear,
-  title = 'How is the cafe?',
+  title = 'How was the workspace?',
   helperText = null,
   showClear = false,
   disabled = false,

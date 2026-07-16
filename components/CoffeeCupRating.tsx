@@ -48,7 +48,7 @@ export function CoffeeCupRating({
       <View
         style={[styles.row, styles.rowDisplay]}
         accessibilityRole="progressbar"
-        accessibilityLabel={`Coffee rating ${formatRatingLabel(normalized)} out of ${max}`}
+        accessibilityLabel={`Work Score ${formatRatingLabel(normalized)} out of ${max}`}
         accessibilityValue={{ min: 0, max, now: normalized }}
       >
         <View style={[styles.barTrack, { height: barHeight }]}>

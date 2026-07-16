@@ -96,7 +96,7 @@ export async function createCafeSuggestionWithId(
   if (hasDuplicate) {
     return {
       ok: false,
-      error: 'You have already suggested this cafe. Thanks — we already have it in review history.',
+      error: 'You have already suggested this space. Thanks — we already have it in review history.',
     };
   }
 
@@ -347,7 +347,7 @@ export async function submitGooglePlacesCafeSuggestion(
     return {
       ok: false,
       error:
-        'This café is missing map coordinates from Google Places. Go back, pick the place again, or try another result.',
+        'This place is missing map coordinates from Google Places. Go back, pick it again, or try another result.',
     };
   }
 
@@ -368,7 +368,7 @@ export async function submitGooglePlacesCafeSuggestion(
       blocking_row_ids: blockingRows.map((r) => r.id),
       blocking_raw_moderation_statuses: blockingRows.map((r) => r.moderation_status),
     });
-    return { ok: false, error: 'This café has already been suggested.' };
+    return { ok: false, error: 'This space has already been suggested.' };
   }
 
   const live = await liveCafeAlreadyExistsForGooglePlace(googlePlaceId);
@@ -376,7 +376,7 @@ export async function submitGooglePlacesCafeSuggestion(
     return { ok: false, error: live.error };
   }
   if (live.exists) {
-    return { ok: false, error: 'This café is already in Beaned.' };
+    return { ok: false, error: 'This space is already in Beaned.' };
   }
 
   const payload = buildGooglePlacesCafeSubmissionPayload(place, userId, extras);
@@ -414,7 +414,7 @@ export async function submitGooglePlacesCafeSuggestion(
       msg.includes('cafe_submissions_active_google_place_id_unique') ||
       (msg.toLowerCase().includes('duplicate key') && msg.includes('google_place_id'))
     ) {
-      return { ok: false, error: 'This café has already been suggested.' };
+      return { ok: false, error: 'This space has already been suggested.' };
     }
     return { ok: false, error: msg || 'Submission could not be created.' };
   }

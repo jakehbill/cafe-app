@@ -199,7 +199,7 @@ function HomeCafeCard({
         <View style={styles.heroTopRight} pointerEvents="box-none">
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={isSaved ? 'Saved' : 'Save cafe'}
+            accessibilityLabel={isSaved ? 'Saved' : 'Save space'}
             hitSlop={10}
             style={styles.heroIconFab}
             onPress={() => {
@@ -214,7 +214,7 @@ function HomeCafeCard({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Share this cafe"
+            accessibilityLabel="Share this space"
             hitSlop={10}
             style={styles.heroIconFab}
             onPress={() => {
@@ -615,7 +615,7 @@ export default function HomeScreen() {
               <View style={styles.onboardingBannerTextWrap}>
                 <Text style={styles.onboardingBannerTitle}>Welcome to Beaned</Text>
                 <Text style={styles.onboardingBannerBody}>
-                  Discover great coffee and work-friendly cafes. Save, visit and rate to get better picks.
+                  Need somewhere to work? Find spaces that fit how you focus — then save, log, and rate to get better picks.
                 </Text>
               </View>
               <Pressable
@@ -632,8 +632,8 @@ export default function HomeScreen() {
 
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
-              <Text style={styles.homeSectionTitle}>Top picks for you</Text>
-              <Text style={styles.homeSectionSubtitle}>Based on your taste</Text>
+              <Text style={styles.homeSectionTitle}>Top spaces for you</Text>
+              <Text style={styles.homeSectionSubtitle}>Based on how you work</Text>
             </View>
             {showCatalogSkeleton ? (
               <HomeCafeCarouselSkeleton
@@ -680,7 +680,7 @@ export default function HomeScreen() {
 
           <View style={styles.homeSection}>
             <View style={styles.homeSectionHeader}>
-              <Text style={styles.secondarySectionTitle}>Worth trying nearby</Text>
+              <Text style={styles.secondarySectionTitle}>Top spaces nearby</Text>
               <Text style={styles.secondarySectionSubtitle}>{trendingSubtitle}</Text>
             </View>
             {showCatalogSkeleton ? (

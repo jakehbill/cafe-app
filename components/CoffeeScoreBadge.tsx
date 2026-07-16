@@ -48,7 +48,7 @@ export function CoffeeScoreBadge({
 
   const accessibilityLabel =
     accessibilityLabelProp ??
-    (hasScore ? `Coffee score ${scoreLabel} out of 5` : 'No public coffee score');
+    (hasScore ? `Work Score ${scoreLabel} out of 5` : 'No public Work Score');
 
   if (variant === 'text') {
     return (

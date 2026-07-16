@@ -313,7 +313,7 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
   const cafeId = String(input.cafeId ?? '').trim();
   const submissionId = String(input.submissionId ?? '').trim();
   if (!cafeId && !submissionId) {
-    return { ok: false, error: 'A cafe or submission id is required.' };
+    return { ok: false, error: 'A space or submission id is required.' };
   }
 
   const rating = normalizeCoffeeRatingInput(input.rating);

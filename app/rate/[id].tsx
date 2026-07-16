@@ -76,7 +76,7 @@ export default function RateCafeScreen() {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: false,
-      title: cafe?.name ? `Rate · ${cafe.name}` : 'Rate Cafe',
+      title: cafe?.name ? `Rate · ${cafe.name}` : 'Rate Space',
     });
   }, [cafe?.name, navigation]);
 
@@ -334,12 +334,12 @@ export default function RateCafeScreen() {
           contentInsetAdjustmentBehavior="automatic"
         >
           <View style={styles.titleBlock}>
-            <Text style={styles.pageTitle}>Rate this cafe</Text>
-            <Text style={styles.pageSubtitle}>Help others find great cafes</Text>
+            <Text style={styles.pageTitle}>Rate this space</Text>
+            <Text style={styles.pageSubtitle}>Help others find great places to work</Text>
           </View>
 
         <CafeFlowHeaderCard
-          name={cafe?.name ?? 'Cafe'}
+          name={cafe?.name ?? 'Space'}
           subtitle={rateLocationLine}
           imageUri={ratePreviewPhoto}
         />
@@ -422,7 +422,7 @@ export default function RateCafeScreen() {
         {submitted ? (
           <View style={styles.feedbackBannerSuccess} accessibilityLiveRegion="polite">
             <Text style={styles.feedbackSuccessTitle}>Rating saved</Text>
-            <Text style={styles.feedbackSuccessSub}>Returning to the cafe page…</Text>
+            <Text style={styles.feedbackSuccessSub}>Returning to the space page…</Text>
           </View>
         ) : null}
 

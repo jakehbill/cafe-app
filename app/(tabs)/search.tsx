@@ -68,7 +68,7 @@ function SearchQueryInput({ immediateQueryRef, onDebouncedChange }: SearchQueryI
       <TextInput
         value={query}
         onChangeText={setQuery}
-        placeholder="Search cafes..."
+        placeholder="Search spaces..."
         placeholderTextColor={COLORS.muted}
         autoCapitalize="none"
         autoCorrect={false}
@@ -608,8 +608,8 @@ export default function SearchScreen() {
             <>
               <Text style={styles.emptyText}>
                 {hasQuery
-                  ? 'No strong matches yet. Try a café name, an area (e.g. Hackney), or phrases like "quiet", "fast wifi", or "good for working".'
-                  : 'No cafes found'}
+                  ? 'No strong matches yet. Try a space name, an area (e.g. Hackney), or phrases like "quiet", "fast wifi", or "good for calls".'
+                  : 'No spaces found'}
               </Text>
               {showNoResults && hasQuery ? (
                 <View style={styles.logMissingWrap}>
@@ -618,7 +618,7 @@ export default function SearchScreen() {
                     style={styles.logMissingButton}
                     onPress={openSuggestCafeFlow}
                   >
-                    <Text style={styles.logMissingButtonText}>Suggest a café using Google Maps</Text>
+                    <Text style={styles.logMissingButtonText}>Suggest a space using Google Maps</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -628,13 +628,13 @@ export default function SearchScreen() {
               <Text style={styles.resultsLabel}>{resultsLabel}</Text>
               {showMissingCafeSuggestCta ? (
                 <View style={styles.logMissingWrap}>
-                  <Text style={styles.logMissingInlineText}>Can&apos;t find the café?</Text>
+                  <Text style={styles.logMissingInlineText}>Can&apos;t find the space?</Text>
                   <TouchableOpacity
                     activeOpacity={0.88}
                     style={styles.logMissingButton}
                     onPress={openSuggestCafeFlow}
                   >
-                    <Text style={styles.logMissingButtonText}>Suggest a café using Google Maps</Text>
+                    <Text style={styles.logMissingButtonText}>Suggest a space using Google Maps</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -656,8 +656,8 @@ export default function SearchScreen() {
             <>
               <Text style={styles.emptyText}>
                 {hasQuery
-                  ? 'No strong matches yet. Try a café name, an area (e.g. Hackney), or phrases like "quiet", "fast wifi", or "good for working".'
-                  : 'No cafes found'}
+                  ? 'No strong matches yet. Try a space name, an area (e.g. Hackney), or phrases like "quiet", "fast wifi", or "good for calls".'
+                  : 'No spaces found'}
               </Text>
               {showNoResults && hasQuery ? (
                 <View style={styles.logMissingWrap}>
@@ -666,7 +666,7 @@ export default function SearchScreen() {
                     style={styles.logMissingButton}
                     onPress={openSuggestCafeFlow}
                   >
-                    <Text style={styles.logMissingButtonText}>Suggest a café using Google Maps</Text>
+                    <Text style={styles.logMissingButtonText}>Suggest a space using Google Maps</Text>
                   </TouchableOpacity>
                 </View>
               ) : null}

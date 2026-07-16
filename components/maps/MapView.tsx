@@ -14,7 +14,7 @@ export default function MapViewFallback() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.wrap}>
         <Text style={styles.title}>Map coming soon on web</Text>
-        <Text style={styles.subtitle}>For now, use the Search tab to browse cafes.</Text>
+        <Text style={styles.subtitle}>For now, use the Search tab to browse spaces.</Text>
       </View>
     </SafeAreaView>
   );

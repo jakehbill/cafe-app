@@ -15,7 +15,7 @@ type Props = {
 export function CafeFlowHeaderCard({ name, subtitle, imageUri }: Props) {
   return (
     <View style={styles.card}>
-      <Text style={styles.eyebrow}>Café on Beaned</Text>
+      <Text style={styles.eyebrow}>Space on Beaned</Text>
       <View style={styles.row}>
         {imageUri ? (
           <Image source={{ uri: imageUri }} style={styles.image} resizeMode="cover" />

@@ -2,7 +2,7 @@ import type { Router } from 'expo-router';
 
 /** User-facing copy when a signed-in session is required. */
 export const AUTH_REQUIRED_MESSAGE =
-  'Please log in to save cafés and add reviews.';
+  'Please log in to save spaces and add reviews.';
 
 export function parseReturnToParam(
   value: string | string[] | undefined

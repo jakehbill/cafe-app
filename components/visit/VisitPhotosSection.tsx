@@ -54,7 +54,7 @@ export function VisitPhotosSection({
     <View style={styles.card}>
       <Text style={styles.title}>Your visit photos</Text>
       <Text style={styles.subtitle}>
-        Personal memories from your visit. These stay separate from the café&apos;s public listing
+        Personal memories from your visit. These stay separate from the space&apos;s public listing
         photo.
       </Text>
 
@@ -143,7 +143,7 @@ export function VisitPhotosSection({
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       {success ? <Text style={styles.successText}>{success}</Text> : null}
       <Text style={styles.moderationHint}>
-        Photos are reviewed before they can appear on the public café page.
+        Photos are reviewed before they can appear on the public space page.
       </Text>
     </View>
   );

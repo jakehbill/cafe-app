@@ -284,12 +284,12 @@ export default function ProfileScreen() {
   const gamificationHelpLines = useMemo(
     () =>
       [
-        { label: 'Rate a cafe', points: POINTS.perRating },
-        { label: 'Visit a cafe', points: POINTS.perVisited },
-        { label: 'Save a cafe', points: POINTS.perSaved },
+        { label: 'Rate a space', points: POINTS.perRating },
+        { label: 'Log a workspace visit', points: POINTS.perVisited },
+        { label: 'Save a space', points: POINTS.perSaved },
         { label: 'Add a tag', points: POINTS.perTag },
-        { label: 'Suggest a cafe', points: POINTS.perCafeSuggestion },
-        { label: 'Approved cafe', points: POINTS.perCafeApproved },
+        { label: 'Suggest a space', points: POINTS.perCafeSuggestion },
+        { label: 'Approved space', points: POINTS.perCafeApproved },
         { label: 'Submit a photo', points: POINTS.perPhotoSubmitted },
         { label: 'Approved photo', points: POINTS.perPhotoApproved },
       ].filter((line) => line.points > 0),
@@ -472,7 +472,7 @@ export default function ProfileScreen() {
         <View style={styles.activitySection}>
           <Text style={styles.sectionHeading}>Your activity</Text>
           <Text style={styles.activitySectionIntro}>
-            Cafés you&apos;ve visited, saved, and successfully suggested.
+            Spaces you&apos;ve worked from, saved, and successfully suggested.
           </Text>
 
           <View style={styles.statsRow}>
@@ -518,8 +518,8 @@ export default function ProfileScreen() {
               }}
             >
               <View style={styles.activityTextWrap}>
-                <Text style={styles.activityTitle}>Visited</Text>
-                <Text style={styles.activityHint}>Your personal cafe log</Text>
+                <Text style={styles.activityTitle}>Spaces You&apos;ve Worked From</Text>
+                <Text style={styles.activityHint}>Your personal workspace log</Text>
               </View>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
@@ -530,7 +530,7 @@ export default function ProfileScreen() {
               onPress={() => router.navigate('/bookmarks')}
             >
               <View style={styles.activityTextWrap}>
-                <Text style={styles.activityTitle}>Saved Cafes</Text>
+                <Text style={styles.activityTitle}>Saved Spaces</Text>
                 <Text style={styles.activityHint}>Bookmarks you have saved</Text>
               </View>
               <Text style={styles.chevron}>›</Text>
@@ -555,7 +555,7 @@ export default function ProfileScreen() {
             }}
           >
             <View style={styles.activityTextWrap}>
-              <Text style={styles.activityTitle}>Suggest a cafe</Text>
+              <Text style={styles.activityTitle}>Suggest a Space</Text>
               <Text style={styles.activityHint}>Share a recommendation for editorial review</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
@@ -567,7 +567,7 @@ export default function ProfileScreen() {
               ) : (
                 <Text style={styles.contributionCompactValue}>{displayCounts.cafesSuggested}</Text>
               )}
-              <Text style={styles.contributionCompactLabel}>Cafes suggested</Text>
+              <Text style={styles.contributionCompactLabel}>Spaces suggested</Text>
             </View>
             <View style={styles.contributionCompactDivider} />
             <View style={styles.contributionCompactItem}>

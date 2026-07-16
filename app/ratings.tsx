@@ -135,7 +135,7 @@ export default function MyRatingsScreen() {
           </View>
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyTitle}>No ratings yet</Text>
-            <Text style={styles.emptySubtitle}>Rate cafes to keep track of your experience</Text>
+            <Text style={styles.emptySubtitle}>Rate spaces to keep track of where you&apos;ve worked</Text>
           </View>
         </>
       ) : (

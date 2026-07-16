@@ -7,7 +7,7 @@ type SearchBarProps = {
   placeholder?: string;
 };
 
-export function SearchBar({ placeholder = 'Search cafes...' }: SearchBarProps) {
+export function SearchBar({ placeholder = 'Search spaces...' }: SearchBarProps) {
   return (
     <View style={styles.searchWrap}>
       <Text style={styles.searchIcon}>⌕</Text>

@@ -100,16 +100,16 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
   return (
     <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
     <ScrollView contentContainerStyle={styles.content}>
-      {showPageTitle ? <Text style={styles.title}>Saved for later</Text> : null}
+      {showPageTitle ? <Text style={styles.title}>Saved Spaces</Text> : null}
 
       {!user ? (
         <View style={styles.emptyWrap}>
           <View style={styles.emptyIconWrap}>
             <Text style={styles.emptyIcon}>☆</Text>
           </View>
-          <Text style={styles.emptyTitle}>Sign in to save cafes</Text>
+          <Text style={styles.emptyTitle}>Sign in to save spaces</Text>
           <Text style={styles.subtitle}>
-            Please log in to save cafés and add reviews.
+            Please log in to save spaces and add reviews.
           </Text>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -124,14 +124,14 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
           <View style={styles.emptyIconWrap}>
             <Text style={styles.emptyIcon}>☆</Text>
           </View>
-          <Text style={styles.emptyTitle}>No saved cafes yet</Text>
-          <Text style={styles.subtitle}>Start saving cafes you want to try</Text>
+          <Text style={styles.emptyTitle}>No saved spaces yet</Text>
+          <Text style={styles.subtitle}>Start saving spaces you want to work from</Text>
           <TouchableOpacity
             activeOpacity={0.85}
             style={styles.ctaButton}
             onPress={() => router.push('/')}
           >
-            <Text style={styles.ctaButtonText}>Explore cafes</Text>
+            <Text style={styles.ctaButtonText}>Explore spaces</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -170,7 +170,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
 
           {showFilteredEmpty ? (
             <View style={styles.emptyFilterWrap}>
-              <Text style={styles.emptyFilterTitle}>No saved cafes match</Text>
+              <Text style={styles.emptyFilterTitle}>No saved spaces match</Text>
               <Text style={styles.subtitle}>Try changing or clearing your filters.</Text>
               <TouchableOpacity
                 activeOpacity={0.85}
@@ -188,7 +188,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
                     key={cafe.id}
                     cafe={cafe}
                     scorePosition="cardTopRight"
-                    topRightActionLabel="Log visit"
+                    topRightActionLabel="Log workspace"
                     onTopRightActionPress={() => router.push(`/log-visit/${cafe.id}` as never)}
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />

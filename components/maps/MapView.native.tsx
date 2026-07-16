@@ -32,7 +32,7 @@ export default function MapViewNative() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Text style={styles.title}>Map view</Text>
-        <Text style={styles.subtitle}>Tap a pin to open a cafe</Text>
+        <Text style={styles.subtitle}>Tap a pin to open a space</Text>
       </View>
 
       <MapView style={styles.map} initialRegion={initialRegion}>

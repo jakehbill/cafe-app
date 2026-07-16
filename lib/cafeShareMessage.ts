@@ -6,11 +6,11 @@ import { resolveCafeMapsUrl } from '@/lib/cafeMapsUrl';
  * "Check out {name}{ in area} on Beaned. {maps URL if any}"
  */
 export function buildCafeShareMessage(cafe: Cafe): string {
-  const name = (cafe.name ?? '').trim() || 'This cafe';
+  const name = (cafe.name ?? '').trim() || 'This space';
   const neighborhood = (cafe.neighborhood ?? '').trim();
   const areaIn = neighborhood.length > 0 ? ` in ${neighborhood}` : '';
 
-  let msg = `Check out ${name}${areaIn} on Beaned.`;
+  let msg = `Check out ${name}${areaIn} on Beaned — a great spot to work.`;
 
   const url = resolveCafeMapsUrl(cafe);
   if (url) {

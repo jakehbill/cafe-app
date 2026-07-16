@@ -122,11 +122,11 @@ function SlideBody({ index, slideWidth }: SlideRenderProps) {
           style={styles.heroImage}
           contentFit="cover"
           transition={200}
-          accessibilityLabel="Cozy cafe interior"
+          accessibilityLabel="Cozy workspace interior"
         />
-        <Text style={styles.headline}>Find your perfect cafe</Text>
+        <Text style={styles.headline}>Find your perfect workspace</Text>
         <Text style={styles.bodyCopy}>
-          Discover the best spots for work, coffee, and everything in between
+          Discover the best spots for deep work, calls, and everything in between
         </Text>
       </View>
     );
@@ -137,7 +137,7 @@ function SlideBody({ index, slideWidth }: SlideRenderProps) {
       <View style={[styles.slideInner, innerPad]}>
         <FilterPreviewCard />
         <Text style={[styles.headline, styles.headlineBelowArt]}>
-          Find work, quick stops or specialty coffee: wherever you are
+          Find work, quiet corners or specialty coffee: wherever you are
         </Text>
         <Text style={styles.bodyCopy}>
           Filter by what you need right now: quiet, fast, or specialty.
@@ -152,7 +152,7 @@ function SlideBody({ index, slideWidth }: SlideRenderProps) {
         <SavedPreviewCard />
         <Text style={[styles.headline, styles.headlineBelowArt]}>Your picks, saved in one place</Text>
         <Text style={styles.bodyCopy}>
-          Bookmark cafes, track visits, and build a list that matches how you actually explore
+          Bookmark spaces, track visits, and build a list that matches how you actually work
         </Text>
       </View>
     );
@@ -161,9 +161,9 @@ function SlideBody({ index, slideWidth }: SlideRenderProps) {
   return (
     <View style={[styles.slideInner, innerPad, styles.ctaSlide]}>
       <AuthBrandBean />
-      <Text style={[styles.headline, styles.headlineBelowBean]}>Ready to find the perfect cafe?</Text>
+      <Text style={[styles.headline, styles.headlineBelowBean]}>Ready to find your next workspace?</Text>
       <Text style={styles.bodyCopy}>
-        Create an account or log in to start discovering cafes tailored to you.
+        Create an account or log in to start discovering spaces tailored to how you work.
       </Text>
     </View>
   );

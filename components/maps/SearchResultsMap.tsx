@@ -19,7 +19,7 @@ export default function SearchResultsMap(_props: {
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Map not available on this platform</Text>
-      <Text style={styles.subtitle}>Use the list view to browse cafes.</Text>
+      <Text style={styles.subtitle}>Use the list view to browse spaces.</Text>
     </View>
   );
 }

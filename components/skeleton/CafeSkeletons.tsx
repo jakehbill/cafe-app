@@ -38,7 +38,7 @@ function SkeletonLine({
 /** Matches `CompactCafeCard` list row layout. */
 export function CompactCafeCardSkeleton() {
   return (
-    <View style={compactStyles.card} accessibilityLabel="Loading café">
+    <View style={compactStyles.card} accessibilityLabel="Loading space">
       <SkeletonBlock style={compactStyles.thumb} rounded={14} />
       <View style={compactStyles.body}>
         <SkeletonLine width="72%" height={15} />
@@ -66,7 +66,7 @@ export function SearchResultListSkeleton({ count = 5 }: { count?: number }) {
 /** Matches home carousel `HomeCafeCard` (hero + body). */
 export function HomeCafeCardSkeleton() {
   return (
-    <View style={homeStyles.card} accessibilityLabel="Loading café">
+    <View style={homeStyles.card} accessibilityLabel="Loading space">
       <SkeletonBlock style={homeStyles.hero} rounded={0} />
       <View style={homeStyles.heroOverlay}>
         <SkeletonLine width="78%" height={18} style={homeStyles.heroLine} />

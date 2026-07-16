@@ -502,7 +502,7 @@ export default function SuggestCafeScreen() {
       }
       if (!placeHasValidCoordinates(selectedPlace)) {
         setSubmitError(
-          'This café is missing map coordinates from Google Places. Go back and choose the place again.'
+          'This place is missing map coordinates from Google Places. Go back and choose it again.'
         );
         return;
       }
@@ -532,7 +532,7 @@ export default function SuggestCafeScreen() {
           if (!visitRes.ok) {
             console.error('[suggest-cafe] submission visit log failed:', visitRes.error);
             setSubmitError(
-              `Your café suggestion was saved, but your rating or note could not be saved: ${visitRes.error}`
+              `Your space suggestion was saved, but your rating or note could not be saved: ${visitRes.error}`
             );
             return;
           }
@@ -556,15 +556,15 @@ export default function SuggestCafeScreen() {
             const detail = uploadSummary.errors[0];
             setSubmitError(
               detail
-                ? `Your café suggestion was saved, but your photos could not be uploaded: ${detail}`
-                : 'Your café suggestion was saved, but your photos could not be uploaded. Try again with smaller images or a different browser.'
+                ? `Your space suggestion was saved, but your photos could not be uploaded: ${detail}`
+                : 'Your space suggestion was saved, but your photos could not be uploaded. Try again with smaller images or a different browser.'
             );
             return;
           }
 
           if (uploadSummary.failedCount > 0) {
             setSubmitError(
-              `Your café suggestion was saved, but only ${uploadSummary.uploadedCount} of ${imagesToUpload.length} photos uploaded. You can add more photos when the café is live.`
+              `Your space suggestion was saved, but only ${uploadSummary.uploadedCount} of ${imagesToUpload.length} photos uploaded. You can add more photos when the space is live.`
             );
             return;
           }
@@ -586,7 +586,7 @@ export default function SuggestCafeScreen() {
 
     const nameTrimmed = cafeName.trim();
     if (!nameTrimmed) {
-      setSubmitError('Cafe name is required.');
+      setSubmitError('Space name is required.');
       return;
     }
     if (!isValidOptionalUrl(googleMapsUrl)) {
@@ -619,7 +619,7 @@ export default function SuggestCafeScreen() {
       });
       if (!linkedVisit.ok) {
         setSuccessMessage(
-          `Cafe details saved, but your visit draft was not linked yet: ${linkedVisit.error}. You can retry from Visit log.`
+          `Space details saved, but your visit draft was not linked yet: ${linkedVisit.error}. You can retry from Log workspace.`
         );
         return;
       }
@@ -669,14 +669,14 @@ export default function SuggestCafeScreen() {
           </View>
 
           <View style={styles.titleBlock}>
-            <Text style={styles.pageTitle}>{fromVisitLog ? 'Log a cafe' : 'Suggest a cafe'}</Text>
+            <Text style={styles.pageTitle}>{fromVisitLog ? 'Log a space' : 'Suggest a Space'}</Text>
             <Text style={styles.pageSubtitle}>
               {fromVisitLog
                 ? visitFlowStep === 1
                   ? 'Add your visit details.'
-                  : 'Add cafe details.'
+                  : 'Add space details.'
                 : publicSuggestStep === 'places_search'
-                  ? 'Search Google Places, confirm the café, then add optional notes, photos, and tags.'
+                  ? 'Search Google Places, confirm the space, then add optional notes, photos, and tags.'
                   : publicSuggestStep === 'place_confirm'
                     ? 'Check the details, then continue to add Beaned-specific info.'
                     : 'Add optional notes, photos, and tags — everything goes to moderation before going live.'}
@@ -755,7 +755,7 @@ export default function SuggestCafeScreen() {
                     style={styles.input}
                     value={cafeName}
                     onChangeText={setCafeName}
-                    placeholder="Cafe name"
+                    placeholder="Space name"
                     placeholderTextColor={COLORS.muted}
                     maxLength={120}
                     autoCapitalize="words"
@@ -802,7 +802,7 @@ export default function SuggestCafeScreen() {
 
               {hasPlacesApiKey && publicSuggestStep === 'places_search' ? (
                 <View style={styles.sectionCard}>
-                  <Text style={styles.fieldLabel}>Find the café</Text>
+                  <Text style={styles.fieldLabel}>Find the space</Text>
                   <Text style={styles.tagHelperText}>
                     Search by name plus area, street or postcode. Results are biased to London (not restricted).
                   </Text>
@@ -892,7 +892,7 @@ export default function SuggestCafeScreen() {
                       onClear={() => setSuggestCoffeeRating(null)}
                       showClear
                       disabled={submitting || redirecting}
-                      helperText="Your score for this café (optional). Not from Google."
+                      helperText="Your Work Score for this space (optional). Not from Google."
                     />
                   </View>
 
@@ -995,14 +995,14 @@ export default function SuggestCafeScreen() {
           {fromVisitLog && visitLogSuccessState ? (
             <View style={styles.sectionCard}>
               <Text style={styles.fieldLabel}>Visit saved</Text>
-              <Text style={styles.tagHelperText}>Added to your personal cafe log.</Text>
+              <Text style={styles.tagHelperText}>Added to Spaces You&apos;ve Worked From.</Text>
               {visitLogSuccessState.hadPhoto ? (
                 <Text style={styles.tagHelperText}>Your photos have been submitted for review.</Text>
               ) : null}
               {visitLogSuccessState.pendingReview ? (
                 <>
-                  <Text style={styles.tagHelperText}>Your cafe is pending review.</Text>
-                  <Text style={styles.tagHelperText}>We’ll add it to Beaned if it fits.</Text>
+                  <Text style={styles.tagHelperText}>Your space is pending review.</Text>
+                  <Text style={styles.tagHelperText}>We&apos;ll add it to Beaned if it fits.</Text>
                 </>
               ) : null}
               <TouchableOpacity
@@ -1017,7 +1017,7 @@ export default function SuggestCafeScreen() {
                 style={[styles.photoSlotButton, styles.photoSlotButtonSecondary]}
                 onPress={() => router.replace('/')}
               >
-                <Text style={styles.photoSlotButtonSecondaryText}>Find another cafe</Text>
+                <Text style={styles.photoSlotButtonSecondaryText}>Find another space</Text>
               </TouchableOpacity>
             </View>
           ) : null}

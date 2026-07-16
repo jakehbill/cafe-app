@@ -169,22 +169,22 @@ export default function MyCafesScreen() {
       {showInitialVisitsLoading ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
+          <Text style={styles.screenTitle}>Spaces You&apos;ve Worked From</Text>
           <View style={styles.visitsLoadingWrap}>
             <ActivityIndicator color={COLORS.accent} size="large" />
-            <Text style={styles.visitsLoadingText}>Loading your visited cafés…</Text>
+            <Text style={styles.visitsLoadingText}>Loading spaces you&apos;ve worked from…</Text>
           </View>
         </ScrollView>
       ) : !hasVisits ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
+          <Text style={styles.screenTitle}>Spaces You&apos;ve Worked From</Text>
           <Text style={styles.hint}>
-            Your personal coffee diary — visit photos, ratings, and notes you&apos;ve saved.
+            Your personal work diary — photos, ratings, and notes from spaces you&apos;ve used.
           </Text>
           {showMovedToast ? (
             <View style={styles.toastBanner}>
-              <Text style={styles.toastBannerText}>Moved to your visits</Text>
+              <Text style={styles.toastBannerText}>Moved to spaces you&apos;ve worked from</Text>
             </View>
           ) : null}
           <View style={styles.emptyWrap}>
@@ -193,28 +193,28 @@ export default function MyCafesScreen() {
             </View>
             <Text style={styles.emptyTitle}>No visits logged yet</Text>
             <Text style={styles.subtitle}>
-              When you visit a cafe, save a few notes here so you can remember where you&apos;ve been.
+              When you work from a space, save a few notes here so you can remember where you&apos;ve been.
             </Text>
             <TouchableOpacity
               activeOpacity={0.85}
               style={styles.ctaButton}
               onPress={() => router.push('/')}
             >
-              <Text style={styles.ctaButtonText}>Find a cafe</Text>
+              <Text style={styles.ctaButtonText}>Find a space</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Cafés you&apos;ve visited</Text>
+          <Text style={styles.screenTitle}>Spaces You&apos;ve Worked From</Text>
           {showMovedToast ? (
             <View style={styles.toastBanner}>
-              <Text style={styles.toastBannerText}>Moved to your visits</Text>
+              <Text style={styles.toastBannerText}>Moved to spaces you&apos;ve worked from</Text>
             </View>
           ) : null}
           <Text style={styles.hint}>
-            Your personal coffee diary — visit photos, ratings, and notes you&apos;ve saved.
+            Your personal work diary — photos, ratings, and notes from spaces you&apos;ve used.
           </Text>
           <CafeCardGrid style={styles.timelineList}>
             {compactRows.map(({ cafe, visit }) => (

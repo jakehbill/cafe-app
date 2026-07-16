@@ -386,7 +386,7 @@ export default function CafeDetailScreen() {
         {heroBackRow}
         <View style={styles.notFoundWrap}>
           <Text style={styles.notFoundTitle}>Cafe not found</Text>
-          <Text style={styles.notFoundText}>We could not find a cafe for this id.</Text>
+          <Text style={styles.notFoundText}>We could not find a space for this id.</Text>
         </View>
       </SafeAreaView>
     );
@@ -396,7 +396,7 @@ export default function CafeDetailScreen() {
     if (!cafe) return;
     const url = resolveCafeMapsUrl(cafe);
     if (!url) {
-      Alert.alert('Map link unavailable', 'No location could be determined for this cafe.');
+      Alert.alert('Map link unavailable', 'No location could be determined for this space.');
       return;
     }
     try {
@@ -571,7 +571,7 @@ export default function CafeDetailScreen() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={isSaved(cafe.id) ? 'Saved' : 'Save cafe'}
+              accessibilityLabel={isSaved(cafe.id) ? 'Saved' : 'Save space'}
               onPress={() => void handleSavePress()}
               style={({ pressed }) => [styles.heroIconFab, pressed && styles.heroIconFabPressed]}
             >
@@ -583,7 +583,7 @@ export default function CafeDetailScreen() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Share this cafe"
+              accessibilityLabel="Share this space"
               onPress={() => void onShare()}
               style={({ pressed }) => [styles.heroIconFab, pressed && styles.heroIconFabPressed]}
             >
@@ -693,10 +693,10 @@ export default function CafeDetailScreen() {
 
           <View style={styles.actionsWrap}>
             {isSaved(cafe.id) ? (
-              <Text style={styles.savedVisitPromptText}>Been here? Log your visit</Text>
+              <Text style={styles.savedVisitPromptText}>Worked here? Log this space</Text>
             ) : null}
             <ActionButton
-              label={mostRecentVisitId ? 'Edit rating' : 'Log this cafe'}
+              label={mostRecentVisitId ? 'Edit rating' : 'Log this space'}
               accentActive
               onPress={() => {
                 const logPath = mostRecentVisitId
