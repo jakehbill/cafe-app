@@ -7,6 +7,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { type Cafe } from '@/data/cafes';
 import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { EditorialTag } from '@/components/EditorialTag';
+import { VenueTypeBadge } from '@/components/VenueTypeBadge';
+import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import { CafeImage } from '@/components/CafeImage';
@@ -236,6 +238,10 @@ export function CompactCafeCard({
                 <Text style={[styles.name, styles.nameContentColumn]} numberOfLines={2}>
                   {cafe.name}
                 </Text>
+                <View style={styles.curationRow}>
+                  <VenueTypeBadge venueType={cafe.venueType} />
+                  {cafe.isCertified ? <BeanedPickBadge /> : null}
+                </View>
                 <Text style={styles.location} numberOfLines={1}>
                   {metadataLineOverride ?? renderScoreLocationMeta(metadataLine)}
                 </Text>
@@ -270,6 +276,10 @@ export function CompactCafeCard({
                 <Text style={[styles.name, compactNameMetaGap && styles.nameCompactMetaGap]} numberOfLines={2}>
                   {cafe.name}
                 </Text>
+                <View style={styles.curationRow}>
+                  <VenueTypeBadge venueType={cafe.venueType} />
+                  {cafe.isCertified ? <BeanedPickBadge /> : null}
+                </View>
               {recommendationReason ? (
                 <View style={styles.recommendationReasonWrap}>
                   <Text style={styles.recommendationReason} numberOfLines={1}>
@@ -506,6 +516,14 @@ const styles = StyleSheet.create({
   },
   nameMetaStackCompact: {
     rowGap: 0,
+  },
+  curationRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 1,
+    marginBottom: 1,
   },
   name: {
     flex: 1,

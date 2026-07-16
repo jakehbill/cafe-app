@@ -437,6 +437,9 @@ export async function createCafeAndApproveSubmission(
     tags,
     image_urls: [],
     venue_type: normalizeVenueType(input.venueType),
+    // Approval activates the space; certification stays a manual editorial step.
+    status: 'active',
+    is_certified: false,
   };
 
   const insertRes = await supabase.from('cafes').insert(insertPayload).select('id, slug').single();

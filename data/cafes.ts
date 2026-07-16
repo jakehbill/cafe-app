@@ -1,4 +1,5 @@
 import type { VenueTypeValue } from '@/lib/venueTypes';
+import type { CafeStatus } from '@/lib/cafeCuration';
 
 /**
  * Shared TypeScript shape for cafe rows.
@@ -14,6 +15,14 @@ export type Cafe = {
    * Space category from `cafes.venue_type`. Defaults to `cafe` when missing (legacy rows).
    */
   venueType: VenueTypeValue;
+  /**
+   * Listing lifecycle from `cafes.status`. Missing/unknown normalizes to `active`.
+   */
+  status: CafeStatus;
+  /**
+   * Editorial certification from `cafes.is_certified`. Missing → false.
+   */
+  isCertified: boolean;
   /**
    * Coffee axis for internal ranking (~0–10), derived from `public.cafe_public_scores.public_coffee_score`
    * after load — not from `cafes.coffee_score` / avg fallbacks. For visible coffee use `publicCoffeeScore`.

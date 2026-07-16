@@ -1,4 +1,5 @@
 import type { Cafe } from '@/data/cafes';
+import { normalizeCafeStatus, normalizeIsCertified } from '@/lib/cafeCuration';
 import { parseCafeTagsField } from '@/lib/cafeTags';
 import { rawPublicCoffeeToOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { supabase } from '@/lib/supabase';
@@ -144,6 +145,8 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
   ).trim();
   const googlePlaceId = str(row.google_place_id ?? row.googlePlaceId ?? row.place_id).trim();
   const venueType = normalizeVenueType(row.venue_type ?? row.venueType);
+  const status = normalizeCafeStatus(row.status);
+  const isCertified = normalizeIsCertified(row.is_certified ?? row.isCertified);
 
   return {
     id,
@@ -153,6 +156,8 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     latitude: coordinateNum(row.latitude ?? row.lat),
     longitude: coordinateNum(row.longitude ?? row.lng),
     venueType,
+    status,
+    isCertified,
     coffeeScore: coffee,
     workScore: work,
     vibeScore: vibe,
@@ -325,15 +330,43 @@ export async function hydrateCafesWithPublicScores(
 }
 
 /** Full cafe catalog — Supabase `public.cafes` is the source of truth for listing metadata. */
-export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
-  const [res, pubMap] = await Promise.all([
-    supabase.from('cafes').select('*'),
-    fetchCafePublicScoresMap(),
-  ]);
+export type FetchCafesCatalogOptions = {
+  /**
+   * When true (default), only `status = 'active'`.
+   * Homepage/search/maps should leave this on.
+   */
+  activeOnly?: boolean;
+  /**
+   * When true, also require `is_certified = true` (homepage curated feed).
+   */
+  certifiedOnly?: boolean;
+};
+
+/**
+ * Loads cafes with optional curation filters.
+ * Defaults: active only (search/maps). Pass `certifiedOnly: true` for homepage.
+ */
+export async function fetchAllCafesFromSupabase(
+  options: FetchCafesCatalogOptions = {}
+): Promise<Cafe[]> {
+  const activeOnly = options.activeOnly !== false;
+  const certifiedOnly = options.certifiedOnly === true;
+
+  let query = supabase.from('cafes').select('*');
+  if (activeOnly) {
+    query = query.eq('status', 'active');
+  }
+  if (certifiedOnly) {
+    query = query.eq('is_certified', true);
+  }
+
+  const [res, pubMap] = await Promise.all([query, fetchCafePublicScoresMap()]);
   const rawCount = res.data?.length ?? 0;
 
   debugCatalog('fetchAllCafesFromSupabase', {
     loading: false,
+    activeOnly,
+    certifiedOnly,
     error: res.error ? { message: res.error.message, code: res.error.code, details: res.error.details } : null,
     rowCount: rawCount,
     firstRowKeys: res.data?.[0] != null ? Object.keys(res.data[0] as object) : [],
@@ -353,6 +386,9 @@ export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
     const row = r as Record<string, unknown>;
     const base = mapCafeRowToCafe(row);
     if (!base) continue;
+    // Client-side guard if DB filter is unavailable / legacy nulls mapped oddly.
+    if (activeOnly && base.status !== 'active') continue;
+    if (certifiedOnly && !base.isCertified) continue;
     out.push(mergePublicIntoCafe(base, resolvePublicScoreRowFromMap(base, row, pubMap)));
   }
   if (rawCount > 0 && out.length === 0) {
@@ -365,6 +401,8 @@ export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
 
   debugCatalogFlow({
     step: 'fetchAllCafesFromSupabase',
+    activeOnly,
+    certifiedOnly,
     supabaseError: res.error,
     rawRowCount: res.data?.length ?? 0,
     firstRawRow: res.data?.[0] ?? null,
@@ -381,11 +419,16 @@ export async function fetchAllCafesFromSupabase(): Promise<Cafe[]> {
   return applyApprovedPhotosPriority(out);
 }
 
-export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null> {
+export async function fetchCafeByIdFromSupabase(
+  id: string,
+  options: { activeOnly?: boolean } = {}
+): Promise<Cafe | null> {
+  const activeOnly = options.activeOnly !== false;
   const res = await supabase.from('cafes').select('*').eq('id', id).maybeSingle();
 
   debugCatalog('fetchCafeByIdFromSupabase (eq id)', {
     id,
+    activeOnly,
     error: res.error ? { message: res.error.message, code: res.error.code } : null,
     hasData: res.data != null,
   });
@@ -394,14 +437,19 @@ export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null
     console.error('fetchCafeByIdFromSupabase failed:', res.error);
     return null;
   }
-  if (res.data) {
-    const raw = res.data as Record<string, unknown>;
+
+  async function finalize(raw: Record<string, unknown>): Promise<Cafe | null> {
     const base = mapCafeRowToCafe(raw);
     if (!base) return null;
+    if (activeOnly && base.status !== 'active') return null;
     const pub = await fetchPublicScoreRowForCafeBase(base, raw);
     const merged = mergePublicIntoCafe(base, pub);
     const withPhotos = await applyApprovedPhotosPriority([merged]);
     return withPhotos[0] ?? merged;
+  }
+
+  if (res.data) {
+    return finalize(res.data as Record<string, unknown>);
   }
 
   // Safe fallback: some schemas use cafe_id as the primary column name, not id.
@@ -416,13 +464,7 @@ export async function fetchCafeByIdFromSupabase(id: string): Promise<Cafe | null
     return null;
   }
   if (!resByCafeId.data) return null;
-  const raw2 = resByCafeId.data as Record<string, unknown>;
-  const base = mapCafeRowToCafe(raw2);
-  if (!base) return null;
-  const pub = await fetchPublicScoreRowForCafeBase(base, raw2);
-  const merged = mergePublicIntoCafe(base, pub);
-  const withPhotos = await applyApprovedPhotosPriority([merged]);
-  return withPhotos[0] ?? merged;
+  return finalize(resByCafeId.data as Record<string, unknown>);
 }
 
 /** Preserves caller order (e.g. visited rank or saved order). */
@@ -474,6 +516,8 @@ export async function fetchCafesByIdsOrdered(ids: string[]): Promise<Cafe[]> {
     const row = r as Record<string, unknown>;
     const base = mapCafeRowToCafe(row);
     if (!base) continue;
+    // Personal lists still hide archived/pending from public surfaces.
+    if (base.status !== 'active') continue;
     byId.set(base.id, mergePublicIntoCafe(base, resolvePublicScoreRowFromMap(base, row, pubMap)));
   }
   const ordered = ids.map((id) => byId.get(id)).filter((c): c is Cafe => c != null);

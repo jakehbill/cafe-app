@@ -3,24 +3,39 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Cafe } from '@/data/cafes';
 import { fetchAllCafesFromSupabase } from '@/lib/cafeCatalogSupabase';
 
+export type UseCafeCatalogOptions = {
+  /**
+   * Homepage curated feed — `status = active` AND `is_certified = true`.
+   * Search/maps leave this false (active only).
+   */
+  certifiedOnly?: boolean;
+};
+
 /**
- * Loads the full cafe catalog from Supabase once on mount.
- * Used by Home, Search, and map when the full list is needed for ranking or markers.
+ * Loads the cafe catalog from Supabase once on mount.
+ * Always restricted to `status = 'active'`. Optionally certified-only for Home.
  */
-export function useCafeCatalog() {
+export function useCafeCatalog(options: UseCafeCatalogOptions = {}) {
+  const certifiedOnly = options.certifiedOnly === true;
   const [cafes, setCafes] = useState<Cafe[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadCatalog = useCallback(async () => {
     setLoading(true);
-    const list = await fetchAllCafesFromSupabase();
+    const list = await fetchAllCafesFromSupabase({
+      activeOnly: true,
+      certifiedOnly,
+    });
     setCafes(list);
     setLoading(false);
     if (__DEV__) {
       const payload = {
         loading: false,
+        certifiedOnly,
         finalCafeCountPassedToUI: list.length,
-        firstCafeSample: list[0] ? { id: list[0].id, name: list[0].name } : null,
+        firstCafeSample: list[0]
+          ? { id: list[0].id, name: list[0].name, isCertified: list[0].isCertified }
+          : null,
       };
       try {
         console.log(
@@ -30,20 +45,26 @@ export function useCafeCatalog() {
         console.log('[DEBUG useCafeCatalog → Home/Search/Map]', payload);
       }
     }
-  }, []);
+  }, [certifiedOnly]);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const list = await fetchAllCafesFromSupabase();
+      const list = await fetchAllCafesFromSupabase({
+        activeOnly: true,
+        certifiedOnly,
+      });
       if (cancelled) return;
       setCafes(list);
       setLoading(false);
       if (__DEV__) {
         const payload = {
           loading: false,
+          certifiedOnly,
           finalCafeCountPassedToUI: list.length,
-          firstCafeSample: list[0] ? { id: list[0].id, name: list[0].name } : null,
+          firstCafeSample: list[0]
+            ? { id: list[0].id, name: list[0].name, isCertified: list[0].isCertified }
+            : null,
         };
         try {
           console.log(
@@ -57,7 +78,7 @@ export function useCafeCatalog() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [certifiedOnly]);
 
   const byId = useMemo(() => {
     const next: Record<string, Cafe> = {};

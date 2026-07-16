@@ -42,7 +42,7 @@ export async function loadCafeCatalogCached(options?: {
   }
 
   inFlight = (async () => {
-    const cafes = await fetchAllCafesFromSupabase({ hydrateApprovedPhotos: false });
+    const cafes = await fetchAllCafesFromSupabase({ activeOnly: true });
     cache = { cafes, fetchedAt: Date.now() };
     inFlight = null;
     return cafes;

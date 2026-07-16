@@ -28,6 +28,7 @@ import { useCafesWithApprovedPhotos } from '@/hooks/useCafesWithApprovedPhotos';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
+import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
@@ -239,6 +240,7 @@ function HomeCafeCard({
             {cafe.name}
           </Text>
           <VenueTypeBadge venueType={cafe.venueType} tone="onDark" style={styles.heroVenueBadge} />
+          {cafe.isCertified ? <BeanedPickBadge tone="onDark" style={styles.heroPickBadge} /> : null}
           <Text style={styles.heroLocation} numberOfLines={1}>
             <Text style={styles.heroLocationScore}>{scoreLabel}</Text>
             {areaText ? (
@@ -308,7 +310,9 @@ export default function HomeScreen() {
       console.log('[RouteHeaderDebug Home] segments:', segments, 'err:', e);
     }
   }, [navigation, segments]);
-  const { cafes: cafeCatalog, loading: catalogLoading, refetch: refetchCafeCatalog } = useCafeCatalog();
+  const { cafes: cafeCatalog, loading: catalogLoading, refetch: refetchCafeCatalog } = useCafeCatalog({
+    certifiedOnly: true,
+  });
   const showCatalogSkeleton = catalogLoading && cafeCatalog.length === 0;
   const cafesWithApprovedPhotos = useCafesWithApprovedPhotos(cafeCatalog);
   const { coords: userLocation, refreshLocation } = useUserLocation();
@@ -988,6 +992,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroVenueBadge: {
+    marginBottom: 2,
+  },
+  heroPickBadge: {
     marginBottom: 2,
   },
   heroTitle: {

@@ -1,6 +1,7 @@
 import type { Cafe } from '@/data/cafes';
 import { getCafePhotoUrls } from '@/data/cafes';
 import { hydrateCafesWithPublicScores, mapCafeRowToCafe } from '@/lib/cafeCatalogSupabase';
+import { isCafePubliclyVisible } from '@/lib/cafeCuration';
 import { CAFE_PLACEHOLDER_IMAGE_URL } from '@/lib/cafeLiveImages';
 import {
   rawPublicCoffeeToOutOf5,
@@ -65,7 +66,7 @@ export function cafeHasRealPublicPhoto(cafe: Cafe, approvedPhotoUrls?: string[])
 
 /** Lightweight public sample — capped row count, no full-catalog hydration. */
 export async function fetchPublicCafeSample(): Promise<Cafe[]> {
-  const res = await supabase.from('cafes').select('*').limit(PUBLIC_SAMPLE_LIMIT);
+  const res = await supabase.from('cafes').select('*').eq('status', 'active').limit(PUBLIC_SAMPLE_LIMIT);
   if (res.error) {
     console.error('[publicLanding] cafe sample fetch failed:', res.error.message);
     return [];
@@ -73,7 +74,7 @@ export async function fetchPublicCafeSample(): Promise<Cafe[]> {
   const out: Cafe[] = [];
   for (const row of res.data ?? []) {
     const cafe = mapCafeRowToCafe(row as Record<string, unknown>);
-    if (cafe) out.push(cafe);
+    if (cafe && isCafePubliclyVisible(cafe)) out.push(cafe);
   }
   return out;
 }
@@ -116,6 +117,7 @@ export async function fetchCuratedLandingCafePicks(pageSlug: string): Promise<Cu
 
     const cafe = mapCafeRowToCafe(cafeRow);
     if (!cafe || seenIds.has(cafe.id)) continue;
+    if (!isCafePubliclyVisible(cafe)) continue;
     seenIds.add(cafe.id);
     const sortOrder =
       typeof row.sort_order === 'number' && Number.isFinite(row.sort_order)
