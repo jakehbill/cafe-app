@@ -1,5 +1,6 @@
 import type { VenueTypeValue } from '@/lib/venueTypes';
 import type { CafeStatus } from '@/lib/cafeCuration';
+import type { CafeWorkspaceSummary } from '@/lib/cafeWorkspaceSummary';
 
 /**
  * Shared TypeScript shape for cafe rows.
@@ -66,6 +67,7 @@ export type Cafe = {
   distanceMiles?: number | null;
   /** Preformatted display label, e.g. "0.4 mi". */
   distanceLabel?: string | null;
+  workspaceSummary?: CafeWorkspaceSummary;
 };
 
 function sanitizeImageUrl(url: string | undefined | null): string {

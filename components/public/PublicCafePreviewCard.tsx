@@ -6,6 +6,7 @@ import { CafeImage } from '@/components/CafeImage';
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
 import { COLORS, FONTS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
 import { prioritizeWorkTagsForCards } from '@/lib/cafeFeaturedTags';
@@ -40,6 +41,7 @@ export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
         </Text>
         {cafe.isCertified ? <BeanedPickBadge /> : null}
         <WorkScoreHero cafe={cafe} size="card" style={styles.workScore} />
+        <WorkspaceCardFacts cafe={cafe} />
         {tags.length > 0 ? (
           <View style={styles.tags}>
             {tags.map((tag) => (

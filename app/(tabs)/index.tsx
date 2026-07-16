@@ -30,6 +30,7 @@ import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
@@ -241,6 +242,7 @@ function HomeCafeCard({
           </Text>
           {cafe.isCertified ? <BeanedPickBadge tone="onDark" style={styles.heroPickBadge} /> : null}
           <WorkScoreHero cafe={cafe} tone="onDark" size="hero" style={styles.heroWorkScore} />
+          <WorkspaceCardFacts cafe={cafe} tone="onDark" style={styles.heroWorkspaceFacts} />
           {(areaText || distanceLabel) ? (
             <Text style={styles.heroLocation} numberOfLines={1}>
               {areaText ? <Text>{areaText}</Text> : null}
@@ -995,6 +997,9 @@ const styles = StyleSheet.create({
   heroWorkScore: {
     marginTop: 2,
     marginBottom: 0,
+  },
+  heroWorkspaceFacts: {
+    marginTop: 2,
   },
   heroTitle: {
     fontSize: 26,

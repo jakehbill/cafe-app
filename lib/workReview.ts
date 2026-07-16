@@ -90,6 +90,34 @@ export function formatStayDurationLabel(value: string | null | undefined): strin
   return STAY_DURATION_OPTIONS.find((o) => o.value === v)?.label ?? null;
 }
 
+/** Community seat availability — friendly, not raw enum. */
+export function formatSeatAvailabilityLabel(value: string | null | undefined): string | null {
+  const v = String(value ?? '').trim();
+  if (!isSeatFindingValue(v)) return null;
+  switch (v) {
+    case 'difficult':
+      return 'Usually busy';
+    case 'okay':
+      return 'Usually okay';
+    case 'easy':
+      return 'Usually easy';
+    case 'plenty':
+      return 'Usually plenty available';
+    default:
+      return null;
+  }
+}
+
+export function formatWifiReliabilityLabel(value: string | null | undefined): string | null {
+  const v = String(value ?? '').trim();
+  if (!isWifiReliabilityValue(v)) return null;
+  return WIFI_RELIABILITY_OPTIONS.find((o) => o.value === v)?.label ?? null;
+}
+
+export function formatQualityLabel(value: string | null | undefined): string | null {
+  return formatWifiReliabilityLabel(value);
+}
+
 export function isStayDurationValue(raw: string): raw is StayDurationValue {
   return STAY_DURATION_OPTIONS.some((o) => o.value === raw);
 }

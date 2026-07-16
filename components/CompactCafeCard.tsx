@@ -10,6 +10,7 @@ import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
 import { CafeImage } from '@/components/CafeImage';
@@ -66,7 +67,7 @@ export type CompactCafeCardProps = {
   /**
    * Where the public coffee score appears (compact list cards only).
    * `bottomRight` (default) — on the thumbnail; Ratings, etc.
-   * `cardTopRight` — Search + Saved: numeric score on the area/distance row (`score · area · mi`); no qualitative label.
+   * `cardTopRight` — Search + Saved: Work Score + qualitative, session/cost, area · mi; not on image.
    * `contentColumn` — Visited: Work Score block under title; not on image.
    */
   scorePosition?: 'bottomRight' | 'cardTopRight' | 'contentColumn';
@@ -242,6 +243,7 @@ export function CompactCafeCard({
                 </Text>
                 {cafe.isCertified ? <BeanedPickBadge /> : null}
                 <WorkScoreHero cafe={cafe} size="card" style={styles.workScoreHero} />
+                <WorkspaceCardFacts cafe={cafe} style={styles.workspaceFacts} />
                 {(metadataLine.location || metadataLine.distance) ? (
                   <Text style={styles.location} numberOfLines={1}>
                     {metadataLineOverride ?? renderSecondaryLocationMeta(metadataLine)}
@@ -281,20 +283,18 @@ export function CompactCafeCard({
                 </Text>
                 {cafe.isCertified ? <BeanedPickBadge /> : null}
                 {scoreOnCardTopRight ? (
-                  metadataLineOverride ? (
-                    <Text
-                      style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]}
-                      numberOfLines={1}
-                    >
-                      {metadataLineOverride}
-                    </Text>
-                  ) : (
-                    <View
-                      style={[styles.scoreLocationRow, compactNameMetaGap && styles.locationCompactMetaGap]}
-                    >
-                      {renderInlineScoreAndLocation(metadataLine)}
-                    </View>
-                  )
+                  <>
+                    <WorkScoreHero cafe={cafe} size="card" style={styles.workScoreHero} />
+                    <WorkspaceCardFacts cafe={cafe} style={styles.workspaceFacts} />
+                    {(metadataLine.location || metadataLine.distance || metadataLineOverride) ? (
+                      <Text
+                        style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]}
+                        numberOfLines={1}
+                      >
+                        {metadataLineOverride ?? renderSecondaryLocationMeta(metadataLine)}
+                      </Text>
+                    ) : null}
+                  </>
                 ) : (
                   <Text
                     style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]}
@@ -371,42 +371,6 @@ function renderSecondaryLocationMeta(meta: { location: string; distance: string 
   if (hasLocation) return meta.location;
   if (hasDistance) return <Text style={styles.locationDistance}>{meta.distance}</Text>;
   return null;
-}
-
-/** Search/Saved: numeric score only (same size as card Work Score) · area · distance. */
-function renderInlineScoreAndLocation(meta: {
-  score: string;
-  location: string;
-  distance: string;
-}) {
-  const hasScore = meta.score.length > 0;
-  const hasLocation = meta.location.length > 0;
-  const hasDistance = meta.distance.length > 0;
-  if (!hasScore && !hasLocation && !hasDistance) return null;
-
-  return (
-    <>
-      {hasScore ? (
-        <Text style={styles.inlineScore} numberOfLines={1}>
-          {meta.score}
-        </Text>
-      ) : null}
-      {hasScore && (hasLocation || hasDistance) ? (
-        <Text style={styles.inlineScoreDot}> · </Text>
-      ) : null}
-      {hasLocation ? (
-        <Text style={styles.location} numberOfLines={1}>
-          {meta.location}
-        </Text>
-      ) : null}
-      {hasLocation && hasDistance ? <Text style={styles.locationDot}> {'\u2022'} </Text> : null}
-      {hasDistance ? (
-        <Text style={styles.locationDistance} numberOfLines={1}>
-          {meta.distance}
-        </Text>
-      ) : null}
-    </>
-  );
 }
 
 const styles = StyleSheet.create({
@@ -558,6 +522,10 @@ const styles = StyleSheet.create({
   },
   workScoreHero: {
     marginTop: 2,
+    marginBottom: 1,
+  },
+  workspaceFacts: {
+    marginTop: 1,
     marginBottom: 1,
   },
   scoreLocationRow: {

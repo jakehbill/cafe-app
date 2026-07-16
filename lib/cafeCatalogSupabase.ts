@@ -4,6 +4,7 @@ import { parseCafeTagsField } from '@/lib/cafeTags';
 import { rawPublicCoffeeToOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { supabase } from '@/lib/supabase';
 import { normalizeVenueType } from '@/lib/venueTypes';
+import { hydrateCafesWithWorkspaceSummaries } from '@/lib/cafeWorkspaceSummary';
 
 /** Set to false to silence temporary catalog debug logs after fixing Supabase. */
 const DEBUG_CAFE_CATALOG = true;
@@ -94,6 +95,12 @@ async function applyApprovedPhotosPriority(cafes: Cafe[]): Promise<Cafe[]> {
   if (safeCafes.length === 0) return safeCafes;
   const approvedByCafeId = await fetchApprovedCafePhotoUrlsByCafeIds(safeCafes.map((cafe) => cafe.id));
   return mergeApprovedPhotosIntoCafes(safeCafes, approvedByCafeId);
+}
+
+/** Photos + community workspace review modes (stay / cost / seat / wifi). */
+async function finalizeCatalogCafes(cafes: Cafe[]): Promise<Cafe[]> {
+  const withPhotos = await applyApprovedPhotosPriority(cafes);
+  return hydrateCafesWithWorkspaceSummaries(withPhotos);
 }
 
 /**
@@ -416,7 +423,7 @@ export async function fetchAllCafesFromSupabase(
           : null,
   });
 
-  return applyApprovedPhotosPriority(out);
+  return finalizeCatalogCafes(out);
 }
 
 export async function fetchCafeByIdFromSupabase(
@@ -444,7 +451,7 @@ export async function fetchCafeByIdFromSupabase(
     if (activeOnly && base.status !== 'active') return null;
     const pub = await fetchPublicScoreRowForCafeBase(base, raw);
     const merged = mergePublicIntoCafe(base, pub);
-    const withPhotos = await applyApprovedPhotosPriority([merged]);
+    const withPhotos = await finalizeCatalogCafes([merged]);
     return withPhotos[0] ?? merged;
   }
 
@@ -521,5 +528,5 @@ export async function fetchCafesByIdsOrdered(ids: string[]): Promise<Cafe[]> {
     byId.set(base.id, mergePublicIntoCafe(base, resolvePublicScoreRowFromMap(base, row, pubMap)));
   }
   const ordered = ids.map((id) => byId.get(id)).filter((c): c is Cafe => c != null);
-  return applyApprovedPhotosPriority(ordered);
+  return finalizeCatalogCafes(ordered);
 }

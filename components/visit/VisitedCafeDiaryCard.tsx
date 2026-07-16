@@ -6,6 +6,7 @@ import { CafeImage } from '@/components/CafeImage';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
 import { VisitPhotoLightbox } from '@/components/visit/VisitPhotoLightbox';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
@@ -13,6 +14,7 @@ import { prioritizeWorkTagsForCards } from '@/lib/cafeFeaturedTags';
 import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import type { UserCafeVisit } from '@/lib/userCafeVisits';
+import type { CafeWorkspaceSummary } from '@/lib/cafeWorkspaceSummary';
 
 const MAIN_W = 96;
 const MAIN_H = 118;
@@ -65,6 +67,25 @@ export function VisitedCafeDiaryCard({
     () => prioritizeWorkTagsForCards(visit.tags.length > 0 ? visit.tags : cafe.tags).slice(0, maxTags),
     [visit.tags, cafe.tags, maxTags]
   );
+
+  const cafeForFacts = useMemo(() => {
+    if (cafe.workspaceSummary) return cafe;
+    const fromVisit: CafeWorkspaceSummary = {
+      stayDuration: visit.stayDuration,
+      costToWork: visit.costToWork,
+      seatFinding: visit.busyness,
+      wifiReliability: visit.wifiReliability,
+      coffeeQuality: visit.coffeeQuality,
+      foodQuality: visit.foodQuality,
+    };
+    const hasAny =
+      fromVisit.stayDuration ||
+      fromVisit.costToWork ||
+      fromVisit.seatFinding ||
+      fromVisit.wifiReliability;
+    if (!hasAny) return cafe;
+    return { ...cafe, workspaceSummary: fromVisit };
+  }, [cafe, visit]);
 
   function openLightboxAt(index: number) {
     setLightboxIndex(index);
@@ -214,6 +235,7 @@ export function VisitedCafeDiaryCard({
           </Text>
           {cafe.isCertified ? <BeanedPickBadge /> : null}
           <WorkScoreHero cafe={cafe} size="card" style={styles.workScore} />
+          <WorkspaceCardFacts cafe={cafeForFacts} style={styles.workspaceFacts} />
           {tagSlice.length > 0 ? (
             <View style={styles.tagsRow}>
               {tagSlice.map((tag) => (
@@ -383,6 +405,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   workScore: {
+    marginTop: 2,
+  },
+  workspaceFacts: {
     marginTop: 2,
   },
   metaLine: {
