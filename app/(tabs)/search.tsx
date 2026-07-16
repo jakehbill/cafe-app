@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { EditorialTag } from '@/components/EditorialTag';
+import { FilterChip } from '@/components/FilterChip';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
@@ -36,7 +37,7 @@ import {
   cafeMatchesSelectedCanonicalTagsMeaningfully,
   fetchMeaningfulCafeIdsByCanonicalTag,
 } from '@/lib/cafeTagSignal';
-
+import { VENUE_TYPE_OPTIONS, type VenueTypeValue } from '@/lib/venueTypes';
 type ViewMode = 'list' | 'map';
 type SearchSortMode = 'default' | 'nearest';
 type RadiusFilter = 'any' | 0.5 | 1 | 2 | 5;
@@ -238,6 +239,7 @@ export default function SearchScreen() {
   const [radiusFilter, setRadiusFilter] = useState<RadiusFilter>('any');
   const [expandedCategoryTitle, setExpandedCategoryTitle] = useState<string | null>(null);
   const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
+  const [selectedVenueType, setSelectedVenueType] = useState<VenueTypeValue | null>(null);
   const [tagSignalLoading, setTagSignalLoading] = useState(false);
   const [meaningfulCafeIdsBySlug, setMeaningfulCafeIdsBySlug] = useState<Map<string, Set<string>>>(
     () => new Map()
@@ -317,6 +319,10 @@ export default function SearchScreen() {
       );
     }
 
+    if (selectedVenueType != null) {
+      next = next.filter((cafe) => cafe.venueType === selectedVenueType);
+    }
+
     // No location means nearest/radius controls gracefully become no-ops.
     if (userLocation && radiusFilter !== 'any') {
       next = next.filter((cafe) => cafe.distanceMiles != null && cafe.distanceMiles <= radiusFilter);
@@ -334,6 +340,7 @@ export default function SearchScreen() {
   }, [
     ranked,
     selectedTagSlugs,
+    selectedVenueType,
     meaningfulCafeIdsBySlug,
     tagSignalLoading,
     userLocation,
@@ -482,6 +489,31 @@ export default function SearchScreen() {
               <Text style={styles.clearTagsText}>Clear tags</Text>
             </TouchableOpacity>
           ) : null}
+        </View>
+
+        <View style={styles.venueFilterWrap}>
+          <Text style={styles.venueFilterLabel}>Venue type</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.venueFilterRow}
+          >
+            <FilterChip
+              label="Any"
+              selected={selectedVenueType == null}
+              onPress={() => setSelectedVenueType(null)}
+            />
+            {VENUE_TYPE_OPTIONS.map((opt) => (
+              <FilterChip
+                key={opt.value}
+                label={`${opt.emoji} ${opt.label}`}
+                selected={selectedVenueType === opt.value}
+                onPress={() =>
+                  setSelectedVenueType((prev) => (prev === opt.value ? null : opt.value))
+                }
+              />
+            ))}
+          </ScrollView>
         </View>
 
         <View style={styles.viewToggleWrap}>
@@ -821,6 +853,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: FONTS.sans.semibold,
     color: COLORS.accent,
+  },
+  venueFilterWrap: {
+    marginTop: 10,
+    gap: 8,
+  },
+  venueFilterLabel: {
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.muted,
+    letterSpacing: 0.2,
+  },
+  venueFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingRight: 8,
   },
   viewToggleWrap: {
     flexDirection: 'row',

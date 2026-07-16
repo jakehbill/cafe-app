@@ -12,6 +12,7 @@ import {
 } from '@/lib/promoteCafeSubmissionPhotos';
 import { promoteSubmitterContributionOnCafeApproval } from '@/lib/submissionContributorPromotion';
 import { resolveToCanonicalTagSlug } from '@/lib/tagRegistry';
+import { normalizeVenueType } from '@/lib/venueTypes';
 
 const CAFE_USER_PHOTO_BUCKET = 'cafe-user-photos';
 
@@ -26,6 +27,7 @@ export type PendingCafeSuggestion = {
   longitude: number | null;
   notes: string | null;
   selected_tags: string[] | null;
+  venue_type?: string | null;
   status?: string;
   submissionPhotos: {
     id: string;
@@ -62,7 +64,7 @@ export async function fetchPendingCafeSuggestions(): Promise<PendingCafeSuggesti
   const res = await supabase
     .from('cafe_submissions')
     .select(
-      'id, created_at, cafe_name, address_text, area, google_maps_url, latitude, longitude, notes, selected_tags'
+      'id, created_at, cafe_name, address_text, area, google_maps_url, latitude, longitude, notes, selected_tags, venue_type'
     )
     .eq('status', 'pending')
     .order('created_at', { ascending: false });
@@ -150,7 +152,7 @@ export async function fetchCafeSubmissionById(id: string): Promise<PendingCafeSu
   const res = await supabase
     .from('cafe_submissions')
     .select(
-      'id, created_at, cafe_name, address_text, area, google_maps_url, latitude, longitude, notes, selected_tags, status'
+      'id, created_at, cafe_name, address_text, area, google_maps_url, latitude, longitude, notes, selected_tags, venue_type, status'
     )
     .eq('id', id)
     .maybeSingle();
@@ -355,6 +357,7 @@ export type CreateCafeFromSubmissionInput = {
   googleMapsUrl?: string;
   shortDescription?: string;
   tags?: string[];
+  venueType?: string | null;
   moderatorUserId: string;
   selectedSubmissionPhotos?: SubmissionPhotoForModeration[];
 };
@@ -433,6 +436,7 @@ export async function createCafeAndApproveSubmission(
     short_description: input.shortDescription?.trim() || null,
     tags,
     image_urls: [],
+    venue_type: normalizeVenueType(input.venueType),
   };
 
   const insertRes = await supabase.from('cafes').insert(insertPayload).select('id, slug').single();

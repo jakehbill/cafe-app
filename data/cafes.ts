@@ -1,3 +1,5 @@
+import type { VenueTypeValue } from '@/lib/venueTypes';
+
 /**
  * Shared TypeScript shape for cafe rows.
  * Listing data is stored in Supabase `public.cafes` and loaded via `lib/cafeCatalogSupabase.ts`.
@@ -8,6 +10,10 @@ export type Cafe = {
   neighborhood: string;
   latitude: number;
   longitude: number;
+  /**
+   * Space category from `cafes.venue_type`. Defaults to `cafe` when missing (legacy rows).
+   */
+  venueType: VenueTypeValue;
   /**
    * Coffee axis for internal ranking (~0–10), derived from `public.cafe_public_scores.public_coffee_score`
    * after load — not from `cafes.coffee_score` / avg fallbacks. For visible coffee use `publicCoffeeScore`.

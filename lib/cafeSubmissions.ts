@@ -5,6 +5,7 @@ import {
 import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
 import { supabase, type SupabaseActionResult } from '@/lib/supabase';
+import { normalizeVenueType, type VenueTypeValue } from '@/lib/venueTypes';
 
 export type CafeSubmissionStatus = 'pending' | 'approved' | 'rejected';
 
@@ -15,6 +16,8 @@ export type CafeSubmissionInsertInput = {
   googleMapsUrl?: string;
   notes?: string;
   selectedTags?: string[];
+  /** Required for new space suggestions — stored as `cafe_submissions.venue_type`. */
+  venueType: VenueTypeValue;
 };
 
 export type CafeSubmissionCreateResult =
@@ -69,8 +72,10 @@ export async function createCafeSuggestionWithId(
 
   const cafeName = input.cafeName.trim();
   if (!cafeName) {
-    return { ok: false, error: 'Cafe name is required.' };
+    return { ok: false, error: 'Space name is required.' };
   }
+
+  const venueType = normalizeVenueType(input.venueType);
 
   const googleMapsUrl = input.googleMapsUrl?.trim() ?? '';
   if (!isValidOptionalUrl(googleMapsUrl)) {
@@ -108,6 +113,7 @@ export async function createCafeSuggestionWithId(
     google_maps_url: googleMapsUrl || null,
     notes: input.notes?.trim() || null,
     selected_tags: selectedTags,
+    venue_type: venueType,
   };
 
   const res = await supabase
@@ -143,6 +149,7 @@ export type GooglePlacesCafeSubmissionInsertRow = {
   selected_tags: string[];
   /** Submitting user’s coffee score (1.0–5.0); optional if `cafe_submissions.coffee_rating` exists. */
   coffee_rating?: number | null;
+  venue_type: VenueTypeValue;
   source: 'google_places';
   moderation_status: 'pending';
   status: CafeSubmissionStatus;
@@ -153,6 +160,7 @@ export type GooglePlacesCafeSubmissionExtras = {
   selectedTags?: string[];
   /** User’s Beaned coffee rating (integer 1–5); persisted when `coffee_rating` column exists. */
   coffeeRating?: number | null;
+  venueType: VenueTypeValue;
 };
 
 /**
@@ -197,6 +205,7 @@ export function buildGooglePlacesCafeSubmissionPayload(
     notes,
     area: null,
     selected_tags,
+    venue_type: normalizeVenueType(extras?.venueType),
     source: 'google_places',
     moderation_status: 'pending',
     status: 'pending',

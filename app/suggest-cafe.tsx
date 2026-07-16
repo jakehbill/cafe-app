@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 
 import { CoffeeRatingPicker } from '@/components/CoffeeRatingPicker';
+import { VenueTypePicker } from '@/components/VenueTypePicker';
 import { EditorialTag } from '@/components/EditorialTag';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackButton';
@@ -52,6 +53,7 @@ import { VisitPhotosSection } from '@/components/visit/VisitPhotosSection';
 import { saveUserCafeVisit, type VisitPhotoAsset } from '@/lib/userCafeVisits';
 import { MAX_VISIT_PHOTOS, VISIT_PHOTO_MAX_MESSAGE } from '@/lib/visitPhotoLimits';
 import { pickVisitPhotoFromLibrary } from '@/lib/visitPhotoPicker';
+import type { VenueTypeValue } from '@/lib/venueTypes';
 
 const PLACES_SEARCH_DEBOUNCE_MS = 350;
 
@@ -170,6 +172,8 @@ export default function SuggestCafeScreen() {
     fileName?: string | null;
   } | null)[]>([null, null, null]);
   const [suggestCoffeeRating, setSuggestCoffeeRating] = useState<number | null>(null);
+  const [suggestVenueType, setSuggestVenueType] = useState<VenueTypeValue | null>(null);
+  const [venueTypeError, setVenueTypeError] = useState<string | null>(null);
   const redirectTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
@@ -311,6 +315,8 @@ export default function SuggestCafeScreen() {
     setNotes('');
     setSelectedTags([]);
     setSuggestCoffeeRating(null);
+    setSuggestVenueType(null);
+    setVenueTypeError(null);
     setSelectedPhotos([null, null, null]);
     setVisitPhotoAssets([]);
     setVisitPhotoError(null);
@@ -500,6 +506,12 @@ export default function SuggestCafeScreen() {
         setSubmitError('Select a place and continue to add details before submitting.');
         return;
       }
+      if (suggestVenueType == null) {
+        setVenueTypeError('Please choose a space type.');
+        setSubmitError('Please choose what type of space this is.');
+        return;
+      }
+      setVenueTypeError(null);
       if (!placeHasValidCoordinates(selectedPlace)) {
         setSubmitError(
           'This place is missing map coordinates from Google Places. Go back and choose it again.'
@@ -512,6 +524,7 @@ export default function SuggestCafeScreen() {
           notes,
           selectedTags,
           coffeeRating: suggestCoffeeRating,
+          venueType: suggestVenueType,
         });
         if (!result.ok) {
           setSubmitError(result.error);
@@ -589,6 +602,12 @@ export default function SuggestCafeScreen() {
       setSubmitError('Space name is required.');
       return;
     }
+    if (suggestVenueType == null) {
+      setVenueTypeError('Please choose a space type.');
+      setSubmitError('Please choose what type of space this is.');
+      return;
+    }
+    setVenueTypeError(null);
     if (!isValidOptionalUrl(googleMapsUrl)) {
       setSubmitError('Please enter a valid URL (including https://).');
       return;
@@ -602,6 +621,7 @@ export default function SuggestCafeScreen() {
         googleMapsUrl,
         notes: visitNote,
         selectedTags: visitTags,
+        venueType: suggestVenueType,
       });
 
       if (!result.ok) {
@@ -783,6 +803,17 @@ export default function SuggestCafeScreen() {
                   {!urlLooksValid ? (
                     <Text style={styles.validationText}>Enter a valid URL with http:// or https://.</Text>
                   ) : null}
+                  <View style={{ marginTop: 12 }}>
+                    <VenueTypePicker
+                      value={suggestVenueType}
+                      onChange={(next) => {
+                        setSuggestVenueType(next);
+                        setVenueTypeError(null);
+                      }}
+                      disabled={submitting || redirecting}
+                      error={venueTypeError}
+                    />
+                  </View>
                 </>
               ) : null}
             </View>
@@ -885,6 +916,18 @@ export default function SuggestCafeScreen() {
 
               {hasPlacesApiKey && publicSuggestStep === 'beaned_extras' ? (
                 <>
+                  <View style={styles.sectionCard}>
+                    <VenueTypePicker
+                      value={suggestVenueType}
+                      onChange={(next) => {
+                        setSuggestVenueType(next);
+                        setVenueTypeError(null);
+                      }}
+                      disabled={submitting || redirecting}
+                      error={venueTypeError}
+                    />
+                  </View>
+
                   <View style={styles.sectionCard}>
                     <CoffeeRatingPicker
                       value={suggestCoffeeRating}

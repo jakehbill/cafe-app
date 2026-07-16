@@ -1,6 +1,7 @@
 import { CafeImage } from '@/components/CafeImage';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { EditorialTag } from '@/components/EditorialTag';
+import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useUserLocation } from '@/contexts/UserLocationContext';
@@ -595,6 +596,7 @@ export default function CafeDetailScreen() {
         <View style={styles.mainPad}>
           <View style={styles.identityTextBlock}>
             <Text style={styles.identityName}>{cafe.name}</Text>
+            <VenueTypeBadge venueType={cafe.venueType} style={styles.identityVenueBadge} />
             <Text style={styles.identityMeta} numberOfLines={1}>
               <Text style={styles.identityMetaScore}>{detailScoreLabel}</Text>
               {detailNeighborhood ? (
@@ -860,6 +862,10 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.display.bold,
     color: COLORS.text,
     letterSpacing: -0.5,
+  },
+  identityVenueBadge: {
+    marginTop: 2,
+    marginBottom: 2,
   },
   identityMeta: {
     fontSize: 15,

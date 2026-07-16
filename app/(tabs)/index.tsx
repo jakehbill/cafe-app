@@ -27,6 +27,7 @@ import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useCafesWithApprovedPhotos } from '@/hooks/useCafesWithApprovedPhotos';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { EditorialTag } from '@/components/EditorialTag';
+import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
@@ -237,6 +238,7 @@ function HomeCafeCard({
           <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
             {cafe.name}
           </Text>
+          <VenueTypeBadge venueType={cafe.venueType} tone="onDark" style={styles.heroVenueBadge} />
           <Text style={styles.heroLocation} numberOfLines={1}>
             <Text style={styles.heroLocationScore}>{scoreLabel}</Text>
             {areaText ? (
@@ -984,6 +986,9 @@ const styles = StyleSheet.create({
     bottom: 14,
     zIndex: 2,
     gap: 4,
+  },
+  heroVenueBadge: {
+    marginBottom: 2,
   },
   heroTitle: {
     fontSize: 22,

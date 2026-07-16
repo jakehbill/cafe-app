@@ -2,6 +2,7 @@ import type { Cafe } from '@/data/cafes';
 import { parseCafeTagsField } from '@/lib/cafeTags';
 import { rawPublicCoffeeToOutOf5 } from '@/lib/publicCoffeeDisplay';
 import { supabase } from '@/lib/supabase';
+import { normalizeVenueType } from '@/lib/venueTypes';
 
 /** Set to false to silence temporary catalog debug logs after fixing Supabase. */
 const DEBUG_CAFE_CATALOG = true;
@@ -142,6 +143,7 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     row.google_maps_url ?? row.googleMapsUrl ?? row.google_maps_link ?? row.maps_url
   ).trim();
   const googlePlaceId = str(row.google_place_id ?? row.googlePlaceId ?? row.place_id).trim();
+  const venueType = normalizeVenueType(row.venue_type ?? row.venueType);
 
   return {
     id,
@@ -150,6 +152,7 @@ export function mapCafeRowToCafe(row: Record<string, unknown>): Cafe | null {
     // Keep invalid coordinates as NaN (instead of 0) so consumers can safely ignore bad pins/links.
     latitude: coordinateNum(row.latitude ?? row.lat),
     longitude: coordinateNum(row.longitude ?? row.lng),
+    venueType,
     coffeeScore: coffee,
     workScore: work,
     vibeScore: vibe,

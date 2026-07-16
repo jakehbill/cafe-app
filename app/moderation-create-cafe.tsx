@@ -254,6 +254,7 @@ export default function ModerationCreateCafeScreen() {
           parseTags(tagsText).length > 0
             ? parseTags(tagsText)
             : (submission?.selected_tags ?? []),
+        venueType: submission?.venue_type ?? null,
         moderatorUserId: user?.id ?? '',
         selectedSubmissionPhotos: orderedSelectedSubmissionPhotos,
       });
