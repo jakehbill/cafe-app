@@ -8,13 +8,13 @@ import { AuthScreenShell } from '@/components/auth/AuthScreenShell';
 import { COLORS, authStyles } from '@/components/auth/authStyles';
 import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 
-function authDebug(label: string, payload: Record<string, unknown>) {
-  if (!__DEV__) return;
-  try {
-    console.log(`[WEB AUTH DEBUG] ${label}\n${JSON.stringify(payload, null, 2)}`);
-  } catch {
-    console.log(`[WEB AUTH DEBUG] ${label}`, payload);
+/** Temporary login audit logs — always print so Vercel/web consoles show them. */
+function loginLog(step: string, detail?: Record<string, unknown>) {
+  if (detail !== undefined) {
+    console.log(`[login] ${step}`, detail);
+    return;
   }
+  console.log(`[login] ${step}`);
 }
 
 export default function LogInScreen() {
@@ -23,62 +23,78 @@ export default function LogInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function showError(message: string) {
+    setFormError(message);
+    if (Platform.OS !== 'web') {
+      Alert.alert('Log in failed', message);
+    }
+  }
 
   async function handleLogIn() {
-    const trimmedEmail = email.trim();
-    authDebug('handleLogIn fired', {
+    loginLog('Login button pressed', {
       platform: Platform.OS,
-      method: 'emailPassword',
-      currentEmail: trimmedEmail,
+      emailLength: email.trim().length,
       passwordLength: password.length,
-      loadingBefore: loading,
     });
+
+    setFormError(null);
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      loginLog('Validation failed', { reason: 'empty email' });
+      showError('Please enter your email.');
+      return;
+    }
+    if (!password) {
+      loginLog('Validation failed', { reason: 'empty password' });
+      showError('Please enter your password.');
+      return;
+    }
+
+    loginLog('Validation passed');
 
     setLoading(true);
     try {
+      loginLog('Calling signInWithPassword', { email: trimmedEmail });
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password,
       });
 
-      authDebug('signInWithPassword response', {
-        errorMessage: error?.message ?? null,
-        errorCode: (error as { code?: string } | null)?.code ?? null,
+      loginLog('signIn response', {
         userId: data?.user?.id ?? null,
         userEmail: data?.user?.email ?? null,
         hasSession: !!data?.session,
-        expiresAt: data?.session?.expires_at ?? null,
+        errorMessage: error?.message ?? null,
+        errorCode: (error as { code?: string } | null)?.code ?? null,
       });
 
       if (error) {
-        console.error('[WEB AUTH DEBUG] Supabase auth error:', error.message);
-        Alert.alert('Log in failed', error.message);
+        loginLog('signIn error', { message: error.message });
+        showError(error.message || 'Log in failed. Please try again.');
         return;
       }
 
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      authDebug('getSession after login (persistence check)', {
-        sessionError: sessionError?.message ?? null,
-        hasSession: !!sessionData.session,
-        userEmail: sessionData.session?.user?.email ?? null,
-        expiresAt: sessionData.session?.expires_at ?? null,
-      });
-
-      if (!sessionData.session) {
-        console.error('[WEB AUTH DEBUG] Login OK but no session in storage — session not persisting?');
-        Alert.alert('Log in failed', 'No session was created. Try again.');
+      // Use the session from signIn — do not await getSession() here.
+      // A second auth storage call can hang on web and leave "Please wait..." forever.
+      if (!data.session) {
+        loginLog('signIn error', { message: 'No session returned from signInWithPassword' });
+        showError('No session was created. Try again.');
         return;
       }
 
+      loginLog('Navigating after login', { returnTo: returnTo ?? '/(tabs)' });
       navigateAfterAuth(router, returnTo);
-      authDebug('navigating after login', { returnTo: returnTo ?? '/(tabs)' });
     } catch (e) {
-      console.error('[WEB AUTH DEBUG] handleLogIn threw:', e);
-      Alert.alert(
-        'Log in failed',
-        e instanceof Error ? e.message : 'Something went wrong'
-      );
+      loginLog('signIn error', {
+        thrown: e instanceof Error ? e.message : String(e),
+      });
+      showError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
     } finally {
+      loginLog('finally() reached');
       setLoading(false);
     }
   }
@@ -107,6 +123,12 @@ export default function LogInScreen() {
         </View>
       }
     >
+      {formError ? (
+        <View style={authStyles.feedbackBannerError}>
+          <Text style={authStyles.feedbackErrorText}>{formError}</Text>
+        </View>
+      ) : null}
+
       <View style={authStyles.fieldWrap}>
         <Text style={authStyles.fieldLabel}>Email</Text>
         <View style={authStyles.inputWrap}>
@@ -140,7 +162,7 @@ export default function LogInScreen() {
       <View style={authStyles.primaryButtonSlot}>
         <FlowPrimaryButton
           label={loading ? 'Please wait…' : 'Log in'}
-          onPress={handleLogIn}
+          onPress={() => void handleLogIn()}
           disabled={loading}
         />
       </View>
