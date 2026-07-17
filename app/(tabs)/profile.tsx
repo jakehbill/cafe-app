@@ -140,6 +140,7 @@ async function fetchProfileCountsFromSupabase(userId: string): Promise<ProfileCo
     ).size,
     ratings: ratingsRes.count ?? 0,
     cafesSuggested: meaningfulSuggestionKeys.size,
+    /** Approved directory additions — drives “Spaces Contributed” on Profile. */
     cafesApproved: approvedSubmissionRes.count ?? 0,
     photosSubmitted: (photoRes.count ?? 0) + (submissionPhotoRes.count ?? 0),
     photosApproved: approvedPhotoRes.count ?? 0,
@@ -472,7 +473,7 @@ export default function ProfileScreen() {
         <View style={styles.activitySection}>
           <Text style={styles.sectionHeading}>Your activity</Text>
           <Text style={styles.activitySectionIntro}>
-            Spaces you&apos;ve worked from, saved, and successfully suggested.
+            Spaces you&apos;ve worked from, saved, and contributed to the directory.
           </Text>
 
           <View style={styles.statsRow}>
@@ -503,7 +504,7 @@ export default function ProfileScreen() {
                 <Text style={styles.statNumber}>{displayCounts.cafesApproved}</Text>
               )}
               <Text style={styles.statLabel} numberOfLines={2}>
-                Suggested
+                Contributed
               </Text>
             </View>
           </View>
@@ -518,8 +519,8 @@ export default function ProfileScreen() {
               }}
             >
               <View style={styles.activityTextWrap}>
-                <Text style={styles.activityTitle}>Spaces You&apos;ve Worked From</Text>
-                <Text style={styles.activityHint}>Your personal workspace log</Text>
+                <Text style={styles.activityTitle}>Visited Spaces</Text>
+                <Text style={styles.activityHint}>Your Personal Workspace Log</Text>
               </View>
               <Text style={styles.chevron}>›</Text>
             </TouchableOpacity>
@@ -565,9 +566,9 @@ export default function ProfileScreen() {
               {countsLoading ? (
                 <ActivityIndicator color={COLORS.muted} size="small" />
               ) : (
-                <Text style={styles.contributionCompactValue}>{displayCounts.cafesSuggested}</Text>
+                <Text style={styles.contributionCompactValue}>{displayCounts.cafesApproved}</Text>
               )}
-              <Text style={styles.contributionCompactLabel}>Spaces suggested</Text>
+              <Text style={styles.contributionCompactLabel}>Spaces Contributed</Text>
             </View>
             <View style={styles.contributionCompactDivider} />
             <View style={styles.contributionCompactItem}>

@@ -169,7 +169,7 @@ export default function MyCafesScreen() {
       {showInitialVisitsLoading ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Spaces You&apos;ve Worked From</Text>
+          <Text style={styles.screenTitle}>Visited Spaces</Text>
           <View style={styles.visitsLoadingWrap}>
             <ActivityIndicator color={COLORS.accent} size="large" />
             <Text style={styles.visitsLoadingText}>Loading spaces you&apos;ve worked from…</Text>
@@ -178,7 +178,7 @@ export default function MyCafesScreen() {
       ) : !hasVisits ? (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Spaces You&apos;ve Worked From</Text>
+          <Text style={styles.screenTitle}>Visited Spaces</Text>
           <Text style={styles.hint}>
             Your personal work diary — photos, ratings, and notes from spaces you&apos;ve used.
           </Text>
@@ -207,7 +207,7 @@ export default function MyCafesScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {backRow}
-          <Text style={styles.screenTitle}>Spaces You&apos;ve Worked From</Text>
+          <Text style={styles.screenTitle}>Visited Spaces</Text>
           {showMovedToast ? (
             <View style={styles.toastBanner}>
               <Text style={styles.toastBannerText}>Moved to spaces you&apos;ve worked from</Text>

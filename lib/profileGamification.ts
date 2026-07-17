@@ -89,18 +89,16 @@ export function computeTotalPoints(snapshot: ActivitySnapshot): number {
  * Tight early tiers for long-term, Duolingo-style progression.
  */
 const LEVEL_TIERS = [
-  { minPoints: 0, title: 'First Sip' },
-  { minPoints: 10, title: 'Regular' },
-  { minPoints: 25, title: 'Space Hopper' },
-  { minPoints: 45, title: 'Neighbourhood Explorer' },
-  { minPoints: 70, title: 'Flat White Finder' },
-  { minPoints: 100, title: 'Hidden Gem Hunter' },
-  { minPoints: 140, title: 'Coffee Cartographer' },
-  { minPoints: 190, title: 'City Sipper' },
-  { minPoints: 250, title: 'Beaned Local' },
-  { minPoints: 325, title: 'Space Legend' },
-  { minPoints: 425, title: 'Beaned Legend' },
-  { minPoints: 540, title: 'Coffee Elder' },
+  { minPoints: 0, title: 'Explorer' },
+  { minPoints: 10, title: 'Scout' },
+  { minPoints: 25, title: 'Regular' },
+  { minPoints: 45, title: 'Guide' },
+  { minPoints: 70, title: 'Curator' },
+  { minPoints: 100, title: 'Contributor' },
+  { minPoints: 140, title: 'Insider' },
+  { minPoints: 190, title: 'Expert' },
+  { minPoints: 250, title: 'Specialist' },
+  { minPoints: 325, title: 'Pioneer' },
 ] as const;
 
 export type LevelProgress = {
