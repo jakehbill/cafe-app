@@ -31,7 +31,6 @@ const QUERY_STOPWORDS = new Set([
   'on',
 ]);
 
-/** Weak tokens — skipped for description/haystack matching (still used for names). */
 const WEAK_QUERY_TOKENS = new Set(['good', 'best', 'great', 'nice', 'really', 'very', 'top']);
 
 const WORK_INTENT_SLUGS = new Set<CanonicalTagSlug>([
@@ -44,22 +43,56 @@ const WORK_INTENT_SLUGS = new Set<CanonicalTagSlug>([
   'open_late',
 ]);
 
-const SCORE = {
-  exactName: 200,
-  prefixName: 140,
-  containsFullName: 100,
-  allNameTokens: 90,
-  nameToken: 28,
-  haystackPhrase: 70,
-  haystackToken: 18,
-  intentTag: 42,
-  tagToken: 14,
+/**
+ * Search tiers — higher always outranks lower.
+ * Fuzzy (1) can never outrank exact/prefix/whole-word/area/street.
+ */
+export const SEARCH_TIER = {
+  none: 0,
+  fuzzy: 1,
+  street: 2,
+  area: 3,
+  wholeWordName: 4,
+  prefixName: 5,
+  exactName: 6,
+} as const;
+
+export type SearchTier = (typeof SEARCH_TIER)[keyof typeof SEARCH_TIER];
+
+/** Within-tier relevance weights (never large enough to jump a tier). */
+const REL = {
+  exact: 100,
+  prefix: 80,
+  wholeWordPhrase: 70,
+  wholeWordToken: 40,
+  areaExact: 70,
   areaPhrase: 55,
-  areaToken: 28,
-  addressToken: 22,
-  descriptionToken: 8,
-  workAxisFallback: 32,
-  qualityWeight: 1.2,
+  areaToken: 35,
+  streetPhrase: 50,
+  streetToken: 30,
+  fuzzyNamePhrase: 45,
+  fuzzyNameToken: 28,
+  fuzzyAreaToken: 22,
+  intentTag: 25,
+  /** Multiplier so tier always dominates: tier * TIER_BASE + relevance */
+  tierBase: 1000,
+} as const;
+
+/**
+ * Confidence thresholds (final).
+ * - Fuzzy name phrase: edit distance ≤ 2 and query length ≥ 5
+ * - Fuzzy token: len≥4 → dist 1; len≥6 → dist 2
+ * - Single-token queries never use area fuzzy (blocks “Bethwall” → random/area noise)
+ * - Multi-token place queries require every significant token to match name/area/address
+ */
+export const SEARCH_THRESHOLDS = {
+  fuzzyMinTokenLength: 4,
+  fuzzyDistShort: 1,
+  fuzzyDistLong: 2,
+  fuzzyLongTokenLength: 6,
+  fuzzyPhraseMinLength: 5,
+  fuzzyPhraseMaxDistance: 2,
+  allowSingleTokenAreaFuzzy: false,
 } as const;
 
 export type SearchableCafe = {
@@ -69,9 +102,10 @@ export type SearchableCafe = {
   address: string;
   description: string;
   tagSlugs: Set<CanonicalTagSlug>;
-  /** Labels, slugs, and registry aliases for substring fallback. */
   tagSearchText: string;
-  fullText: string;
+  nameWords: string[];
+  areaWords: string[];
+  addressWords: string[];
 };
 
 function stripQueryStopwords(normalized: string): string {
@@ -84,6 +118,27 @@ function stripQueryStopwords(normalized: string): string {
 
 function significantTokens(tokens: string[]): string[] {
   return tokens.filter((t) => !WEAK_QUERY_TOKENS.has(t));
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function fieldWords(field: string): string[] {
+  return field.split(' ').filter(Boolean);
+}
+
+/** Whole-word match (word-boundary), not substring-inside-word. */
+export function containsWholeWord(haystack: string, needle: string): boolean {
+  const n = needle.trim();
+  if (!haystack || !n) return false;
+  if (haystack === n) return true;
+  return new RegExp(`(?:^|\\s)${escapeRegex(n)}(?:\\s|$)`).test(haystack);
+}
+
+function allTokensAreWholeWords(field: string, tokens: string[]): boolean {
+  if (tokens.length === 0) return false;
+  return tokens.every((t) => containsWholeWord(field, t));
 }
 
 function buildTagSearchText(cafe: Cafe, tagSlugs: Set<CanonicalTagSlug>): string {
@@ -101,7 +156,64 @@ function buildTagSearchText(cafe: Cafe, tagSlugs: Set<CanonicalTagSlug>): string
   return Array.from(new Set(parts)).join(' ');
 }
 
-/** Normalize a café row into searchable fields (call once per café per search pass). */
+/** Levenshtein with early exit when above `max`. */
+export function editDistanceAtMost(a: string, b: string, max: number): boolean {
+  if (a === b) return true;
+  const la = a.length;
+  const lb = b.length;
+  if (Math.abs(la - lb) > max) return false;
+  if (la === 0 || lb === 0) return Math.max(la, lb) <= max;
+
+  let prev = new Array<number>(lb + 1);
+  let curr = new Array<number>(lb + 1);
+  for (let j = 0; j <= lb; j++) prev[j] = j;
+
+  for (let i = 1; i <= la; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    const ca = a.charCodeAt(i - 1);
+    for (let j = 1; j <= lb; j++) {
+      const cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+      curr[j] = Math.min(prev[j]! + 1, curr[j - 1]! + 1, prev[j - 1]! + cost);
+      if (curr[j]! < rowMin) rowMin = curr[j]!;
+    }
+    if (rowMin > max) return false;
+    const tmp = prev;
+    prev = curr;
+    curr = tmp;
+  }
+  return prev[lb]! <= max;
+}
+
+function maxTypoDistance(token: string): number {
+  if (token.length >= SEARCH_THRESHOLDS.fuzzyLongTokenLength) {
+    return SEARCH_THRESHOLDS.fuzzyDistLong;
+  }
+  if (token.length >= SEARCH_THRESHOLDS.fuzzyMinTokenLength) {
+    return SEARCH_THRESHOLDS.fuzzyDistShort;
+  }
+  return 0;
+}
+
+/** Exact whole-word or high-confidence typo against any word in the list. */
+function fuzzyMatchWord(words: string[], token: string): boolean {
+  if (!token) return false;
+  if (words.includes(token)) return true;
+  const maxDist = maxTypoDistance(token);
+  if (maxDist <= 0) return false;
+  for (const word of words) {
+    if (editDistanceAtMost(token, word, maxDist)) return true;
+  }
+  return false;
+}
+
+function fuzzyMatchPhrase(field: string, phrase: string): boolean {
+  if (!field || !phrase) return false;
+  if (field === phrase || field.includes(phrase)) return true;
+  if (phrase.length < SEARCH_THRESHOLDS.fuzzyPhraseMinLength) return false;
+  return editDistanceAtMost(field, phrase, SEARCH_THRESHOLDS.fuzzyPhraseMaxDistance);
+}
+
 export function buildSearchableCafe(cafe: Cafe): SearchableCafe {
   const tagSlugs = getCanonicalSlugsFromCafeTags(cafe.tags);
   const name = normalizeCafeSearchText(cafe.name);
@@ -109,7 +221,6 @@ export function buildSearchableCafe(cafe: Cafe): SearchableCafe {
   const address = normalizeCafeSearchText(cafe.addressLine ?? '');
   const description = normalizeCafeSearchText(cafe.short_description);
   const tagSearchText = buildTagSearchText(cafe, tagSlugs);
-  const fullText = [name, area, address, description, tagSearchText].filter(Boolean).join(' ');
 
   return {
     cafe,
@@ -119,7 +230,9 @@ export function buildSearchableCafe(cafe: Cafe): SearchableCafe {
     description,
     tagSlugs,
     tagSearchText,
-    fullText,
+    nameWords: fieldWords(name),
+    areaWords: fieldWords(area),
+    addressWords: fieldWords(address),
   };
 }
 
@@ -130,98 +243,191 @@ function isWorkIntentQuery(intentSlugs: Set<CanonicalTagSlug>): boolean {
   return false;
 }
 
+function isIntentHeavyQuery(sigTokens: string[], intentSlugs: Set<CanonicalTagSlug>): boolean {
+  if (intentSlugs.size === 0) return false;
+  if (sigTokens.length === 0) return true;
+  const mapped = sigTokens.filter((t) => resolveToCanonicalTagSlug(t) != null).length;
+  return mapped >= Math.ceil(sigTokens.length / 2);
+}
+
+export type CafeSearchScore = {
+  tier: SearchTier;
+  relevance: number;
+  /** Sort key: tier * tierBase + relevance (tier always wins). */
+  score: number;
+};
+
+/**
+ * Tiered café search score.
+ *
+ * 6 Exact name → 5 Prefix name → 4 Whole-word name → 3 Area → 2 Street → 1 Fuzzy → 0 none
+ */
 export function scoreSearchableCafe(
   searchable: SearchableCafe,
   parsed: ParsedCafeSearchQuery
-): { relevance: number; score: number } {
-  const { normalized, tokens, intentSlugs, areaTerms } = parsed;
-  if (!normalized) return { relevance: 0, score: 0 };
+): CafeSearchScore {
+  const empty: CafeSearchScore = { tier: SEARCH_TIER.none, relevance: 0, score: 0 };
+  const { normalized, tokens, intentSlugs } = parsed;
+  if (!normalized) return empty;
 
-  const coreNormalized = stripQueryStopwords(normalized);
+  const core = stripQueryStopwords(normalized);
   const sigTokens = significantTokens(tokens);
-  const { name, area, address, description, fullText, tagSlugs, cafe } = searchable;
+  const { name, area, address, nameWords, areaWords, addressWords, tagSlugs } = searchable;
 
+  let tier: SearchTier = SEARCH_TIER.none;
   let relevance = 0;
 
-  // --- Name (highest priority) ---
-  if (coreNormalized.length > 0) {
-    if (name === coreNormalized || name === normalized) {
-      relevance += SCORE.exactName;
-    } else if (name.startsWith(coreNormalized) || name.startsWith(normalized)) {
-      relevance += SCORE.prefixName;
-    } else if (name.includes(coreNormalized) || name.includes(normalized)) {
-      relevance += SCORE.containsFullName;
+  const bump = (next: SearchTier, rel: number) => {
+    if (next > tier) {
+      tier = next;
+      relevance = rel;
+    } else if (next === tier) {
+      relevance = Math.max(relevance, rel);
     }
+  };
+
+  // --- Tier 6: exact name ---
+  if (core.length > 0 && (name === core || name === normalized)) {
+    bump(SEARCH_TIER.exactName, REL.exact);
   }
 
-  if (sigTokens.length > 0) {
-    const matchedInName = sigTokens.filter((t) => name.includes(t));
-    if (matchedInName.length === sigTokens.length) {
-      relevance += SCORE.allNameTokens;
-    }
-    relevance += matchedInName.length * SCORE.nameToken;
-  }
-
-  // --- Broad phrase / token haystack (name, area, address, tags, description) ---
-  if (coreNormalized.length >= 3 && fullText.includes(coreNormalized)) {
-    relevance += SCORE.haystackPhrase;
-  }
-  for (const token of sigTokens) {
-    if (fullText.includes(token)) relevance += SCORE.haystackToken;
-  }
-
-  // --- Tags / intent synonyms ---
-  for (const slug of intentSlugs) {
-    if (tagSlugs.has(slug)) relevance += SCORE.intentTag;
-  }
-  for (const token of sigTokens) {
-    const slug = resolveToCanonicalTagSlug(token);
-    if (slug && tagSlugs.has(slug)) relevance += SCORE.tagToken;
-  }
-
-  // --- Area / address ---
-  const locationHaystack = `${area} ${address}`.trim();
+  // --- Tier 5: name starts with query ---
   if (
-    coreNormalized.length > 0 &&
-    (area === coreNormalized ||
-      area.includes(coreNormalized) ||
-      address.includes(coreNormalized) ||
-      locationHaystack.includes(coreNormalized))
+    core.length > 0 &&
+    (name.startsWith(core) ||
+      name.startsWith(`${core} `) ||
+      name.startsWith(normalized) ||
+      name.startsWith(`${normalized} `))
   ) {
-    relevance += SCORE.areaPhrase;
-  }
-  for (const areaToken of areaTerms) {
-    if (area.includes(areaToken)) relevance += SCORE.areaToken;
-    if (address.includes(areaToken)) relevance += SCORE.addressToken;
+    bump(SEARCH_TIER.prefixName, REL.prefix + Math.min(20, core.length));
   }
 
-  // --- Description (weak tokens only) ---
-  for (const token of sigTokens) {
-    if (description.includes(token)) relevance += SCORE.descriptionToken;
+  // --- Tier 4: whole-word name ---
+  if (core.length > 0 && containsWholeWord(name, core)) {
+    bump(SEARCH_TIER.wholeWordName, REL.wholeWordPhrase + Math.min(15, core.length));
+  } else if (sigTokens.length > 0 && allTokensAreWholeWords(name, sigTokens)) {
+    bump(SEARCH_TIER.wholeWordName, REL.wholeWordToken * sigTokens.length);
   }
 
-  // --- Axis fallback when work intent query but café tags are missing/unresolved ---
-  if (intentSlugs.size > 0 && isWorkIntentQuery(intentSlugs)) {
-    const hasWorkTag = [...WORK_INTENT_SLUGS].some((slug) => tagSlugs.has(slug));
-    if (!hasWorkTag && cafe.workScore >= 5.5) {
-      relevance += SCORE.workAxisFallback;
+  // --- Tier 3: neighbourhood / area ---
+  if (core.length > 0 && (area === core || area === normalized)) {
+    bump(SEARCH_TIER.area, REL.areaExact);
+  } else if (core.length > 0 && (area.startsWith(core) || containsWholeWord(area, core) || area.includes(core))) {
+    const rel = containsWholeWord(area, core) || area.startsWith(core) ? REL.areaPhrase : REL.areaToken;
+    bump(SEARCH_TIER.area, rel);
+  } else if (sigTokens.length > 0 && allTokensAreWholeWords(area, sigTokens)) {
+    bump(SEARCH_TIER.area, REL.areaToken * sigTokens.length);
+  }
+
+  // --- Tier 2: street / address ---
+  if (core.length > 0 && (containsWholeWord(address, core) || address.includes(core))) {
+    bump(
+      SEARCH_TIER.street,
+      containsWholeWord(address, core) ? REL.streetPhrase : REL.streetToken
+    );
+  } else if (sigTokens.length > 0 && allTokensAreWholeWords(address, sigTokens)) {
+    bump(SEARCH_TIER.street, REL.streetToken * sigTokens.length);
+  }
+
+  // --- Intent tags: boost within an existing geo/name tier, or allow intent-heavy queries ---
+  let intentHits = 0;
+  for (const slug of intentSlugs) {
+    if (tagSlugs.has(slug)) intentHits += 1;
+  }
+  if (intentHits > 0) {
+    if (tier >= SEARCH_TIER.street) {
+      relevance += intentHits * REL.intentTag;
+    } else if (isIntentHeavyQuery(sigTokens, intentSlugs)) {
+      bump(SEARCH_TIER.area, intentHits * REL.intentTag + (isWorkIntentQuery(intentSlugs) ? 10 : 0));
     }
   }
 
-  const quality = (cafe.coffeeScore + cafe.workScore + cafe.vibeScore) / 3;
-  const score = relevance + quality * SCORE.qualityWeight;
-  return { relevance, score };
+  // --- Tier 1: high-confidence fuzzy (only if nothing stronger matched) ---
+  if (tier === SEARCH_TIER.none && core.length > 0) {
+    if (fuzzyMatchPhrase(name, core)) {
+      bump(SEARCH_TIER.fuzzy, REL.fuzzyNamePhrase);
+    } else if (sigTokens.length > 0) {
+      const nameFuzzyCount = sigTokens.filter((t) => fuzzyMatchWord(nameWords, t)).length;
+      const areaFuzzyCount = sigTokens.filter((t) => fuzzyMatchWord(areaWords, t)).length;
+      const addressFuzzyCount = sigTokens.filter((t) => fuzzyMatchWord(addressWords, t)).length;
+
+      if (sigTokens.length === 1) {
+        // Single token: name fuzzy only (no area fuzzy → blocks “Bethwall” alone).
+        if (nameFuzzyCount === 1) {
+          bump(SEARCH_TIER.fuzzy, REL.fuzzyNameToken);
+        }
+      } else {
+        // Multi-token place query: every token must match name/area/address (exact word or fuzzy).
+        const covered = sigTokens.every(
+          (t) =>
+            containsWholeWord(name, t) ||
+            containsWholeWord(area, t) ||
+            containsWholeWord(address, t) ||
+            fuzzyMatchWord(nameWords, t) ||
+            fuzzyMatchWord(areaWords, t) ||
+            fuzzyMatchWord(addressWords, t)
+        );
+        if (covered) {
+          const rel =
+            nameFuzzyCount * REL.fuzzyNameToken +
+            areaFuzzyCount * REL.fuzzyAreaToken +
+            addressFuzzyCount * REL.streetToken;
+          // Prefer classifying as area/street when exact whole-words exist.
+          const exactArea = allTokensAreWholeWords(area, sigTokens);
+          const exactStreet = allTokensAreWholeWords(address, sigTokens);
+          if (exactArea) bump(SEARCH_TIER.area, REL.areaToken * sigTokens.length);
+          else if (exactStreet) bump(SEARCH_TIER.street, REL.streetToken * sigTokens.length);
+          else bump(SEARCH_TIER.fuzzy, Math.max(rel, REL.fuzzyNameToken));
+        }
+      }
+    }
+  }
+
+  // Multi-token place queries with only a partial exact match (e.g. only “green”) → drop.
+  const isPlaceLike = intentSlugs.size === 0 || !isIntentHeavyQuery(sigTokens, intentSlugs);
+  if (isPlaceLike && sigTokens.length >= 2 && tier > SEARCH_TIER.none) {
+    const covered = sigTokens.every(
+      (t) =>
+        containsWholeWord(name, t) ||
+        containsWholeWord(area, t) ||
+        containsWholeWord(address, t) ||
+        name.includes(t) ||
+        area.includes(t) ||
+        address.includes(t) ||
+        fuzzyMatchWord(nameWords, t) ||
+        fuzzyMatchWord(areaWords, t) ||
+        fuzzyMatchWord(addressWords, t)
+    );
+    const phraseHit =
+      name.includes(core) ||
+      area.includes(core) ||
+      address.includes(core) ||
+      fuzzyMatchPhrase(name, core) ||
+      fuzzyMatchPhrase(area, core);
+    if (!covered && !phraseHit) {
+      return empty;
+    }
+  }
+
+  if (tier === SEARCH_TIER.none) return empty;
+
+  return {
+    tier,
+    relevance,
+    score: tier * REL.tierBase + relevance,
+  };
 }
 
 export type CafeSearchRankResult = {
   cafe: Cafe;
+  tier: SearchTier;
   relevance: number;
   score: number;
 };
 
 /**
- * Rank cafés for Search using in-memory catalog only.
- * Returns any café with non-zero relevance, sorted by score.
+ * Rank cafés for a typed query (tiered precision).
+ * Returns [] when nothing clears the confidence / tier gates.
  */
 export function rankCafesBySearchQuery(list: Cafe[], queryRaw: string): CafeSearchRankResult[] {
   const parsed = parseCafeSearchQuery(queryRaw);
@@ -231,12 +437,12 @@ export function rankCafesBySearchQuery(list: Cafe[], queryRaw: string): CafeSear
   const results: CafeSearchRankResult[] = [];
 
   for (const searchable of index) {
-    const { relevance, score } = scoreSearchableCafe(searchable, parsed);
-    if (relevance <= 0) continue;
-    results.push({ cafe: searchable.cafe, relevance, score });
+    const { tier, relevance, score } = scoreSearchableCafe(searchable, parsed);
+    if (tier === SEARCH_TIER.none || relevance <= 0) continue;
+    results.push({ cafe: searchable.cafe, tier, relevance, score });
   }
 
-  results.sort((a, b) => b.score - a.score || b.relevance - a.relevance);
+  results.sort(compareSearchResults);
 
   if (SEARCH_DEBUG && __DEV__) {
     debugCafeSearch(queryRaw, parsed, list, index, results);
@@ -245,36 +451,39 @@ export function rankCafesBySearchQuery(list: Cafe[], queryRaw: string): CafeSear
   return results;
 }
 
-export function rankCafesForSearchFromIndex(
-  list: Cafe[],
-  queryRaw: string
-): Cafe[] {
+/** Tie-break: tier → relevance → Beaned Pick → Work Score → distance. */
+export function compareSearchResults(a: CafeSearchRankResult, b: CafeSearchRankResult): number {
+  if (b.tier !== a.tier) return b.tier - a.tier;
+  if (b.relevance !== a.relevance) return b.relevance - a.relevance;
+  const cert = Number(b.cafe.isCertified) - Number(a.cafe.isCertified);
+  if (cert !== 0) return cert;
+  const scoreA = a.cafe.publicCoffeeScore ?? a.cafe.coffeeScore ?? 0;
+  const scoreB = b.cafe.publicCoffeeScore ?? b.cafe.coffeeScore ?? 0;
+  if (scoreB !== scoreA) return scoreB - scoreA;
+  const distA = a.cafe.distanceMiles ?? Number.POSITIVE_INFINITY;
+  const distB = b.cafe.distanceMiles ?? Number.POSITIVE_INFINITY;
+  return distA - distB;
+}
+
+export function rankCafesForSearchFromIndex(list: Cafe[], queryRaw: string): Cafe[] {
   return rankCafesBySearchQuery(list, queryRaw).map((r) => r.cafe);
 }
 
-/** Dev-only diagnostics for search QA (Hoxton, intent phrases, tag coverage). */
+export function cafeMatchesSearchQueryFromIndex(cafe: Cafe, queryRaw: string): boolean {
+  const parsed = parseCafeSearchQuery(queryRaw);
+  if (!parsed.normalized) return false;
+  const { tier, relevance } = scoreSearchableCafe(buildSearchableCafe(cafe), parsed);
+  return tier > SEARCH_TIER.none && relevance > 0;
+}
+
+/** Dev-only diagnostics for search QA. */
 export function debugCafeSearch(
   queryRaw: string,
   parsed: ParsedCafeSearchQuery,
   list: Cafe[],
-  index: SearchableCafe[],
+  _index: SearchableCafe[],
   results: CafeSearchRankResult[]
 ): void {
-  const needle = stripQueryStopwords(normalizeCafeSearchText(queryRaw));
-  const hoxtonHits = list.filter((c) => normalizeCafeSearchText(c.name).includes('hoxton'));
-  const workTagSlugs = WORK_INTENT_SLUGS;
-  const withWorkTags = list.filter((c) => {
-    const slugs = getCanonicalSlugsFromCafeTags(c.tags);
-    for (const s of workTagSlugs) if (slugs.has(s)) return true;
-    return false;
-  });
-
-  const sampleTags = list.slice(0, 5).map((c) => ({
-    name: c.name,
-    rawTags: c.tags,
-    resolved: Array.from(getCanonicalSlugsFromCafeTags(c.tags)),
-  }));
-
   console.log('[DEBUG cafeSearch]', {
     queryRaw,
     parsed: {
@@ -282,30 +491,14 @@ export function debugCafeSearch(
       core: stripQueryStopwords(parsed.normalized),
       tokens: parsed.tokens,
       intentSlugs: Array.from(parsed.intentSlugs),
-      areaTerms: Array.from(parsed.areaTerms),
     },
     totalCafes: list.length,
     resultCount: results.length,
     topResults: results.slice(0, 5).map((r) => ({
       name: r.cafe.name,
+      tier: r.tier,
       relevance: r.relevance,
-      tags: r.cafe.tags,
-      resolvedTags: Array.from(getCanonicalSlugsFromCafeTags(r.cafe.tags)),
+      neighborhood: r.cafe.neighborhood,
     })),
-    hoxtonNameMatches: hoxtonHits.map((c) => ({
-      name: c.name,
-      neighborhood: c.neighborhood,
-      tags: c.tags,
-    })),
-    cafesWithWorkRelatedTags: withWorkTags.length,
-    workTaggedSample: withWorkTags.slice(0, 5).map((c) => c.name),
-    tagShapeSample: sampleTags,
   });
-}
-
-export function cafeMatchesSearchQueryFromIndex(cafe: Cafe, queryRaw: string): boolean {
-  const parsed = parseCafeSearchQuery(queryRaw);
-  if (!parsed.normalized) return false;
-  const { relevance } = scoreSearchableCafe(buildSearchableCafe(cafe), parsed);
-  return relevance > 0;
 }

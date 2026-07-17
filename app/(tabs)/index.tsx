@@ -30,7 +30,6 @@ import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { WorkScoreMetaRow } from '@/components/WorkScoreMetaRow';
-import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
 import { TrustSignal } from '@/components/TrustSignal';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
@@ -52,7 +51,7 @@ import {
 import { withCafeDistances } from '@/lib/cafeDistance';
 import { useUserLocation } from '@/contexts/UserLocationContext';
 import { HomeCafeCarouselSkeleton } from '@/components/skeleton/CafeSkeletons';
-import { resolveCafeDisplayTags } from '@/lib/cafeFeaturedTags';
+import { resolveCafeHighlightTags } from '@/lib/cafeFeaturedTags';
 import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 
 const MAX_VISIBLE_TAGS = 3;
@@ -134,7 +133,7 @@ function HomeCafeCard({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const fetched = await resolveCafeDisplayTags(cafe, MAX_VISIBLE_TAGS);
+      const fetched = await resolveCafeHighlightTags(cafe, MAX_VISIBLE_TAGS);
       if (!cancelled) setTopTags(fetched);
     })();
     return () => {
@@ -257,7 +256,6 @@ function HomeCafeCard({
             tone="onDark"
             style={styles.heroMetaRow}
           />
-          <WorkspaceCardFacts cafe={cafe} tone="onDark" style={styles.heroWorkspaceFacts} />
           {hoursLabel ? (
             <Text style={styles.heroMeta} numberOfLines={1}>
               {hoursLabel}

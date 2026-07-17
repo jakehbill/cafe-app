@@ -71,8 +71,11 @@ const RANK = {
   searchQualityWeight: 1.4,
   searchPersonalizationWeight: 3.2,
   searchOnboardingWeight: 2,
-  /** Minimum text relevance to appear when searching (one strong signal should pass). */
-  searchMinRelevance: 24,
+  /**
+   * Legacy constant — typed search uses tier gates in `lib/cafeSearchIndex.ts`
+   * (`SEARCH_TIER` + `SEARCH_THRESHOLDS`), not this number.
+   */
+  searchMinRelevance: 40,
 } as const;
 
 /** Scale applied to the personalization add-on (tune vs base + chip weights) */
@@ -226,20 +229,8 @@ export function rankCafesForSearch(
   const hasQuery = queryTrimmedLower.trim().length > 0;
 
   if (hasQuery) {
-    const ranked = rankCafesBySearchQuery(list, queryTrimmedLower);
-    return ranked
-      .map(({ cafe, score }) => {
-        const s = scoresForCafe(cafe, ratingsByCafeId);
-        const behaviorBoost =
-          tasteProfile === null
-            ? 0
-            : personalizationBoost(cafe, tasteProfile, s) * RANK.searchPersonalizationWeight;
-        const onboardingBoost =
-          computeOnboardingPreferenceBoost(cafe, onboardingPrefs) * RANK.searchOnboardingWeight;
-        return { cafe, finalScore: score + behaviorBoost + onboardingBoost };
-      })
-      .sort((a, b) => b.finalScore - a.finalScore)
-      .map((entry) => entry.cafe);
+    // Typed query: tiered precision ranking only — no personalization / onboarding boosts.
+    return rankCafesBySearchQuery(list, queryTrimmedLower).map((entry) => entry.cafe);
   }
 
   const copy = [...list];

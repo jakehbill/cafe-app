@@ -10,10 +10,9 @@ import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { WorkScoreMetaRow } from '@/components/WorkScoreMetaRow';
-import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
 import { TrustSignal } from '@/components/TrustSignal';
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { resolveCafeDisplayTags } from '@/lib/cafeFeaturedTags';
+import { resolveCafeHighlightTags } from '@/lib/cafeFeaturedTags';
 import { CafeImage } from '@/components/CafeImage';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
 import type { UserTasteProfile } from '@/lib/cafePersonalization';
@@ -148,7 +147,7 @@ export function CompactCafeCard({
       };
     }
     void (async () => {
-      const fetched = await resolveCafeDisplayTags(cafe, effectiveMaxTags);
+      const fetched = await resolveCafeHighlightTags(cafe, effectiveMaxTags);
       if (!cancelled) setTopTags(fetched);
     })();
     return () => {
@@ -255,7 +254,6 @@ export function CompactCafeCard({
                     {metadataLineOverride}
                   </Text>
                 ) : null}
-                <WorkspaceCardFacts cafe={cafe} style={styles.workspaceFacts} />
               </View>
               {showTagRow ? (
                 <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
@@ -303,7 +301,6 @@ export function CompactCafeCard({
                         {metadataLineOverride}
                       </Text>
                     ) : null}
-                    <WorkspaceCardFacts cafe={cafe} style={styles.workspaceFacts} />
                   </>
                 ) : (
                   <Text
