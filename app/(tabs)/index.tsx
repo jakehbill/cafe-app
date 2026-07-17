@@ -29,11 +29,12 @@ import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPrefere
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
-import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkScoreMetaRow } from '@/components/WorkScoreMetaRow';
 import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
+import { TrustSignal } from '@/components/TrustSignal';
 import { buildTasteProfileFromState, rankCafesForHome } from '@/lib/cafeRanking';
-import { getRecommendationReason } from '@/lib/recommendationReason';
 import { buildCafeShareMessage } from '@/lib/cafeShareMessage';
+import type { UserTasteProfile } from '@/lib/cafePersonalization';
 import {
   getRecentPublicVisitNotes,
   hideBulletinVisit,
@@ -104,7 +105,7 @@ function ImageHeroBottomFade({ cafeId, width, height }: { cafeId: string; width:
 function HomeCafeCard({
   cafe,
   localRating,
-  recommendationReason,
+  tasteProfile = null,
   isSaved,
   onSavePress,
   distanceLabel,
@@ -115,7 +116,7 @@ function HomeCafeCard({
 }: {
   cafe: Cafe;
   localRating?: CafeRating;
-  recommendationReason?: string | null;
+  tasteProfile?: UserTasteProfile | null;
   isSaved?: boolean;
   onSavePress: () => void;
   /** E.g. "0.4 mi" when user location is available; omit when null. */
@@ -227,11 +228,14 @@ function HomeCafeCard({
           </Pressable>
         </View>
 
-        {localRating ? (
+        {localRating || cafe.isCertified ? (
           <View style={styles.heroStatusPills} pointerEvents="none">
-            <View style={styles.heroMiniPill}>
-              <Text style={styles.heroMiniPillText}>Rated by you</Text>
-            </View>
+            {cafe.isCertified ? <BeanedPickBadge tone="onDark" /> : null}
+            {localRating ? (
+              <View style={styles.heroMiniPill}>
+                <Text style={styles.heroMiniPillText}>Rated by you</Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -240,18 +244,20 @@ function HomeCafeCard({
           <Text style={[styles.heroTitle, isCarousel && styles.heroTitleCarousel]} numberOfLines={2}>
             {cafe.name}
           </Text>
-          {cafe.isCertified ? <BeanedPickBadge tone="onDark" style={styles.heroPickBadge} /> : null}
-          <WorkScoreHero cafe={cafe} tone="onDark" size="hero" style={styles.heroWorkScore} />
+          <TrustSignal
+            cafe={cafe}
+            tasteProfile={tasteProfile}
+            tone="onDark"
+            style={styles.heroTrustSignal}
+          />
+          <WorkScoreMetaRow
+            cafe={cafe}
+            area={areaText}
+            distance={distanceLabel}
+            tone="onDark"
+            style={styles.heroMetaRow}
+          />
           <WorkspaceCardFacts cafe={cafe} tone="onDark" style={styles.heroWorkspaceFacts} />
-          {(areaText || distanceLabel) ? (
-            <Text style={styles.heroLocation} numberOfLines={1}>
-              {areaText ? <Text>{areaText}</Text> : null}
-              {areaText && distanceLabel ? (
-                <Text style={styles.heroLocationDot}> {'\u2022'} </Text>
-              ) : null}
-              {distanceLabel ? <Text>{distanceLabel}</Text> : null}
-            </Text>
-          ) : null}
           {hoursLabel ? (
             <Text style={styles.heroMeta} numberOfLines={1}>
               {hoursLabel}
@@ -272,14 +278,6 @@ function HomeCafeCard({
         <Text numberOfLines={3} style={styles.featuredSummary}>
           {cafe.short_description}
         </Text>
-
-        {recommendationReason ? (
-          <View style={styles.insightLineWrap}>
-            <Text style={styles.insightLine} numberOfLines={2}>
-              {recommendationReason}
-            </Text>
-          </View>
-        ) : null}
       </View>
     </Pressable>
   );
@@ -668,7 +666,7 @@ export default function HomeScreen() {
                       layout="carousel"
                       priorityImage={index === 0}
                       localRating={ratingsByCafeId[cafe.id]}
-                      recommendationReason={getRecommendationReason(cafe, tasteProfile)}
+                      tasteProfile={tasteProfile}
                       isSaved={isSaved(cafe.id)}
                       distanceLabel={cafe.distanceLabel ?? null}
                       onSavePress={() => void toggleSaved(cafe.id)}
@@ -716,7 +714,7 @@ export default function HomeScreen() {
                       layout="carousel"
                       priorityImage={index === 0}
                       localRating={ratingsByCafeId[cafe.id]}
-                      recommendationReason={null}
+                      tasteProfile={tasteProfile}
                       isSaved={isSaved(cafe.id)}
                       distanceLabel={cafe.distanceLabel ?? null}
                       onSavePress={() => void toggleSaved(cafe.id)}
@@ -996,11 +994,11 @@ const styles = StyleSheet.create({
   heroVenueBadge: {
     marginBottom: 0,
   },
-  heroPickBadge: {
+  heroTrustSignal: {
     marginTop: 2,
     marginBottom: 0,
   },
-  heroWorkScore: {
+  heroMetaRow: {
     marginTop: 2,
     marginBottom: 0,
   },
@@ -1062,24 +1060,6 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontFamily: FONTS.sans.regular,
     letterSpacing: -0.05,
-  },
-  insightLineWrap: {
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
-    paddingVertical: 8,
-    paddingHorizontal: 11,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.coffeePillBorder,
-    backgroundColor: COLORS.coffeePillBackground,
-  },
-  insightLine: {
-    fontSize: 12,
-    lineHeight: 17,
-    fontFamily: FONTS.sans.regular,
-    fontStyle: 'italic',
-    color: COLORS.accent,
-    opacity: 0.92,
   },
   noticeBoardList: {
     gap: 10,

@@ -5,8 +5,9 @@ import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { CafeImage } from '@/components/CafeImage';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
-import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkScoreMetaRow } from '@/components/WorkScoreMetaRow';
 import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
+import { TrustSignal } from '@/components/TrustSignal';
 import { VisitPhotoLightbox } from '@/components/visit/VisitPhotoLightbox';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
@@ -234,7 +235,12 @@ export function VisitedCafeDiaryCard({
             {cafe.name}
           </Text>
           {cafe.isCertified ? <BeanedPickBadge /> : null}
-          <WorkScoreHero cafe={cafe} size="card" style={styles.workScore} />
+          <TrustSignal cafe={cafe} style={styles.trustSignal} />
+          <WorkScoreMetaRow
+            cafe={cafe}
+            area={area || null}
+            style={styles.metaRow}
+          />
           <WorkspaceCardFacts cafe={cafeForFacts} style={styles.workspaceFacts} />
           {tagSlice.length > 0 ? (
             <View style={styles.tagsRow}>
@@ -250,11 +256,6 @@ export function VisitedCafeDiaryCard({
                 </View>
               ))}
             </View>
-          ) : null}
-          {area ? (
-            <Text style={styles.secondaryMeta} numberOfLines={1}>
-              {area}
-            </Text>
           ) : null}
           {userRatingText ? (
             <Text style={styles.secondaryMeta} numberOfLines={1}>
@@ -405,6 +406,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   workScore: {
+    marginTop: 2,
+  },
+  metaRow: {
+    marginTop: 2,
+  },
+  trustSignal: {
     marginTop: 2,
   },
   workspaceFacts: {

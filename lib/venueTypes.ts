@@ -18,7 +18,7 @@ export const VENUE_TYPE_OPTIONS = [
   { value: 'beach_club', emoji: '🏖', label: 'Beach Club' },
   { value: 'surf_cafe', emoji: '🏄', label: 'Surf Café' },
   { value: 'yoga_studio', emoji: '🧘', label: 'Yoga Studio' },
-  { value: 'climbing_gym', emoji: '🧗', label: 'Climbing Gym' },
+  { value: 'gym', emoji: '🏋️', label: 'Gym' },
   { value: 'community_space', emoji: '🏛', label: 'Community Space' },
   { value: 'other', emoji: '📍', label: 'Other' },
 ] as const;
@@ -29,6 +29,11 @@ export type VenueTypeOption = (typeof VENUE_TYPE_OPTIONS)[number];
 
 const VENUE_TYPE_SET = new Set<string>(VENUE_TYPE_OPTIONS.map((o) => o.value));
 
+/** Legacy DB values remapped to current canonical values. */
+const VENUE_TYPE_ALIASES: Record<string, VenueTypeValue> = {
+  climbing_gym: 'gym',
+};
+
 const VENUE_TYPE_BY_VALUE = new Map<VenueTypeValue, VenueTypeOption>(
   VENUE_TYPE_OPTIONS.map((o) => [o.value, o])
 );
@@ -37,6 +42,7 @@ const VENUE_TYPE_BY_VALUE = new Map<VenueTypeValue, VenueTypeOption>(
 export function normalizeVenueType(raw: unknown): VenueTypeValue {
   if (raw == null) return DEFAULT_VENUE_TYPE;
   const s = String(raw).trim().toLowerCase().replace(/\s+/g, '_');
+  if (VENUE_TYPE_ALIASES[s]) return VENUE_TYPE_ALIASES[s];
   if (VENUE_TYPE_SET.has(s)) return s as VenueTypeValue;
   return DEFAULT_VENUE_TYPE;
 }

@@ -96,6 +96,34 @@ function rankedVisitedReason(cafe: Cafe, profile: UserTasteProfile): string | nu
   return null;
 }
 
+/** Min completed workspace reviews before personal trust copy is allowed. */
+export const MIN_WORKSPACE_REVIEWS_FOR_PERSONAL_TRUST = 3;
+
+/**
+ * High-confidence personal match for card trust signals.
+ * Only returns “Matches your top picks” when the user has enough review history
+ * and the space clearly aligns with their top visited cluster (or is itself a top pick).
+ * Does not emit weaker axis/tag/fallback recommendation lines.
+ */
+export function getMatchesTopPicksTrustLabel(
+  cafe: Cafe,
+  profile: UserTasteProfile | null
+): string | null {
+  if (profile === null) return null;
+  if (profile.ratingCount < MIN_WORKSPACE_REVIEWS_FOR_PERSONAL_TRUST) return null;
+
+  const rank = profile.visitedRankByCafeId[cafe.id];
+  if (rank !== undefined && rank <= TOP_PICK_MAX_RANK) {
+    return REASON.matchesTopPicks;
+  }
+
+  const visitCount = Object.keys(profile.visitedRankByCafeId).length;
+  if (visitCount < MIN_WORKSPACE_REVIEWS_FOR_PERSONAL_TRUST) return null;
+  if (!isSimilarToTopVisitedCluster(cafe, profile)) return null;
+
+  return REASON.matchesTopPicks;
+}
+
 /**
  * B) One dominant axis in blended averages (ratings + reference visits).
  */

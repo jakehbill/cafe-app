@@ -5,8 +5,9 @@ import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { CafeImage } from '@/components/CafeImage';
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
-import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkScoreMetaRow } from '@/components/WorkScoreMetaRow';
 import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
+import { TrustSignal } from '@/components/TrustSignal';
 import { COLORS, FONTS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
 import { prioritizeWorkTagsForCards } from '@/lib/cafeFeaturedTags';
@@ -40,7 +41,8 @@ export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
           {cafe.name}
         </Text>
         {cafe.isCertified ? <BeanedPickBadge /> : null}
-        <WorkScoreHero cafe={cafe} size="card" style={styles.workScore} />
+        <TrustSignal cafe={cafe} style={styles.trustSignal} />
+        <WorkScoreMetaRow cafe={cafe} area={area || null} />
         <WorkspaceCardFacts cafe={cafe} />
         {tags.length > 0 ? (
           <View style={styles.tags}>
@@ -48,11 +50,6 @@ export function PublicCafePreviewCard({ cafe, highlightTags }: Props) {
               <EditorialTag key={`${cafe.id}-${tag}`} tag={tag} variant="featured" />
             ))}
           </View>
-        ) : null}
-        {area ? (
-          <Text style={styles.meta} numberOfLines={1}>
-            {area}
-          </Text>
         ) : null}
         {cafe.short_description ? (
           <Text style={styles.summary} numberOfLines={2}>
@@ -95,6 +92,9 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
     letterSpacing: -0.25,
+  },
+  trustSignal: {
+    marginTop: 0,
   },
   workScore: {
     marginTop: 2,

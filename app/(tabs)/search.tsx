@@ -83,9 +83,11 @@ function SearchQueryInput({ immediateQueryRef, onDebouncedChange }: SearchQueryI
 
 const SearchResultCards = React.memo(function SearchResultCards({
   cafes,
+  tasteProfile,
   onPressCafe,
 }: {
   cafes: Cafe[];
+  tasteProfile: ReturnType<typeof buildTasteProfileFromState>;
   onPressCafe: (id: string) => void;
 }) {
   return (
@@ -94,6 +96,7 @@ const SearchResultCards = React.memo(function SearchResultCards({
         <CompactCafeCard
           key={cafe.id}
           cafe={cafe}
+          tasteProfile={tasteProfile}
           scorePosition="cardTopRight"
           reserveTagSpaceWhenEmpty
           showBookmarkAction
@@ -670,7 +673,11 @@ export default function SearchScreen() {
                   </TouchableOpacity>
                 </View>
               ) : null}
-              <SearchResultCards cafes={listResults} onPressCafe={handlePressCafe} />
+              <SearchResultCards
+                cafes={listResults}
+                tasteProfile={tasteProfile}
+                onPressCafe={handlePressCafe}
+              />
             </>
           )}
         </ScrollView>

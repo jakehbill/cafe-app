@@ -9,13 +9,14 @@ import { PublicCoffeeScoreText } from '@/components/PublicCoffeeScoreText';
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
-import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkScoreMetaRow } from '@/components/WorkScoreMetaRow';
 import { WorkspaceCardFacts } from '@/components/WorkspaceCardFacts';
+import { TrustSignal } from '@/components/TrustSignal';
 import { useCafeState } from '@/contexts/CafeStateContext';
-import { formatPublicCoffeeForCafe } from '@/lib/publicCoffeeDisplay';
+import { resolveCafeDisplayTags } from '@/lib/cafeFeaturedTags';
 import { CafeImage } from '@/components/CafeImage';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
-import { resolveCafeDisplayTags } from '@/lib/cafeFeaturedTags';
+import type { UserTasteProfile } from '@/lib/cafePersonalization';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
@@ -50,8 +51,8 @@ export type CompactCafeCardProps = {
   /** Optional tags (e.g. from a saved rating); up to `maxTags` shown. */
   tags?: string[];
   maxTags?: number;
-  /** One short line from taste / tags (Home + Search). */
-  recommendationReason?: string;
+  /** Taste profile for personal trust signals; omit for community-only. */
+  tasteProfile?: UserTasteProfile | null;
   /** Optional visit-note preview shown under tags. */
   notePreview?: string;
   /**
@@ -67,7 +68,7 @@ export type CompactCafeCardProps = {
   /**
    * Where the public coffee score appears (compact list cards only).
    * `bottomRight` (default) — on the thumbnail; Ratings, etc.
-   * `cardTopRight` — Search + Saved: Work Score + qualitative, session/cost, area · mi; not on image.
+   * `cardTopRight` — Search + Saved: ★ score · area · mi, then session/cost; not on image.
    * `contentColumn` — Visited: Work Score block under title; not on image.
    */
   scorePosition?: 'bottomRight' | 'cardTopRight' | 'contentColumn';
@@ -93,7 +94,7 @@ export function CompactCafeCard({
   rank,
   tags,
   maxTags = 3,
-  recommendationReason,
+  tasteProfile = null,
   notePreview,
   trailing,
   showTagsUI = true,
@@ -242,13 +243,19 @@ export function CompactCafeCard({
                   {cafe.name}
                 </Text>
                 {cafe.isCertified ? <BeanedPickBadge /> : null}
-                <WorkScoreHero cafe={cafe} size="card" style={styles.workScoreHero} />
-                <WorkspaceCardFacts cafe={cafe} style={styles.workspaceFacts} />
-                {(metadataLine.location || metadataLine.distance) ? (
+                <TrustSignal cafe={cafe} tasteProfile={tasteProfile} style={styles.trustSignal} />
+                <WorkScoreMetaRow
+                  cafe={cafe}
+                  area={metadataLineOverride ? undefined : metadataLine.location || null}
+                  distance={metadataLineOverride ? undefined : metadataLine.distance || null}
+                  style={styles.metaRow}
+                />
+                {metadataLineOverride ? (
                   <Text style={styles.location} numberOfLines={1}>
-                    {metadataLineOverride ?? renderSecondaryLocationMeta(metadataLine)}
+                    {metadataLineOverride}
                   </Text>
                 ) : null}
+                <WorkspaceCardFacts cafe={cafe} style={styles.workspaceFacts} />
               </View>
               {showTagRow ? (
                 <View style={[styles.tagsRow, tagsSubtle && styles.tagsRowSubtle]}>
@@ -259,13 +266,6 @@ export function CompactCafeCard({
                       variant={tagsSubtle ? 'secondary' : 'featured'}
                     />
                   ))}
-                </View>
-              ) : null}
-              {recommendationReason ? (
-                <View style={styles.recommendationReasonWrap}>
-                  <Text style={styles.recommendationReason} numberOfLines={1}>
-                    {recommendationReason}
-                  </Text>
                 </View>
               ) : null}
               {notePreview ? (
@@ -282,18 +282,28 @@ export function CompactCafeCard({
                   {cafe.name}
                 </Text>
                 {cafe.isCertified ? <BeanedPickBadge /> : null}
+                <TrustSignal
+                  cafe={cafe}
+                  tasteProfile={tasteProfile}
+                  style={[styles.trustSignal, compactNameMetaGap && styles.trustSignalCompact]}
+                />
                 {scoreOnCardTopRight ? (
                   <>
-                    <WorkScoreHero cafe={cafe} size="card" style={styles.workScoreHero} />
-                    <WorkspaceCardFacts cafe={cafe} style={styles.workspaceFacts} />
-                    {(metadataLine.location || metadataLine.distance || metadataLineOverride) ? (
+                    <WorkScoreMetaRow
+                      cafe={cafe}
+                      area={metadataLineOverride ? undefined : metadataLine.location || null}
+                      distance={metadataLineOverride ? undefined : metadataLine.distance || null}
+                      style={[styles.metaRow, compactNameMetaGap && styles.locationCompactMetaGap]}
+                    />
+                    {metadataLineOverride ? (
                       <Text
                         style={[styles.location, compactNameMetaGap && styles.locationCompactMetaGap]}
                         numberOfLines={1}
                       >
-                        {metadataLineOverride ?? renderSecondaryLocationMeta(metadataLine)}
+                        {metadataLineOverride}
                       </Text>
                     ) : null}
+                    <WorkspaceCardFacts cafe={cafe} style={styles.workspaceFacts} />
                   </>
                 ) : (
                   <Text
@@ -328,13 +338,6 @@ export function CompactCafeCard({
               ) : showTagSpacer ? (
                 <View style={[styles.tagsSpacer, compactNameMetaGap && styles.tagsSpacerAfterCompactMeta]} />
               ) : null}
-              {recommendationReason ? (
-                <View style={styles.recommendationReasonWrap}>
-                  <Text style={styles.recommendationReason} numberOfLines={1}>
-                    {recommendationReason}
-                  </Text>
-                </View>
-              ) : null}
               {notePreview ? (
                 <Text style={styles.notePreviewText} numberOfLines={3}>
                   {notePreview}
@@ -349,28 +352,10 @@ export function CompactCafeCard({
   );
 }
 
-function buildScoreLocationMeta(cafe: Cafe): { score: string; location: string; distance: string } {
-  const score = formatPublicCoffeeForCafe(cafe).trim();
+function buildScoreLocationMeta(cafe: Cafe): { location: string; distance: string } {
   const location = (cafe.neighborhood ?? '').trim();
   const distance = (cafe.distanceLabel ?? '').trim();
-  return { score, location, distance };
-}
-
-function renderSecondaryLocationMeta(meta: { location: string; distance: string }) {
-  const hasLocation = meta.location.length > 0;
-  const hasDistance = meta.distance.length > 0;
-  if (hasLocation && hasDistance) {
-    return (
-      <>
-        <Text>{meta.location}</Text>
-        <Text style={styles.locationDot}> {'\u2022'} </Text>
-        <Text style={styles.locationDistance}>{meta.distance}</Text>
-      </>
-    );
-  }
-  if (hasLocation) return meta.location;
-  if (hasDistance) return <Text style={styles.locationDistance}>{meta.distance}</Text>;
-  return null;
+  return { location, distance };
 }
 
 const styles = StyleSheet.create({
@@ -524,6 +509,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginBottom: 1,
   },
+  metaRow: {
+    marginTop: 1,
+    marginBottom: 0,
+  },
   workspaceFacts: {
     marginTop: 1,
     marginBottom: 1,
@@ -565,22 +554,12 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     lineHeight: 18,
   },
-  recommendationReasonWrap: {
-    alignSelf: 'stretch',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.coffeePillBorder,
-    backgroundColor: COLORS.coffeePillBackground,
+  trustSignal: {
+    marginTop: 2,
+    marginBottom: 0,
   },
-  recommendationReason: {
-    fontSize: 11,
-    lineHeight: 15,
-    color: COLORS.accent,
-    fontFamily: FONTS.sans.regular,
-    opacity: 0.9,
-    fontStyle: 'italic',
+  trustSignalCompact: {
+    marginTop: 1,
   },
   notePreviewText: {
     marginTop: 5,
