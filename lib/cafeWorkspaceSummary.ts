@@ -74,7 +74,7 @@ export async function fetchCafeWorkspaceSummariesForIds(
   if (rpc.error) {
     if (__DEV__) {
       console.warn(
-        '[workspace summary] batch RPC unavailable — deploy supabase/sprint5_workspace_summaries.sql:',
+        '[workspace summary] batch RPC unavailable — deploy supabase/launch_workspace_card_hydration.sql:',
         rpc.error.message
       );
     }
@@ -129,7 +129,7 @@ export function buildWorkspaceCardFactParts(cafe: Pick<Cafe, 'workspaceSummary'>
   const session = formatStayDurationLabel(s.stayDuration);
   if (session) parts.push(session);
   const cost = formatCostToWorkDisplay(s.costToWork);
-  if (cost) parts.push(cost === 'Free' ? 'Free' : `≈ ${cost}`);
+  if (cost) parts.push(cost);
   return parts;
 }
 
@@ -153,10 +153,9 @@ export function buildWorkspaceDetailFacts(cafe: Pick<Cafe, 'workspaceSummary'>):
       food: null,
     };
   }
-  const cost = formatCostToWorkDisplay(s.costToWork);
   return {
     workSession: formatStayDurationLabel(s.stayDuration),
-    costToWork: cost ? (cost === 'Free' ? 'Free' : `≈ ${cost}`) : null,
+    costToWork: formatCostToWorkDisplay(s.costToWork),
     seatFinding: formatSeatAvailabilityLabel(s.seatFinding),
     wifi: formatWifiReliabilityLabel(s.wifiReliability),
     coffee: formatQualityLabel(s.coffeeQuality),

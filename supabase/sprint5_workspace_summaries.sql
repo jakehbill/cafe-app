@@ -1,4 +1,6 @@
 -- Sprint 5: batch community workspace review modes for cards + detail.
+-- SUPERSEDED: use supabase/launch_workspace_card_hydration.sql (includes this RPC
+-- plus visit-backed cafe_public_scores + tag popularity).
 -- Modes from user_cafe_visits (SECURITY DEFINER). Apply in Supabase SQL editor.
 
 drop function if exists public.get_cafes_workspace_review_summaries(text[]);

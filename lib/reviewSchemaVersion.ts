@@ -7,7 +7,10 @@
  * | Version | Meaning |
  * |---------|---------|
  * | 1 | Legacy café coffee ratings (1–5), pre–workspace model |
- * | 2 | Workspace review model (Sprint 4+): 1–10 Work Score + stay/cost/tags/etc. |
+ * | 2 | Workspace review model: 1–10 Work Score + stay/cost/wifi/seat/quality + tags + note |
+ *
+ * Migrations: `review_model_final.sql` then `workspace_review_columns.sql`.
+ * Photos: `visit_photos` (+ `share_publicly`).
  */
 export const REVIEW_SCHEMA_VERSION = 2 as const;
 

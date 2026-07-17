@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { COLORS, FONTS } from '@/components/theme';
@@ -46,13 +46,12 @@ export function EditorialTag({
 
   const inner = (
     <View style={shellStyle}>
-      {isFeatured ? <Text style={styles.leadingDot}>·</Text> : null}
       <TagWithOptionalIcon
         tag={tag}
         iconSize={iconSize}
         color={COLORS.text}
         textStyle={textStyle}
-        gap={4}
+        gap={5}
       />
     </View>
   );
@@ -81,13 +80,12 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
   },
   featured: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: COLORS.text,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.22)',
     backgroundColor: 'transparent',
-    gap: 4,
   },
   secondary: {
     paddingHorizontal: 7,
@@ -113,21 +111,14 @@ const styles = StyleSheet.create({
     borderColor: COLORS.text,
     backgroundColor: COLORS.accentSubtleFill,
   },
-  leadingDot: {
-    fontSize: 14,
-    lineHeight: 14,
-    fontFamily: FONTS.sans.bold,
-    color: COLORS.text,
-    marginTop: -1,
-  },
   label: {
     color: COLORS.text,
     fontFamily: FONTS.sans.medium,
   },
   labelFeatured: {
     fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    letterSpacing: 0.15,
+    fontFamily: FONTS.sans.medium,
+    letterSpacing: -0.1,
   },
   labelSecondary: {
     fontSize: 11,

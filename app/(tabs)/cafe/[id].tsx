@@ -3,7 +3,7 @@ import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageConta
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
-import { WorkScoreHero } from '@/components/WorkScoreHero';
+import { WorkScoreMetaRow } from '@/components/WorkScoreMetaRow';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useUserLocation } from '@/contexts/UserLocationContext';
@@ -101,48 +101,141 @@ function formatIdentityAddress(cafe: Cafe): string {
   return 'Open in Google Maps for the exact pin';
 }
 
-function identityAddressPrimaryLabel(cafe: Cafe): string {
+/** Street-first line — avoid repeating neighbourhood / city on detail. */
+function shortStreetAddress(cafe: Cafe): string {
   const line = (cafe.addressLine ?? '').trim();
-  if (line.length > 0) return line;
+  if (line.length > 0) {
+    const first = line.split(',')[0]?.trim() ?? '';
+    if (first.length > 0) return first;
+  }
   return (cafe.neighborhood ?? '').trim();
+}
+
+function identityAddressPrimaryLabel(cafe: Cafe): string {
+  const street = shortStreetAddress(cafe);
+  if (street.length > 0) return street;
+  return (cafe.neighborhood ?? '').trim();
+}
+
+/** Drop generic coffee/food tags when quality chips already cover them. */
+function filterTagsOverlappingQuality(
+  tags: string[],
+  quality: { coffee: boolean; food: boolean }
+): string[] {
+  return tags.filter((tag) => {
+    const key = String(tag).trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (quality.coffee && (key === 'good_coffee' || key === 'goodcoffee')) return false;
+    if (quality.food && (key === 'good_food' || key === 'goodfood' || key === 'food_available')) {
+      return false;
+    }
+    return true;
+  });
+}
+
+/** Prefer work-decision tags first (wifi, light, outlets…) then the rest. */
+const WORKSPACE_HIGHLIGHT_ORDER = [
+  'good_wifi',
+  'good_natural_light',
+  'has_outlets',
+  'quiet',
+  'good_for_calls',
+  'comfortable_seating',
+  'spacious',
+  'long_stays_welcome',
+  'air_conditioning',
+  'open_late',
+  'friendly_staff',
+  'work_friendly',
+  'good_coffee',
+  'good_food',
+] as const;
+
+function normalizeHighlightKey(tag: string): string {
+  return String(tag).trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+function sortWorkspaceHighlights(tags: string[]): string[] {
+  return [...tags].sort((a, b) => {
+    const ka = normalizeHighlightKey(a);
+    const kb = normalizeHighlightKey(b);
+    const ia = WORKSPACE_HIGHLIGHT_ORDER.indexOf(ka as (typeof WORKSPACE_HIGHLIGHT_ORDER)[number]);
+    const ib = WORKSPACE_HIGHLIGHT_ORDER.indexOf(kb as (typeof WORKSPACE_HIGHLIGHT_ORDER)[number]);
+    const ra = ia === -1 ? 900 : ia;
+    const rb = ib === -1 ? 900 : ib;
+    if (ra !== rb) return ra - rb;
+    return formatTagLabel(a).localeCompare(formatTagLabel(b));
+  });
+}
+
+function reviewStarsLabel(rating: number): string {
+  const filled = Math.max(0, Math.min(5, Math.round(rating / 2)));
+  return `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`;
+}
+
+function formatReviewTagLine(tags: string[]): string | null {
+  const labels = tags
+    .map((tag) => formatTagLabel(tag).trim())
+    .filter(Boolean)
+    .map((label) =>
+      label
+        .replace(/^Good\s+/i, '')
+        .replace(/\bWiFi\b/gi, 'Wi-Fi')
+        .replace(/\bWifi\b/g, 'Wi-Fi')
+    );
+  if (labels.length === 0) return null;
+  return labels.slice(0, 3).join(' · ');
 }
 
 function CafeIdentityAddress({
   cafe,
+  distanceText,
   onOpenMaps,
 }: {
   cafe: Cafe;
+  distanceText?: string | null;
   onOpenMaps: () => void;
 }) {
   const mapsUrl = resolveCafeMapsUrl(cafe);
-  const primaryLabel = identityAddressPrimaryLabel(cafe);
+  const street = identityAddressPrimaryLabel(cafe);
+  const distance = String(distanceText ?? '').trim();
 
   if (!mapsUrl) {
-    const fallback = formatIdentityAddress(cafe);
-    return fallback.length > 0 ? <Text style={styles.identityAddress}>{fallback}</Text> : null;
+    const fallback = street || formatIdentityAddress(cafe);
+    if (!fallback && !distance) return null;
+    return (
+      <View style={styles.identityAddressBlock}>
+        {fallback ? (
+          <Text style={styles.identityAddressMuted} numberOfLines={1}>
+            {'\u{1F4CD} '}
+            {fallback}
+          </Text>
+        ) : null}
+        {distance ? <Text style={styles.identityAddressDistanceMuted}>{distance}</Text> : null}
+      </View>
+    );
   }
 
-  const label = primaryLabel.length > 0 ? primaryLabel : 'View on Google Maps';
+  const label = street.length > 0 ? street : 'View on Google Maps';
 
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`Open ${label} in Google Maps`}
+      accessibilityLabel={`Open directions for ${label}`}
       onPress={onOpenMaps}
       style={({ pressed, hovered }) => [
-        styles.identityAddressRow,
+        styles.identityAddressBlock,
         pressed && styles.identityAddressPressed,
         Platform.OS === 'web' && hovered && styles.identityAddressHovered,
       ]}
     >
-      <Ionicons
-        name="location-outline"
-        size={14}
-        color={COLORS.muted}
-        style={styles.identityAddressIcon}
-      />
-      <Text style={[styles.identityAddress, styles.identityAddressLinkText]}>{label}</Text>
-      <Text style={styles.identityAddressLinkCue}>{'\u2197'}</Text>
+      <Text style={styles.identityAddressMuted} numberOfLines={1}>
+        {'\u{1F4CD} '}
+        {label}
+      </Text>
+      <Text style={styles.identityAddressDistanceMuted} numberOfLines={1}>
+        {distance ? `${distance} ` : ''}
+        {'\u2197'}
+      </Text>
     </Pressable>
   );
 }
@@ -150,20 +243,58 @@ function CafeIdentityAddress({
 function ActionButton({
   label,
   accentActive = false,
+  variant = 'primary',
   onPress,
 }: {
   label: string;
   accentActive?: boolean;
+  variant?: 'primary' | 'secondary';
   onPress?: () => void;
 }) {
+  const secondary = variant === 'secondary';
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      style={[styles.actionButton, accentActive && styles.actionButtonAccent]}
+      style={[
+        styles.actionButton,
+        accentActive && !secondary && styles.actionButtonAccent,
+        secondary && styles.actionButtonSecondary,
+      ]}
       onPress={onPress}
     >
-      <Text style={[styles.actionButtonText, accentActive && styles.actionButtonTextAccent]}>{label}</Text>
+      <Text
+        style={[
+          styles.actionButtonText,
+          accentActive && !secondary && styles.actionButtonTextAccent,
+          secondary && styles.actionButtonTextSecondary,
+        ]}
+      >
+        {label}
+      </Text>
     </TouchableOpacity>
+  );
+}
+
+function WorkspaceSnapshotRow({
+  icon,
+  label,
+  value,
+  isLast,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  isLast?: boolean;
+}) {
+  return (
+    <View style={[styles.snapshotRow, !isLast && styles.snapshotRowBorder]}>
+      <Text style={styles.snapshotIcon}>{icon}</Text>
+      <Text style={styles.snapshotLabel}>{label}</Text>
+      <View style={styles.snapshotLeader} />
+      <Text style={styles.snapshotValue} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -351,9 +482,7 @@ export default function CafeDetailScreen() {
     if (!cafe) return null;
     return withCafeDistances([cafe], userLocation)[0] ?? cafe;
   }, [cafe, userLocation]);
-  const detailDistanceMiles = cafeWithDistance?.distanceMiles ?? null;
   const detailDistanceLabel = cafeWithDistance?.distanceLabel ?? null;
-  const detailNeighborhood = (cafeWithDistance?.neighborhood ?? '').trim();
   const detailDistanceText = detailDistanceLabel ? `${detailDistanceLabel} away` : null;
 
   const heroBackRow = (
@@ -597,39 +726,59 @@ export default function CafeDetailScreen() {
           <View style={styles.identityTextBlock}>
             <VenueTypeBadge venueType={cafe.venueType} style={styles.identityVenueBadge} />
             <Text style={styles.identityName}>{cafe.name}</Text>
-            {cafe.isCertified ? <BeanedPickBadge style={styles.identityPickBadge} /> : null}
-            <WorkScoreHero cafe={cafe} size="hero" style={styles.identityWorkScore} />
+            <View style={styles.identityMetaLine}>
+              <View style={styles.identityScoreCol}>
+                <WorkScoreMetaRow cafe={cafe} size="detail" style={styles.identityMetaRow} />
+                {cafeHasPublicWorkScore(cafe) && cafe.coffeeRatingCount > 0 ? (
+                  <Text style={styles.basedOnReviews}>
+                    Based on {cafe.coffeeRatingCount}{' '}
+                    {cafe.coffeeRatingCount === 1 ? 'review' : 'reviews'}
+                  </Text>
+                ) : null}
+              </View>
+              {cafe.isCertified ? (
+                <BeanedPickBadge
+                  size="inline"
+                  subtitle="One of our favourite workspaces."
+                />
+              ) : null}
+            </View>
+            <CafeIdentityAddress
+              cafe={cafe}
+              distanceText={detailDistanceText}
+              onOpenMaps={() => void handleOpenGoogleMaps()}
+            />
             {(() => {
               const facts = buildWorkspaceDetailFacts(cafe);
-              const rows: { label: string; value: string }[] = [];
-              if (facts.workSession) rows.push({ label: 'Typical work session', value: facts.workSession });
-              if (facts.costToWork) rows.push({ label: 'Cost to work', value: facts.costToWork });
-              if (facts.seatFinding) rows.push({ label: 'Finding a seat', value: facts.seatFinding });
-              if (facts.wifi) rows.push({ label: 'Wi-Fi', value: facts.wifi });
+              const rows: { icon: string; label: string; value: string }[] = [];
+              if (facts.wifi) rows.push({ icon: '📶', label: 'Wi-Fi', value: facts.wifi });
+              if (facts.seatFinding) {
+                rows.push({ icon: '💺', label: 'Seating', value: facts.seatFinding });
+              }
+              if (facts.workSession) {
+                rows.push({ icon: '🕒', label: 'Typical visit', value: facts.workSession });
+              }
+              if (facts.costToWork) {
+                rows.push({ icon: '💷', label: 'Typical spend', value: facts.costToWork });
+              }
               if (rows.length === 0) return null;
               return (
-                <View style={styles.workspaceFactsBlock}>
-                  {rows.map((row) => (
-                    <View key={row.label} style={styles.workspaceFactRow}>
-                      <Text style={styles.workspaceFactLabel}>{row.label}</Text>
-                      <Text style={styles.workspaceFactValue}>{row.value}</Text>
-                    </View>
-                  ))}
+                <View style={styles.snapshotBlock}>
+                  <Text style={styles.sectionHeading}>Workspace Snapshot</Text>
+                  <View style={styles.snapshotCard}>
+                    {rows.map((row, index) => (
+                      <WorkspaceSnapshotRow
+                        key={row.label}
+                        icon={row.icon}
+                        label={row.label}
+                        value={row.value}
+                        isLast={index === rows.length - 1}
+                      />
+                    ))}
+                  </View>
                 </View>
               );
             })()}
-            {(detailNeighborhood || (detailDistanceMiles != null && detailDistanceText)) ? (
-              <Text style={styles.identityMeta} numberOfLines={1}>
-                {detailNeighborhood ? <Text>{detailNeighborhood}</Text> : null}
-                {detailNeighborhood && detailDistanceMiles != null && detailDistanceText ? (
-                  <Text style={styles.identityMetaDot}> {'\u2022'} </Text>
-                ) : null}
-                {detailDistanceMiles != null && detailDistanceText ? (
-                  <Text style={styles.identityMetaDistance}>{detailDistanceText}</Text>
-                ) : null}
-              </Text>
-            ) : null}
-            <CafeIdentityAddress cafe={cafe} onOpenMaps={() => void handleOpenGoogleMaps()} />
 
             {Platform.OS !== 'web' && hasValidCafeCoordinates(cafe) ? (
               <View style={styles.identityActionsRow}>
@@ -638,53 +787,45 @@ export default function CafeDetailScreen() {
             ) : null}
           </View>
 
-          {featureTags.length > 0 ? (
-            <>
-              <Text style={styles.sectionHeading}>Good for work</Text>
-              <View style={styles.featuresGrid}>
-                {featureTags.map((tag) => (
-                  <EditorialTag key={tag} tag={tag} variant="featured" />
-                ))}
-              </View>
-            </>
-          ) : null}
-
           {(() => {
             const facts = buildWorkspaceDetailFacts(cafe);
-            if (!facts.coffee && !facts.food) return null;
+            const qualityCoffee = Boolean(facts.coffee);
+            const qualityFood = Boolean(facts.food);
+            const filteredTags = sortWorkspaceHighlights(
+              filterTagsOverlappingQuality(featureTags, {
+                coffee: qualityCoffee,
+                food: qualityFood,
+              })
+            );
+            const hasTags = filteredTags.length > 0 || qualityCoffee || qualityFood;
+            if (!hasTags) return null;
             return (
-              <View style={styles.coffeeFoodSection}>
-                <Text style={styles.sectionHeading}>Coffee & food</Text>
-                {facts.coffee ? (
-                  <View style={styles.workspaceFactRow}>
-                    <Text style={styles.workspaceFactLabel}>Coffee</Text>
-                    <Text style={styles.workspaceFactValue}>{facts.coffee}</Text>
-                  </View>
-                ) : null}
-                {facts.food ? (
-                  <View style={styles.workspaceFactRow}>
-                    <Text style={styles.workspaceFactLabel}>Food</Text>
-                    <Text style={styles.workspaceFactValue}>{facts.food}</Text>
-                  </View>
-                ) : null}
+              <View style={styles.sectionBlock}>
+                <Text style={styles.sectionHeading}>Highlights</Text>
+                <View style={styles.featuresGrid}>
+                  {filteredTags.map((tag) => (
+                    <EditorialTag key={tag} tag={tag} variant="featured" />
+                  ))}
+                  {qualityCoffee ? (
+                    <View style={styles.qualityChip} accessibilityRole="text">
+                      <Ionicons name="cafe-outline" size={13} color={COLORS.text} />
+                      <Text style={styles.qualityChipText}>{facts.coffee} coffee</Text>
+                    </View>
+                  ) : null}
+                  {qualityFood ? (
+                    <View style={styles.qualityChip} accessibilityRole="text">
+                      <Ionicons name="restaurant-outline" size={13} color={COLORS.text} />
+                      <Text style={styles.qualityChipText}>{facts.food} food</Text>
+                    </View>
+                  ) : null}
+                </View>
               </View>
             );
           })()}
 
-          {cafe.short_description ? <View style={styles.identitySummaryDivider} /> : null}
-
-          {cafe.short_description ? (
-            <>
-              <Text style={styles.sectionHeading}>About</Text>
-              <Text style={styles.summaryText} numberOfLines={8}>
-                {cafe.short_description}
-              </Text>
-            </>
-          ) : null}
-
           {recentReviews.length > 0 ? (
             <View style={styles.reviewsSection}>
-              <Text style={styles.sectionHeading}>Community notes</Text>
+              <Text style={styles.sectionHeading}>What remote workers say</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -692,12 +833,10 @@ export default function CafeDetailScreen() {
               >
                 {recentReviews.map((review, index) => {
                   const reviewDate = formatReviewDate(review.createdAt);
-                  const ratingText =
-                    typeof review.rating === 'number' && Number.isFinite(review.rating)
-                      ? `${formatCoffeeRatingValue(review.rating)} ★`
-                      : null;
-                  const tagsText = review.tags.length > 0 ? review.tags.map((tag) => formatTagLabel(tag)).join(' · ') : null;
-                  const metaLine = [ratingText, tagsText].filter((part): part is string => Boolean(part)).join(' · ');
+                  const hasRating =
+                    typeof review.rating === 'number' && Number.isFinite(review.rating);
+                  const scoreText = hasRating ? formatCoffeeRatingValue(review.rating) : null;
+                  const tagsLine = formatReviewTagLine(review.tags);
                   return (
                     <View
                       key={`${review.createdAt ?? 'no-date'}-${index}`}
@@ -708,9 +847,14 @@ export default function CafeDetailScreen() {
                         {review.note}
                         {'\u201D'}
                       </Text>
-                      {metaLine.length > 0 ? (
-                        <Text style={styles.reviewMeta} numberOfLines={1}>
-                          {metaLine}
+                      {scoreText ? (
+                        <Text style={styles.reviewScoreLine} numberOfLines={1}>
+                          {reviewStarsLabel(review.rating!)} {scoreText}
+                        </Text>
+                      ) : null}
+                      {tagsLine ? (
+                        <Text style={styles.reviewMeta} numberOfLines={2}>
+                          {tagsLine}
                         </Text>
                       ) : null}
                       {reviewDate ? <Text style={styles.reviewDate}>{reviewDate}</Text> : null}
@@ -721,19 +865,38 @@ export default function CafeDetailScreen() {
             </View>
           ) : null}
 
-          {remainingTags.length > 0 ? (
-            <View style={styles.alsoGoodForSection}>
-              <Text style={styles.alsoGoodForHeading}>Also good for</Text>
-              <View style={styles.alsoGoodForTagsRow}>
-                {remainingTags.map((tag) => (
-                  <EditorialTag key={tag} tag={tag} variant="secondary" />
-                ))}
-              </View>
+          {cafe.short_description ? (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>About</Text>
+              <Text style={styles.summaryText} numberOfLines={8}>
+                {cafe.short_description}
+              </Text>
             </View>
           ) : null}
 
+          {(() => {
+            const facts = buildWorkspaceDetailFacts(cafe);
+            const alsoTags = sortWorkspaceHighlights(
+              filterTagsOverlappingQuality(remainingTags, {
+                coffee: Boolean(facts.coffee),
+                food: Boolean(facts.food),
+              })
+            );
+            if (alsoTags.length === 0) return null;
+            return (
+              <View style={styles.alsoGoodForSection}>
+                <Text style={styles.alsoGoodForHeading}>Also good for</Text>
+                <View style={styles.alsoGoodForTagsRow}>
+                  {alsoTags.map((tag) => (
+                    <EditorialTag key={tag} tag={tag} variant="secondary" />
+                  ))}
+                </View>
+              </View>
+            );
+          })()}
+
           <View style={styles.actionsWrap}>
-            {isSaved(cafe.id) ? (
+            {isSaved(cafe.id) && !mostRecentVisitId ? (
               <Text style={styles.savedVisitPromptText}>Worked here? Log this space</Text>
             ) : null}
             <ActionButton
@@ -744,7 +907,8 @@ export default function CafeDetailScreen() {
                     ? 'Log this space'
                     : 'Be the first to review'
               }
-              accentActive
+              accentActive={!mostRecentVisitId}
+              variant={mostRecentVisitId ? 'secondary' : 'primary'}
               onPress={() => {
                 const logPath = mostRecentVisitId
                   ? `/log-visit/${cafe.id}?visitId=${encodeURIComponent(mostRecentVisitId)}`
@@ -895,11 +1059,11 @@ const styles = StyleSheet.create({
   },
   mainPad: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 16,
+    paddingTop: 18,
+    gap: 18,
   },
   identityTextBlock: {
-    gap: 6,
+    gap: 8,
   },
   identityName: {
     fontSize: 28,
@@ -910,67 +1074,122 @@ const styles = StyleSheet.create({
   },
   identityVenueBadge: {
     marginTop: 0,
-    marginBottom: 2,
+    marginBottom: 0,
   },
-  identityPickBadge: {
-    marginBottom: 2,
+  identityMetaLine: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 2,
   },
-  identityWorkScore: {
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  workspaceFactsBlock: {
-    marginTop: 6,
-    marginBottom: 4,
-    gap: 6,
-  },
-  workspaceFactRow: {
+  identityScoreCol: {
+    flex: 1,
+    flexShrink: 1,
     gap: 2,
   },
-  workspaceFactLabel: {
+  identityMetaRow: {
+    flexShrink: 1,
+  },
+  basedOnReviews: {
     fontSize: 12,
     lineHeight: 16,
-    fontFamily: FONTS.sans.medium,
+    fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
     letterSpacing: -0.05,
   },
-  workspaceFactValue: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    letterSpacing: -0.2,
-  },
-  coffeeFoodSection: {
-    marginTop: 4,
+  snapshotBlock: {
+    marginTop: 6,
     gap: 8,
   },
-  identityMeta: {
-    fontSize: 15,
-    lineHeight: 22,
+  snapshotCard: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  snapshotRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    paddingVertical: 10,
+  },
+  snapshotRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.08)',
+  },
+  snapshotIcon: {
+    fontSize: 13,
+    lineHeight: 18,
+    width: 20,
+  },
+  snapshotLabel: {
+    flexShrink: 0,
+    fontSize: 13,
+    lineHeight: 18,
     fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
     letterSpacing: -0.1,
   },
-  identityMetaScore: {
+  snapshotLeader: {
+    flex: 1,
+    minWidth: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderStyle: 'dotted',
+    borderColor: 'rgba(0,0,0,0.22)',
+    marginHorizontal: 4,
+    marginBottom: 3,
+    alignSelf: 'flex-end',
+  },
+  snapshotValue: {
+    flexShrink: 1,
+    maxWidth: '48%',
+    textAlign: 'right',
+    fontSize: 14,
+    lineHeight: 18,
     fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
+    letterSpacing: -0.15,
   },
-  identityMetaDot: {
-    color: COLORS.muted,
+  qualityChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.22)',
+    backgroundColor: 'transparent',
   },
-  identityMetaDistance: {
+  qualityChipText: {
+    fontSize: 12,
+    lineHeight: 16,
     fontFamily: FONTS.sans.medium,
     color: COLORS.text,
-    opacity: 0.86,
-  },
-  identityAddress: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontFamily: FONTS.sans.regular,
-    color: 'rgba(103,94,83,0.82)',
     letterSpacing: -0.1,
-    flexShrink: 1,
+  },
+  sectionBlock: {
+    gap: 10,
+  },
+  identityAddressBlock: {
+    gap: 2,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  identityAddressMuted: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: FONTS.sans.regular,
+    color: 'rgba(103,94,83,0.72)',
+    letterSpacing: -0.1,
+  },
+  identityAddressDistanceMuted: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.regular,
+    color: 'rgba(103,94,83,0.62)',
+    letterSpacing: -0.05,
+    paddingLeft: 2,
   },
   identityAddressRow: {
     flexDirection: 'row',
@@ -1001,11 +1220,20 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   identityActionsRow: {
-    marginTop: 10,
+    marginTop: 6,
     gap: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
+  },
+  /** @deprecated kept for CompactActionButton shared styles below */
+  identityAddress: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: FONTS.sans.regular,
+    color: 'rgba(103,94,83,0.72)',
+    letterSpacing: -0.1,
+    flexShrink: 1,
   },
   compactActionButton: {
     flex: 1,
@@ -1033,10 +1261,10 @@ const styles = StyleSheet.create({
     color: COLORS.buttonLabelOnAccent,
   },
   identitySummaryDivider: {
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-    marginTop: 6,
-    marginBottom: 10,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    marginTop: 2,
+    marginBottom: 2,
   },
   summaryText: {
     color: COLORS.text,
@@ -1046,12 +1274,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.05,
   },
   sectionHeading: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    letterSpacing: 0.6,
+    color: COLORS.muted,
+    letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginTop: 4,
   },
   featuresEmpty: {
     fontSize: 14,
@@ -1063,7 +1290,7 @@ const styles = StyleSheet.create({
   featuresGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   reviewsSection: {
     gap: 10,
@@ -1083,33 +1310,40 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.cardBorder,
     backgroundColor: COLORS.cardBackground,
-    paddingTop: 7,
-    paddingBottom: 8,
-    paddingHorizontal: 11,
-    gap: 3,
+    paddingTop: 10,
+    paddingBottom: 10,
+    paddingHorizontal: 12,
+    gap: 4,
   },
   reviewText: {
     fontSize: 14,
-    lineHeight: 17,
+    lineHeight: 19,
     fontFamily: FONTS.sans.regular,
     color: COLORS.text,
     letterSpacing: -0.05,
   },
-  reviewMeta: {
-    marginTop: 2,
+  reviewScoreLine: {
+    marginTop: 4,
     fontSize: 12,
     lineHeight: 16,
-    fontFamily: FONTS.sans.medium,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.05,
+  },
+  reviewMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.regular,
     color: COLORS.muted,
     opacity: 0.92,
   },
   reviewDate: {
-    marginTop: -1,
+    marginTop: 1,
     fontSize: 11,
     lineHeight: 14,
     fontFamily: FONTS.sans.regular,
-    color: COLORS.accent,
-    opacity: 0.92,
+    color: COLORS.muted,
+    opacity: 0.85,
   },
   heroBackRow: {
     alignSelf: 'stretch',
@@ -1169,8 +1403,8 @@ const styles = StyleSheet.create({
     marginBottom: -2,
   },
   actionButton: {
-    borderRadius: 14,
-    paddingVertical: 15,
+    borderRadius: 12,
+    paddingVertical: 13,
     paddingHorizontal: 16,
     backgroundColor: COLORS.accent,
     borderWidth: 1,
@@ -1179,6 +1413,11 @@ const styles = StyleSheet.create({
   actionButtonAccent: {
     backgroundColor: COLORS.accent,
     borderColor: COLORS.accent,
+  },
+  actionButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(0,0,0,0.22)',
+    paddingVertical: 11,
   },
   actionButtonText: {
     color: COLORS.buttonLabelOnAccent,
@@ -1189,5 +1428,10 @@ const styles = StyleSheet.create({
   },
   actionButtonTextAccent: {
     color: COLORS.buttonLabelOnAccent,
+  },
+  actionButtonTextSecondary: {
+    color: COLORS.text,
+    fontSize: 14,
+    fontFamily: FONTS.sans.medium,
   },
 });

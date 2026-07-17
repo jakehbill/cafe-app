@@ -35,6 +35,7 @@ import {
 } from '@/lib/userCafeVisits';
 import { MAX_VISIT_PHOTOS, VISIT_PHOTO_MAX_MESSAGE } from '@/lib/visitPhotoLimits';
 import { pickVisitPhotoFromLibrary } from '@/lib/visitPhotoPicker';
+import { resolveSharePubliclyForUpload } from '@/lib/photoSharingPreference';
 import {
   COST_TO_WORK_OPTIONS,
   QUALITY_OPTIONS,
@@ -75,6 +76,7 @@ export default function LogVisitScreen() {
   const [note, setNote] = useState('');
   const [existingPhotoPreviews, setExistingPhotoPreviews] = useState<{ uri: string; key: string }[]>([]);
   const [newPhotoAssets, setNewPhotoAssets] = useState<VisitPhotoAsset[]>([]);
+  const [sharePublicly, setSharePublicly] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
@@ -83,6 +85,7 @@ export default function LogVisitScreen() {
   const [successState, setSuccessState] = useState<{
     movedFromSaved: boolean;
     hadPhoto: boolean;
+    sharedPublicly: boolean;
   } | null>(null);
 
   React.useEffect(() => {
@@ -204,7 +207,12 @@ export default function LogVisitScreen() {
         busyness: seatFinding,
         coffeeQuality,
         foodQuality,
-        photoAssets: newPhotoAssets,
+        photoAssets: newPhotoAssets.map((asset) => ({
+          ...asset,
+          sharePublicly: resolveSharePubliclyForUpload({
+            askEveryTimeChoice: sharePublicly,
+          }),
+        })),
       };
       const res = editingVisitId
         ? await updateUserCafeVisit(editingVisitId, payload)
@@ -218,7 +226,11 @@ export default function LogVisitScreen() {
       }
       const movedFromSaved = !editingVisitId && Boolean(targetCafeId) && isSaved(targetCafeId);
       if (!editingVisitId) {
-        setSuccessState({ movedFromSaved, hadPhoto: totalPhotoCount > 0 });
+        setSuccessState({
+          movedFromSaved,
+          hadPhoto: totalPhotoCount > 0,
+          sharedPublicly: sharePublicly && totalPhotoCount > 0,
+        });
       } else {
         router.replace('/my-cafes');
       }
@@ -306,7 +318,11 @@ export default function LogVisitScreen() {
                   Logged. Your Beaned progress has been updated.
                 </Text>
                 {successState.hadPhoto ? (
-                  <Text style={styles.successHintText}>Your photos have been submitted for review.</Text>
+                  <Text style={styles.successHintText}>
+                    {successState.sharedPublicly
+                      ? 'Shared photos were submitted for review.'
+                      : 'Your photos were saved privately in your workspace history.'}
+                  </Text>
                 ) : null}
                 {successState.movedFromSaved ? (
                   <Text style={styles.successHintText}>Moved to Spaces You&apos;ve Worked From</Text>
@@ -345,9 +361,7 @@ export default function LogVisitScreen() {
             {!successState ? (
               <View style={styles.titleBlock}>
                 <Text style={styles.pageTitle}>{editingVisitId ? 'Edit review' : 'Log workspace'}</Text>
-                <Text style={styles.pageSubtitle}>
-                  Quick taps — help someone decide if they should work here today.
-                </Text>
+                <Text style={styles.pageSubtitle}>Help yourself, help others.</Text>
               </View>
             ) : null}
 
@@ -409,21 +423,21 @@ export default function LogVisitScreen() {
             {!successState && canRenderVisitForm ? (
               <View style={styles.sectionCard}>
                 <Text style={styles.optionalEyebrow}>Optional</Text>
-                <Text style={styles.sectionTitle}>📶 Wi-Fi</Text>
-                <Text style={styles.sectionHint}>How reliable was it?</Text>
-                <OptionChipGroup
-                  options={WIFI_RELIABILITY_OPTIONS}
-                  value={wifiReliability}
-                  disabled={saving}
-                  onChange={(next) => setWifiReliability(next as WifiReliabilityValue | null)}
-                />
-                <Text style={[styles.sectionTitle, styles.quickFollowUp]}>👥 Finding a Seat</Text>
+                <Text style={styles.sectionTitle}>👥 Seat Availability</Text>
                 <Text style={styles.sectionHint}>How easy was it to find a seat?</Text>
                 <OptionChipGroup
                   options={SEAT_FINDING_OPTIONS}
                   value={seatFinding}
                   disabled={saving}
                   onChange={(next) => setSeatFinding(next as SeatFindingValue | null)}
+                />
+                <Text style={[styles.sectionTitle, styles.quickFollowUp]}>📶 Wi-Fi</Text>
+                <Text style={styles.sectionHint}>How reliable was it?</Text>
+                <OptionChipGroup
+                  options={WIFI_RELIABILITY_OPTIONS}
+                  value={wifiReliability}
+                  disabled={saving}
+                  onChange={(next) => setWifiReliability(next as WifiReliabilityValue | null)}
                 />
                 <Text style={[styles.sectionTitle, styles.quickFollowUp]}>💰 Cost to Work</Text>
                 <Text style={styles.sectionHint}>
@@ -452,7 +466,7 @@ export default function LogVisitScreen() {
                   onChange={(next) => setFoodQuality(next as QualityValue | null)}
                 />
                 <Text style={[styles.sectionTitle, styles.quickFollowUp]}>💬 Notes</Text>
-                <Text style={styles.sectionHint}>Anything other remote workers should know?</Text>
+                <Text style={styles.sectionHint}>Anything you want to remember about this workspace?</Text>
                 <TextInput
                   style={styles.notesInput}
                   placeholder="Noise, seating quirks, best hours…"
@@ -473,6 +487,8 @@ export default function LogVisitScreen() {
                 onPressRemove={handleRemovePhoto}
                 disabled={saving || loadingExisting}
                 error={error && totalPhotoCount >= MAX_VISIT_PHOTOS ? error : null}
+                sharePublicly={sharePublicly}
+                onSharePubliclyChange={setSharePublicly}
               />
             ) : null}
 

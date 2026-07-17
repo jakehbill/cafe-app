@@ -33,8 +33,8 @@ export const WIFI_RELIABILITY_OPTIONS = [
 export type WifiReliabilityValue = (typeof WIFI_RELIABILITY_OPTIONS)[number]['value'];
 
 /**
- * “How easy was it to find a seat?”
- * Stored in `user_cafe_visits.busyness` (column name unchanged).
+ * “How easy was it to find a seat?” (Seat Availability)
+ * Stored in `user_cafe_visits.busyness`.
  * Progresses Difficult → Plenty available (left → right).
  */
 export const SEAT_FINDING_OPTIONS = [
@@ -90,19 +90,19 @@ export function formatStayDurationLabel(value: string | null | undefined): strin
   return STAY_DURATION_OPTIONS.find((o) => o.value === v)?.label ?? null;
 }
 
-/** Community seat availability — friendly, not raw enum. */
+/** Community seat availability — friendly, decision-oriented. */
 export function formatSeatAvailabilityLabel(value: string | null | undefined): string | null {
   const v = String(value ?? '').trim();
   if (!isSeatFindingValue(v)) return null;
   switch (v) {
     case 'difficult':
-      return 'Usually busy';
+      return 'Usually hard to find a seat';
     case 'okay':
-      return 'Usually okay';
+      return 'Usually okay to find a seat';
     case 'easy':
-      return 'Usually easy';
+      return 'Usually easy to find a seat';
     case 'plenty':
-      return 'Usually plenty available';
+      return 'Usually easy to find a seat';
     default:
       return null;
   }

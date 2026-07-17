@@ -1,13 +1,8 @@
--- Canonical public coffee score per cafe (aggregated from user coffee ratings only).
--- Run in Supabase SQL Editor after `public.ratings` exists.
+-- DEPRECATED for launch: prefer supabase/launch_workspace_card_hydration.sql
+-- which rebuilds cafe_public_scores from user_cafe_visits.rating (product source of truth).
 --
--- Columns match what the app expects:
---   cafe_id              — text, matches public.cafes.id
---   public_coffee_score  — average of coffee_rating (1–5 scale)
---   coffee_rating_count  — number of ratings contributing to the average
---
--- security_invoker = false: aggregate all rows in public.ratings (RLS on ratings is per-user).
--- Without this, each user only sees their own rating in the average (always looks like 5.0).
+-- Legacy definition (ratings.coffee_rating) kept for reference only — do not re-run
+-- unless you intentionally want scores from public.ratings again.
 
 create or replace view public.cafe_public_scores
 with (security_invoker = false)
@@ -22,6 +17,6 @@ where coffee_rating is not null
 group by cafe_id;
 
 comment on view public.cafe_public_scores is
-  'Public coffee aggregate per cafe; coffee_rating only. Runs as view owner so averages include all users.';
+  'LEGACY: ratings-backed Work Score. Launch uses visit-backed view in launch_workspace_card_hydration.sql.';
 
 grant select on public.cafe_public_scores to anon, authenticated;

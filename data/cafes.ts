@@ -25,7 +25,7 @@ export type Cafe = {
    */
   isCertified: boolean;
   /**
-   * Coffee axis for internal ranking (~0–10), derived from `public.cafe_public_scores.public_coffee_score`
+   * Coffee axis for internal ranking (~0–10), derived from visit-backed public Work Score
    * after load — not from `cafes.coffee_score` / avg fallbacks. For visible coffee use `publicCoffeeScore`.
    */
   coffeeScore: number;

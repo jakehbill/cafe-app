@@ -58,6 +58,11 @@ export type SupabaseActionResult = { ok: true } | { ok: false; error: string };
 
 const topTagsCache = new Map<string, string[]>();
 
+/** Clear community tag popularity cache (call after a workspace review is saved). */
+export function clearTopTagsCache(): void {
+  topTagsCache.clear();
+}
+
 /**
  * Save a cafe for the current user (writes 1 row to `saves`).
  * Returns a simple success/failure result so UI can react.
@@ -277,19 +282,41 @@ async function getCafeTagsFromCatalogRow(cafeId: string, limit: number): Promise
 
 /**
  * Community tag usage for a café (full list, most frequent first).
- * Falls back to editorial `cafes.tags` when there are no ratings.
+ * Prefers `get_cafes_tag_popularity` (visit tags, SECURITY DEFINER).
+ * Falls back to `rating_tags` then editorial `cafes.tags`.
  */
 export async function getCafeTagPopularityOrdered(cafeId: string): Promise<string[]> {
   const cached = topTagsCache.get(cafeId);
   if (cached) return cached;
 
-  if (!isNumericCafeId(cafeId)) {
-    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
-    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+  const id = String(cafeId ?? '').trim();
+  if (!id) return [];
+
+  const visitTagsRpc = await supabase.rpc('get_cafes_tag_popularity', {
+    p_cafe_ids: [id],
+  });
+  if (!visitTagsRpc.error && Array.isArray(visitTagsRpc.data) && visitTagsRpc.data.length > 0) {
+    const sortedTags = (visitTagsRpc.data as { tag?: unknown; n?: unknown }[])
+      .map((row) => ({
+        tag: typeof row.tag === 'string' ? row.tag.trim() : '',
+        n: typeof row.n === 'number' && Number.isFinite(row.n) ? row.n : 0,
+      }))
+      .filter((row) => row.tag.length > 0)
+      .sort((a, b) => (b.n !== a.n ? b.n - a.n : a.tag.localeCompare(b.tag)))
+      .map((row) => row.tag);
+    if (sortedTags.length > 0) {
+      topTagsCache.set(id, sortedTags);
+      return sortedTags;
+    }
+  }
+
+  if (!isNumericCafeId(id)) {
+    const catalogTags = await getCafeTagsFromCatalogRow(id, 500);
+    if (catalogTags.length > 0) topTagsCache.set(id, catalogTags);
     return catalogTags;
   }
 
-  const numericCafeId = Number.parseInt(cafeId, 10);
+  const numericCafeId = Number.parseInt(id, 10);
 
   const ratingsRes = await supabase
     .from('ratings')
@@ -297,15 +324,15 @@ export async function getCafeTagPopularityOrdered(cafeId: string): Promise<strin
     .eq('cafe_id', numericCafeId);
   if (ratingsRes.error) {
     console.error('getCafeTagPopularityOrdered: ratings fetch failed:', ratingsRes.error);
-    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
-    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    const catalogTags = await getCafeTagsFromCatalogRow(id, 500);
+    if (catalogTags.length > 0) topTagsCache.set(id, catalogTags);
     return catalogTags;
   }
 
-  const ratingIds = (ratingsRes.data ?? []).map((row) => row.id).filter((id): id is number => typeof id === 'number');
+  const ratingIds = (ratingsRes.data ?? []).map((row) => row.id).filter((x): x is number => typeof x === 'number');
   if (ratingIds.length === 0) {
-    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
-    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    const catalogTags = await getCafeTagsFromCatalogRow(id, 500);
+    if (catalogTags.length > 0) topTagsCache.set(id, catalogTags);
     return catalogTags;
   }
 
@@ -315,8 +342,8 @@ export async function getCafeTagPopularityOrdered(cafeId: string): Promise<strin
     .in('rating_id', ratingIds);
   if (tagsRes.error) {
     console.error('getCafeTagPopularityOrdered: rating_tags fetch failed:', tagsRes.error);
-    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
-    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    const catalogTags = await getCafeTagsFromCatalogRow(id, 500);
+    if (catalogTags.length > 0) topTagsCache.set(id, catalogTags);
     return catalogTags;
   }
 
@@ -332,12 +359,12 @@ export async function getCafeTagPopularityOrdered(cafeId: string): Promise<strin
     .map(([tag]) => tag);
 
   if (sortedTags.length === 0) {
-    const catalogTags = await getCafeTagsFromCatalogRow(cafeId, 500);
-    if (catalogTags.length > 0) topTagsCache.set(cafeId, catalogTags);
+    const catalogTags = await getCafeTagsFromCatalogRow(id, 500);
+    if (catalogTags.length > 0) topTagsCache.set(id, catalogTags);
     return catalogTags;
   }
 
-  topTagsCache.set(cafeId, sortedTags);
+  topTagsCache.set(id, sortedTags);
   return sortedTags;
 }
 

@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -133,8 +134,14 @@ export default function SearchScreen() {
   const router = useRouter();
   const { requireAuth } = useRequireAuth();
   const { ratingsByCafeId, visitedCafeIds, savedCafeIds } = useCafeState();
-  const { cafes: cafeCatalog, loading: catalogLoading } = useCafeCatalog();
+  const { cafes: cafeCatalog, loading: catalogLoading, refetch: refetchCafeCatalog } = useCafeCatalog();
   const showCatalogSkeleton = catalogLoading && cafeCatalog.length === 0;
+
+  useFocusEffect(
+    useCallback(() => {
+      void refetchCafeCatalog();
+    }, [refetchCafeCatalog])
+  );
   const { coords: userLocation, refreshLocation, lastUpdatedAt } = useUserLocation();
   const immediateQueryRef = useRef('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');

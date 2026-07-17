@@ -1,6 +1,7 @@
 import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
 import { REVIEW_SCHEMA_VERSION } from '@/lib/reviewSchemaVersion';
+import { notifyCafeCatalogChanged } from '@/lib/cafeCatalogEvents';
 import { rateCafe, supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { uploadCafePhotoAssetToStorage } from '@/lib/cafePhotoSubmissions';
 import { MAX_VISIT_PHOTOS, type VisitPhotoAsset } from '@/lib/visitPhotoLimits';
@@ -14,11 +15,19 @@ import {
   type BusynessValue,
   type CostToWorkValue,
   type QualityValue,
+  type SeatFindingValue,
   type StayDurationValue,
   type WifiReliabilityValue,
 } from '@/lib/workReview';
 
 export type { VisitPhotoAsset } from '@/lib/visitPhotoLimits';
+
+/**
+ * Full workspace review select — requires `workspace_review_columns.sql` migration.
+ * Seat availability is stored in `busyness` (legacy column name).
+ */
+export const USER_CAFE_VISIT_SELECT =
+  'id, cafe_id, submission_id, created_at, updated_at, rating, tags, note, stay_duration, cost_to_work, wifi_reliability, busyness, coffee_quality, food_quality, is_public, hidden_from_bulletin, cafe_submissions(cafe_name,status)' as const;
 
 export type UserCafeVisit = {
   id: string;
@@ -33,13 +42,12 @@ export type UserCafeVisit = {
   stayDuration: StayDurationValue | null;
   costToWork: CostToWorkValue | null;
   wifiReliability: WifiReliabilityValue | null;
-  busyness: BusynessValue | null;
+  /** Seat availability — DB column `busyness`. */
+  busyness: SeatFindingValue | null;
   coffeeQuality: QualityValue | null;
   foodQuality: QualityValue | null;
   isPublic: boolean;
-  /** Primary visit photo (first by sort_order). */
   imageUrl: string | null;
-  /** All visit photos for diary / edit (sorted). */
   imageUrls: string[];
 };
 
@@ -52,7 +60,8 @@ type SaveVisitInput = {
   stayDuration?: StayDurationValue | null;
   costToWork?: CostToWorkValue | null;
   wifiReliability?: WifiReliabilityValue | null;
-  busyness?: BusynessValue | null;
+  /** Seat availability → `busyness`. */
+  busyness?: SeatFindingValue | null;
   coffeeQuality?: QualityValue | null;
   foodQuality?: QualityValue | null;
   photoAssets?: VisitPhotoAsset[];
@@ -144,6 +153,7 @@ async function persistVisitPhotoUploads(params: {
     .filter((asset) => String(asset.uri ?? '').trim())
     .slice(0, remaining);
   for (const asset of assets) {
+    const sharePublicly = asset.sharePublicly === true;
     const upload = await uploadCafePhotoAssetToStorage({
       userId: params.userId,
       cafeId: params.cafeId ?? `submission-${params.submissionId ?? 'unknown'}`,
@@ -157,9 +167,10 @@ async function persistVisitPhotoUploads(params: {
       visitId: params.visitId,
       userId: params.userId,
       storagePath: upload.storagePath,
+      sharePublicly,
     });
 
-    if (params.cafeId) {
+    if (sharePublicly && params.cafeId) {
       await queueVisitPhotoForModeration({
         visitId: params.visitId,
         userId: params.userId,
@@ -169,7 +180,7 @@ async function persistVisitPhotoUploads(params: {
       });
     }
 
-    if (params.submissionId) {
+    if (sharePublicly && params.submissionId) {
       await ensureSubmissionPhotoFromVisit({
         submissionId: params.submissionId,
         userId: params.userId,
@@ -183,6 +194,7 @@ async function insertVisitPhoto(params: {
   visitId: string;
   userId: string;
   storagePath: string;
+  sharePublicly: boolean;
 }) {
   const current = await supabase
     .from('visit_photos')
@@ -199,8 +211,9 @@ async function insertVisitPhoto(params: {
     user_id: params.userId,
     storage_path: params.storagePath,
     sort_order: nextSort,
-    is_public: false,
-    public_status: 'private',
+    share_publicly: params.sharePublicly,
+    is_public: params.sharePublicly,
+    public_status: params.sharePublicly ? 'pending' : 'private',
   });
   if (insertRes.error) {
     throw new Error(`Failed to save visit photo: ${insertRes.error.message}`);
@@ -292,6 +305,7 @@ async function queueVisitPhotoForModeration(params: {
     caption: params.note.length > 0 ? params.note.slice(0, 280) : null,
     source_visit_id: params.visitId,
     status: 'pending',
+    share_publicly: true,
   });
   if (insertRes.error) {
     throw new Error(`Failed to queue photo for cafe moderation: ${insertRes.error.message}`);
@@ -421,7 +435,6 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
       const rateRes = await rateCafe(cafeId, {
         coffee: rating,
         tags,
-        notes: note,
       });
       if (!rateRes.ok) {
         return {
@@ -442,6 +455,7 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
     return { ok: false, error: `Visit saved, but moderation routing failed: ${message}` };
   }
 
+  notifyCafeCatalogChanged();
   return { ok: true };
 }
 
@@ -506,9 +520,7 @@ export async function getUserCafeVisitById(visitId: string): Promise<UserCafeVis
   if (error || !data.user?.id) return null;
   const res = await supabase
     .from('user_cafe_visits')
-    .select(
-      'id, cafe_id, submission_id, created_at, rating, tags, note, stay_duration, cost_to_work, wifi_reliability, busyness, coffee_quality, food_quality, is_public, cafe_submissions(cafe_name,status)'
-    )
+    .select(USER_CAFE_VISIT_SELECT)
     .eq('id', key)
     .eq('user_id', data.user.id)
     .maybeSingle();
@@ -527,7 +539,7 @@ export async function updateUserCafeVisit(
     stayDuration?: StayDurationValue | null;
     costToWork?: CostToWorkValue | null;
     wifiReliability?: WifiReliabilityValue | null;
-    busyness?: BusynessValue | null;
+    busyness?: SeatFindingValue | null;
     coffeeQuality?: QualityValue | null;
     foodQuality?: QualityValue | null;
     photoAssets?: VisitPhotoAsset[];
@@ -624,7 +636,6 @@ export async function updateUserCafeVisit(
     const rateRes = await rateCafe(existing.cafeId, {
       coffee: nextRating,
       tags: nextTags,
-      notes: nextNote,
     });
     if (!rateRes.ok) {
       return {
@@ -634,6 +645,7 @@ export async function updateUserCafeVisit(
     }
   }
 
+  notifyCafeCatalogChanged();
   return { ok: true };
 }
 
@@ -644,6 +656,7 @@ export async function deleteUserCafeVisit(visitId: string): Promise<SupabaseActi
   await supabase.from('visit_photos').delete().eq('visit_id', key);
   const del = await supabase.from('user_cafe_visits').delete().eq('id', key);
   if (del.error) return { ok: false, error: del.error.message };
+  notifyCafeCatalogChanged();
   return { ok: true };
 }
 
@@ -653,9 +666,7 @@ export async function getUserCafeVisitTimeline(): Promise<UserCafeVisit[]> {
 
   const res = await supabase
     .from('user_cafe_visits')
-    .select(
-      'id, cafe_id, submission_id, created_at, rating, tags, note, stay_duration, cost_to_work, wifi_reliability, busyness, coffee_quality, food_quality, is_public, cafe_submissions(cafe_name,status)'
-    )
+    .select(USER_CAFE_VISIT_SELECT)
     .eq('user_id', data.user.id)
     .order('created_at', { ascending: false });
 
@@ -680,9 +691,7 @@ export async function getMostRecentUserVisitForCafe(cafeId: string): Promise<Use
 
   const res = await supabase
     .from('user_cafe_visits')
-    .select(
-      'id, cafe_id, submission_id, created_at, rating, tags, note, stay_duration, cost_to_work, wifi_reliability, busyness, coffee_quality, food_quality, is_public, cafe_submissions(cafe_name,status)'
-    )
+    .select(USER_CAFE_VISIT_SELECT)
     .eq('user_id', data.user.id)
     .eq('cafe_id', normalizedCafeId)
     .order('created_at', { ascending: false })
@@ -697,7 +706,7 @@ export async function getMostRecentUserVisitForCafe(cafeId: string): Promise<Use
 
 /**
  * Community “Cost to work” for detail — mode of `cost_to_work` on visits for this cafe.
- * Not part of Work Score. Prefers security-definer RPC when deployed.
+ * Prefers security-definer RPC when deployed (`workspace_review_columns.sql`).
  */
 export async function getCafeCostToWorkSummary(cafeId: string): Promise<string | null> {
   const id = String(cafeId ?? '').trim();
@@ -709,7 +718,6 @@ export async function getCafeCostToWorkSummary(cafeId: string): Promise<string |
     return formatCostToWorkDisplay(raw);
   }
 
-  // Fallback: own visits only (RLS) if RPC not deployed yet.
   const res = await supabase
     .from('user_cafe_visits')
     .select('cost_to_work')

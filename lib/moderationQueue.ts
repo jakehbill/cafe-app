@@ -216,6 +216,7 @@ export async function fetchPendingPhotoSubmissions(): Promise<PendingPhotoSubmis
     .from('cafe_photos')
     .select('id, created_at, cafe_id, storage_path, caption, cafes(name)')
     .eq('status', 'pending')
+    .eq('share_publicly', true)
     .order('created_at', { ascending: false });
 
   if (__DEV__ && pendingRes.error) {
@@ -532,8 +533,9 @@ export async function createCafeAndApproveSubmission(
   const visitPhotosRes = visitIds.length
     ? await supabase
         .from('visit_photos')
-        .select('visit_id, storage_path, sort_order, is_public, public_status')
+        .select('visit_id, storage_path, sort_order, is_public, public_status, share_publicly')
         .in('visit_id', visitIds)
+        .eq('share_publicly', true)
     : { data: [], error: null };
   const visitPhotosByVisitId = new Map<string, string[]>();
   const rows = (visitPhotosRes.data ?? []) as {
@@ -542,6 +544,7 @@ export async function createCafeAndApproveSubmission(
     sort_order: number | null;
     is_public: boolean | null;
     public_status: string | null;
+    share_publicly: boolean | null;
   }[];
   rows
     .sort((a, b) => {
@@ -568,6 +571,7 @@ export async function createCafeAndApproveSubmission(
       caption: String(visit.note ?? '').trim().slice(0, 280) || null,
       status: 'pending' as const,
       source_visit_id: String(visit.id),
+      share_publicly: true,
     }));
   }).filter((row) => row.user_id && row.storage_path && Number.isFinite(row.cafe_id));
   if (cafePhotoRows.length > 0) {

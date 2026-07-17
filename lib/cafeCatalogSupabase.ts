@@ -105,7 +105,8 @@ async function finalizeCatalogCafes(cafes: Cafe[]): Promise<Cafe[]> {
 
 /**
  * Work/vibe from `cafes` listing columns only. Coffee is not read from legacy cafe columns —
- * it comes solely from `public.cafe_public_scores` via `mergePublicIntoCafe` (`coffeeScore` for ranking).
+ * it comes from visit-backed public scores (`get_cafes_public_work_scores` / `cafe_public_scores`)
+ * via `mergePublicIntoCafe` (`coffeeScore` for ranking).
  */
 function scoreTriple(row: Record<string, unknown>): { coffee: number; work: number; vibe: number } {
   const w = num(row.work_score ?? row.workScore);
@@ -268,56 +269,77 @@ async function fetchPublicScoreRowForCafeBase(base: Cafe, raw: Record<string, un
   return pub;
 }
 
-/** Full map of `cafe_id` → public coffee stats (from `public.cafe_public_scores`). */
+function mapPublicScoreRows(rows: unknown[] | null | undefined): Map<string, CafePublicScoreRow> {
+  const map = new Map<string, CafePublicScoreRow>();
+  for (const row of rows ?? []) {
+    const parsed = parsePublicScoreRow(row);
+    if (parsed == null) continue;
+    const id = String((row as { cafe_id?: unknown }).cafe_id ?? '');
+    if (id.length === 0) continue;
+    map.set(id, parsed);
+  }
+  return map;
+}
+
+/**
+ * Prefer SECURITY DEFINER RPC (aggregates `user_cafe_visits.rating`).
+ * Fall back to `cafe_public_scores` view when the RPC is not deployed yet.
+ */
+async function fetchPublicScoresViaRpc(ids?: string[]): Promise<Map<string, CafePublicScoreRow> | null> {
+  const payload =
+    ids == null
+      ? { p_cafe_ids: null as string[] | null }
+      : { p_cafe_ids: ids };
+  const rpc = await supabase.rpc('get_cafes_public_work_scores', payload);
+  if (rpc.error) {
+    if (__DEV__) {
+      console.warn(
+        '[public scores] RPC unavailable — deploy supabase/launch_workspace_card_hydration.sql:',
+        rpc.error.message
+      );
+    }
+    return null;
+  }
+  return mapPublicScoreRows(rpc.data as unknown[]);
+}
+
+/** Full map of `cafe_id` → public Work Score stats (visit-backed). */
 export async function fetchCafePublicScoresMap(): Promise<Map<string, CafePublicScoreRow>> {
+  const fromRpc = await fetchPublicScoresViaRpc(undefined);
+  if (fromRpc) return fromRpc;
+
   const res = await supabase.from('cafe_public_scores').select('cafe_id, public_coffee_score, coffee_rating_count');
   if (res.error) {
     console.error('fetchCafePublicScoresMap failed:', res.error);
     return new Map();
   }
-  const map = new Map<string, CafePublicScoreRow>();
-  for (const row of res.data ?? []) {
-    const parsed = parsePublicScoreRow(row);
-    if (parsed == null) continue;
-    const id = String((row as { cafe_id?: unknown }).cafe_id ?? '');
-    if (id.length === 0) continue;
-    map.set(id, parsed);
-  }
-  return map;
+  return mapPublicScoreRows(res.data);
 }
 
 export async function fetchCafePublicScoresForIds(ids: string[]): Promise<Map<string, CafePublicScoreRow>> {
   if (ids.length === 0) return new Map();
+  const unique = Array.from(new Set(ids.map((id) => String(id ?? '').trim()).filter(Boolean)));
+  if (unique.length === 0) return new Map();
+
+  const fromRpc = await fetchPublicScoresViaRpc(unique);
+  if (fromRpc) return fromRpc;
+
   const res = await supabase
     .from('cafe_public_scores')
     .select('cafe_id, public_coffee_score, coffee_rating_count')
-    .in('cafe_id', ids);
+    .in('cafe_id', unique);
   if (res.error) {
     console.error('fetchCafePublicScoresForIds failed:', res.error);
     return new Map();
   }
-  const map = new Map<string, CafePublicScoreRow>();
-  for (const row of res.data ?? []) {
-    const parsed = parsePublicScoreRow(row);
-    if (parsed == null) continue;
-    const id = String((row as { cafe_id?: unknown }).cafe_id ?? '');
-    if (id.length === 0) continue;
-    map.set(id, parsed);
-  }
-  return map;
+  return mapPublicScoreRows(res.data);
 }
 
 export async function fetchCafePublicScoreForId(id: string): Promise<CafePublicScoreRow | null> {
-  const res = await supabase
-    .from('cafe_public_scores')
-    .select('cafe_id, public_coffee_score, coffee_rating_count')
-    .eq('cafe_id', id)
-    .maybeSingle();
-  if (res.error) {
-    console.error('fetchCafePublicScoreForId failed:', res.error);
-    return null;
-  }
-  return parsePublicScoreRow(res.data ?? null);
+  const key = String(id ?? '').trim();
+  if (!key) return null;
+  const map = await fetchCafePublicScoresForIds([key]);
+  return map.get(key) ?? null;
 }
 
 /**

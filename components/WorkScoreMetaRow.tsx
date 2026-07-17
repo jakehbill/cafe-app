@@ -13,11 +13,13 @@ type Props = {
   distance?: string | null;
   /** Dark hero overlays on homepage cards. */
   tone?: 'default' | 'onDark';
+  /** `detail` = cafe page identity line; slightly larger than list cards. */
+  size?: 'card' | 'detail';
   style?: StyleProp<TextStyle>;
 };
 
 /**
- * Compact card metadata: `★ 9.4 • Soho` or `★ New • Soho`.
+ * Compact metadata: `★ 9.4 • Soho` or `★ New • Soho`.
  * Numeric Work Score only — no qualitative labels.
  */
 export function WorkScoreMetaRow({
@@ -25,6 +27,7 @@ export function WorkScoreMetaRow({
   area,
   distance,
   tone = 'default',
+  size = 'card',
   style,
 }: Props) {
   const hasScore = cafeHasPublicWorkScore(cafe);
@@ -32,6 +35,7 @@ export function WorkScoreMetaRow({
   const areaText = String(area ?? '').trim();
   const distanceText = String(distance ?? '').trim();
   const onDark = tone === 'onDark';
+  const isDetail = size === 'detail';
 
   const a11yParts = [
     hasScore ? `Work Score ${scoreText} out of 10` : 'New space, no Work Score yet',
@@ -43,21 +47,34 @@ export function WorkScoreMetaRow({
     <Text
       accessibilityLabel={a11yParts.join(', ')}
       accessibilityRole="text"
-      style={[styles.row, onDark && styles.rowOnDark, style]}
+      style={[styles.row, isDetail && styles.rowDetail, onDark && styles.rowOnDark, style]}
       numberOfLines={1}
     >
-      <Text style={[styles.star, onDark && styles.starOnDark]}>★</Text>
-      <Text style={[styles.score, onDark && styles.scoreOnDark]}> {scoreText}</Text>
+      <Text style={[styles.star, isDetail && styles.starDetail, onDark && styles.starOnDark]}>★</Text>
+      <Text style={[styles.score, isDetail && styles.scoreDetail, onDark && styles.scoreOnDark]}>
+        {' '}
+        {scoreText}
+      </Text>
       {areaText ? (
         <>
-          <Text style={[styles.dot, onDark && styles.dotOnDark]}> {'\u2022'} </Text>
-          <Text style={[styles.meta, onDark && styles.metaOnDark]}>{areaText}</Text>
+          <Text style={[styles.dot, isDetail && styles.dotDetail, onDark && styles.dotOnDark]}>
+            {' '}
+            {'\u2022'}{' '}
+          </Text>
+          <Text style={[styles.meta, isDetail && styles.metaDetail, onDark && styles.metaOnDark]}>
+            {areaText}
+          </Text>
         </>
       ) : null}
       {distanceText ? (
         <>
-          <Text style={[styles.dot, onDark && styles.dotOnDark]}> {'\u2022'} </Text>
-          <Text style={[styles.meta, onDark && styles.metaOnDark]}>{distanceText}</Text>
+          <Text style={[styles.dot, isDetail && styles.dotDetail, onDark && styles.dotOnDark]}>
+            {' '}
+            {'\u2022'}{' '}
+          </Text>
+          <Text style={[styles.meta, isDetail && styles.metaDetail, onDark && styles.metaOnDark]}>
+            {distanceText}
+          </Text>
         </>
       ) : null}
     </Text>
@@ -73,6 +90,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.05,
     opacity: 0.88,
   },
+  rowDetail: {
+    fontSize: 15,
+    lineHeight: 20,
+    opacity: 1,
+  },
   rowOnDark: {
     color: 'rgba(250,248,245,0.82)',
     opacity: 1,
@@ -87,6 +109,10 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     opacity: 1,
   },
+  starDetail: {
+    fontSize: 12,
+    lineHeight: 20,
+  },
   starOnDark: {
     color: '#FFFFFF',
   },
@@ -96,6 +122,12 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     color: COLORS.text,
     letterSpacing: -0.05,
+  },
+  scoreDetail: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.medium,
+    letterSpacing: -0.2,
   },
   scoreOnDark: {
     color: '#FFFFFF',
@@ -107,12 +139,20 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     letterSpacing: -0.05,
   },
+  metaDetail: {
+    fontSize: 15,
+    lineHeight: 20,
+    letterSpacing: -0.15,
+  },
   metaOnDark: {
     color: 'rgba(250,248,245,0.82)',
   },
   dot: {
     color: COLORS.muted,
     opacity: 0.7,
+  },
+  dotDetail: {
+    opacity: 0.55,
   },
   dotOnDark: {
     color: 'rgba(250,248,245,0.55)',

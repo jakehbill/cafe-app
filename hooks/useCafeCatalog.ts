@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { Cafe } from '@/data/cafes';
+import { subscribeCafeCatalogInvalidation } from '@/lib/cafeCatalogEvents';
 import { fetchAllCafesFromSupabase } from '@/lib/cafeCatalogSupabase';
 
 export type UseCafeCatalogOptions = {
@@ -14,6 +15,7 @@ export type UseCafeCatalogOptions = {
 /**
  * Loads the cafe catalog from Supabase once on mount.
  * Always restricted to `status = 'active'`. Optionally certified-only for Home.
+ * Refetches when a workspace review notifies catalog invalidation.
  */
 export function useCafeCatalog(options: UseCafeCatalogOptions = {}) {
   const certifiedOnly = options.certifiedOnly === true;
@@ -79,6 +81,12 @@ export function useCafeCatalog(options: UseCafeCatalogOptions = {}) {
       cancelled = true;
     };
   }, [certifiedOnly]);
+
+  useEffect(() => {
+    return subscribeCafeCatalogInvalidation(() => {
+      void loadCatalog();
+    });
+  }, [loadCatalog]);
 
   const byId = useMemo(() => {
     const next: Record<string, Cafe> = {};

@@ -99,6 +99,7 @@ export default function RateCafeScreen() {
   const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [visitPhotoPreviewUri, setVisitPhotoPreviewUri] = useState<string | null>(null);
+  const [sharePublicly, setSharePublicly] = useState(false);
   const scrollRef = React.useRef<ScrollView>(null);
   const [notesSectionY, setNotesSectionY] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -202,6 +203,10 @@ export default function RateCafeScreen() {
     setVisitPhotoPreviewUri(asset.uri);
     setPhotoUploading(true);
     try {
+      if (!sharePublicly) {
+        setPhotoSuccess('Photo kept private on this screen. Turn on sharing to submit it for the public gallery.');
+        return;
+      }
       const uploadResult = await submitCafePhoto({
         cafeId: targetCafeId,
         asset: {
@@ -214,7 +219,7 @@ export default function RateCafeScreen() {
         setPhotoError(uploadResult.error);
         return;
       }
-      setPhotoSuccess('Your visit photo was submitted for review.');
+      setPhotoSuccess('Your photo was submitted for review.');
     } finally {
       setPhotoUploading(false);
     }
@@ -357,6 +362,8 @@ export default function RateCafeScreen() {
           disabled={submitting || submitted}
           error={photoError}
           success={photoSuccess}
+          sharePublicly={sharePublicly}
+          onSharePubliclyChange={setSharePublicly}
         />
 
         <View style={styles.sectionCard}>

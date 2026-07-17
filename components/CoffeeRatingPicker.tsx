@@ -1,10 +1,17 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import Slider from '@react-native-community/slider';
 
 import { COLORS, FONTS } from '@/components/theme';
-import { COFFEE_RATING_MAX, quantizeCoffeeRatingForStorage } from '@/lib/coffeeRating';
+import {
+  COFFEE_RATING_MAX,
+  COFFEE_RATING_MIN,
+  COFFEE_RATING_STEP,
+  quantizeCoffeeRatingForStorage,
+} from '@/lib/coffeeRating';
 
-const RATING_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+/** Visual resting position before the user sets a score (does not count as rated). */
+const SLIDER_UNSET_POSITION = 7;
 
 export type CoffeeRatingPickerProps = {
   value: number | null;
@@ -20,48 +27,80 @@ export function CoffeeRatingPicker({
   value,
   onChange,
   onClear,
-  title = '💼 Overall Work Score',
-  helperText = 'How likely are you to recommend this workspace to a friend?',
+  title = 'Work Score',
+  helperText = 'How good was this place to work from?',
   showClear = false,
   disabled = false,
 }: CoffeeRatingPickerProps) {
   const selected =
     value != null && Number.isFinite(value) ? quantizeCoffeeRatingForStorage(value) : null;
+  const [sliderWidth, setSliderWidth] = useState(0);
+
+  const sliderValue = selected ?? SLIDER_UNSET_POSITION;
+
+  const a11yValue = useMemo(
+    () =>
+      selected != null
+        ? `${selected} out of ${COFFEE_RATING_MAX}`
+        : `Not set. Drag to choose a score from ${COFFEE_RATING_MIN} to ${COFFEE_RATING_MAX}`,
+    [selected]
+  );
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{title}</Text>
       {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
-      <View style={styles.rows} accessibilityRole="radiogroup">
-        {[RATING_OPTIONS.slice(0, 5), RATING_OPTIONS.slice(5)].map((row, rowIndex) => (
-          <View key={`row-${rowIndex}`} style={styles.row}>
-            {row.map((option) => {
-              const isSelected = selected === option;
-              return (
-                <Pressable
-                  key={option}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: isSelected, disabled }}
-                  accessibilityLabel={`${option} out of ${COFFEE_RATING_MAX}`}
-                  disabled={disabled}
-                  onPress={() => onChange(option)}
-                  style={({ pressed, hovered }) => [
-                    styles.pill,
-                    isSelected && styles.pillSelected,
-                    !disabled && pressed && styles.pillPressed,
-                    !disabled && hovered && !isSelected && styles.pillHovered,
-                    disabled && styles.pillDisabled,
-                  ]}
-                >
-                  <Text style={[styles.pillLabel, isSelected && styles.pillLabelSelected]}>
-                    {option}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ))}
+
+      <View style={styles.sliderBlock}>
+        <View style={styles.valueRow}>
+          <Text
+            accessibilityRole="text"
+            accessibilityLabel={a11yValue}
+            style={[styles.value, selected == null && styles.valueUnset]}
+          >
+            {selected != null ? String(selected) : '—'}
+          </Text>
+          <Text style={styles.valueScale}>/ {COFFEE_RATING_MAX}</Text>
+        </View>
+
+        <View
+          style={styles.sliderHit}
+          onLayout={(e) => {
+            const w = e.nativeEvent.layout.width;
+            setSliderWidth((prev) => (prev === w ? prev : w));
+          }}
+        >
+          <Slider
+            style={[styles.slider, sliderWidth > 0 ? { width: sliderWidth } : null]}
+            minimumValue={COFFEE_RATING_MIN}
+            maximumValue={COFFEE_RATING_MAX}
+            step={COFFEE_RATING_STEP}
+            value={sliderValue}
+            disabled={disabled}
+            onValueChange={(next) => {
+              if (disabled) return;
+              onChange(quantizeCoffeeRatingForStorage(next));
+            }}
+            minimumTrackTintColor={COLORS.accent}
+            maximumTrackTintColor={COLORS.cardBorder}
+            thumbTintColor={COLORS.accent}
+            accessibilityLabel="Work Score"
+            accessibilityValue={{
+              min: COFFEE_RATING_MIN,
+              max: COFFEE_RATING_MAX,
+              now: selected ?? undefined,
+              text: a11yValue,
+            }}
+            {...(Platform.OS === 'ios' ? { tapToSeek: true } : null)}
+          />
+        </View>
+
+        <View style={styles.endsRow} pointerEvents="none">
+          <Text style={styles.endLabel}>{COFFEE_RATING_MIN}</Text>
+          <Text style={styles.endLabel}>{COFFEE_RATING_MAX}</Text>
+        </View>
       </View>
+
       {showClear && onClear ? (
         <Pressable
           accessibilityRole="button"
@@ -97,49 +136,56 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     marginTop: -4,
   },
-  rows: {
-    gap: 8,
-    marginTop: 2,
+  sliderBlock: {
+    gap: 6,
+    marginTop: 4,
   },
-  row: {
+  valueRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'baseline',
+    gap: 6,
   },
-  pill: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.cardBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
+  value: {
+    fontSize: 36,
+    lineHeight: 40,
+    fontFamily: FONTS.sans.bold,
+    color: COLORS.text,
+    letterSpacing: -0.6,
+    minWidth: 36,
   },
-  pillHovered: {
-    borderColor: COLORS.accentSubtleBorder,
-    backgroundColor: COLORS.inputBackground,
-  },
-  pillPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
-  },
-  pillSelected: {
-    borderColor: COLORS.accent,
-    backgroundColor: COLORS.accent,
-  },
-  pillDisabled: {
+  valueUnset: {
+    color: COLORS.muted,
     opacity: 0.55,
   },
-  pillLabel: {
+  valueScale: {
     fontSize: 15,
+    lineHeight: 20,
     fontFamily: FONTS.sans.medium,
     color: COLORS.muted,
-    letterSpacing: -0.2,
   },
-  pillLabelSelected: {
-    fontFamily: FONTS.sans.bold,
-    color: COLORS.buttonLabelOnAccent,
+  sliderHit: {
+    width: '100%',
+    justifyContent: 'center',
+    // Larger vertical hit target for comfortable mobile dragging
+    paddingVertical: Platform.OS === 'web' ? 8 : 12,
+    marginVertical: -4,
+  },
+  slider: {
+    width: '100%',
+    height: Platform.OS === 'ios' ? 40 : 44,
+  },
+  endsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: -2,
+    paddingHorizontal: 2,
+  },
+  endLabel: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    opacity: 0.85,
   },
   clearHit: {
     alignSelf: 'flex-start',

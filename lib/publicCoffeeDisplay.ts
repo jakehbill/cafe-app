@@ -1,8 +1,7 @@
 import type { Cafe } from '@/data/cafes';
 
 /**
- * Normalize `public_coffee_score` from `cafe_public_scores` to a 0–10 Work Score average.
- * After Sprint 4 / schema v2, `ratings.coffee_rating` is 1–10.
+ * Normalize `public_coffee_score` (visit-backed public aggregate) to a 0–10 Work Score.
  * Does not invent scores when a space has never been reviewed.
  */
 export function rawPublicCoffeeToOutOf5(raw: number | null | undefined): number | null {

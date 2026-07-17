@@ -205,6 +205,7 @@ export async function submitCafePhoto(input: {
       image_url: null,
       caption: input.caption?.trim() || null,
       status: 'pending',
+      share_publicly: true,
     });
 
     if (insertRes.error) {
@@ -360,7 +361,8 @@ export async function getApprovedCafePhotoUrls(cafeId: string): Promise<string[]
     .from('cafe_photos')
     .select('image_url, storage_path, sort_order, is_primary, created_at')
     .eq('cafe_id', parseCafeIdForPhotoQuery(normalizedCafeId))
-    .eq('status', 'approved');
+    .eq('status', 'approved')
+    .eq('share_publicly', true);
 
   if (res.error) {
     console.error('[getApprovedCafePhotoUrls] select failed:', res.error.message, {
@@ -398,6 +400,7 @@ export async function fetchApprovedCafePhotoUrlsByCafeIds(
         .select('cafe_id, image_url, storage_path, sort_order, is_primary, created_at')
         .in('cafe_id', numericKeys)
         .eq('status', 'approved')
+        .eq('share_publicly', true)
     );
   }
   if (keys.some((id) => !Number.isFinite(Number(id)))) {
@@ -407,6 +410,7 @@ export async function fetchApprovedCafePhotoUrlsByCafeIds(
         .select('cafe_id, image_url, storage_path, sort_order, is_primary, created_at')
         .in('cafe_id', keys)
         .eq('status', 'approved')
+        .eq('share_publicly', true)
     );
   }
 

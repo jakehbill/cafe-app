@@ -52,6 +52,7 @@ import { resolveSuggestCafeBackPath } from '@/lib/authGate';
 import { VisitPhotosSection } from '@/components/visit/VisitPhotosSection';
 import { saveUserCafeVisit, type VisitPhotoAsset } from '@/lib/userCafeVisits';
 import { MAX_VISIT_PHOTOS, VISIT_PHOTO_MAX_MESSAGE } from '@/lib/visitPhotoLimits';
+import { resolveSharePubliclyForUpload } from '@/lib/photoSharingPreference';
 import { pickVisitPhotoFromLibrary } from '@/lib/visitPhotoPicker';
 import type { VenueTypeValue } from '@/lib/venueTypes';
 
@@ -154,6 +155,7 @@ export default function SuggestCafeScreen() {
         ]
       : []
   );
+  const [shareVisitPhotosPublicly, setShareVisitPhotosPublicly] = useState(false);
   const [visitPhotoError, setVisitPhotoError] = useState<string | null>(null);
   const [visitFlowStep, setVisitFlowStep] = useState<1 | 2>(1);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -319,6 +321,7 @@ export default function SuggestCafeScreen() {
     setVenueTypeError(null);
     setSelectedPhotos([null, null, null]);
     setVisitPhotoAssets([]);
+    setShareVisitPhotosPublicly(false);
     setVisitPhotoError(null);
     if (!fromVisitLog) {
       resetPublicSuggest();
@@ -483,7 +486,12 @@ export default function SuggestCafeScreen() {
           rating: visitRating,
           tags: visitTags,
           note: visitNote,
-          photoAssets: visitPhotoAssets,
+          photoAssets: visitPhotoAssets.map((asset) => ({
+            ...asset,
+            sharePublicly: resolveSharePubliclyForUpload({
+              askEveryTimeChoice: shareVisitPhotosPublicly,
+            }),
+          })),
         });
         if (!linkedVisit.ok) {
           setSubmitError(linkedVisit.error);
@@ -492,7 +500,7 @@ export default function SuggestCafeScreen() {
         setSuccessMessage('Visit saved');
         setVisitLogSuccessState({
           hadPhoto: visitPhotoAssets.length > 0,
-          pendingReview: false,
+          pendingReview: shareVisitPhotosPublicly && visitPhotoAssets.length > 0,
         });
         resetForm();
       } finally {
@@ -635,7 +643,12 @@ export default function SuggestCafeScreen() {
         rating: visitRating,
         tags: visitTags,
         note: visitNote,
-        photoAssets: visitPhotoAssets,
+        photoAssets: visitPhotoAssets.map((asset) => ({
+          ...asset,
+          sharePublicly: resolveSharePubliclyForUpload({
+            askEveryTimeChoice: shareVisitPhotosPublicly,
+          }),
+        })),
       });
       if (!linkedVisit.ok) {
         setSuccessMessage(
@@ -647,7 +660,7 @@ export default function SuggestCafeScreen() {
       setSuccessMessage('Visit saved');
       setVisitLogSuccessState({
         hadPhoto: visitPhotoAssets.length > 0,
-        pendingReview: true,
+        pendingReview: shareVisitPhotosPublicly && visitPhotoAssets.length > 0,
       });
       resetForm();
       const rows = await getMyCafeSubmissions(6);
@@ -717,6 +730,8 @@ export default function SuggestCafeScreen() {
                     }}
                     disabled={submitting || redirecting}
                     error={visitPhotoError}
+                    sharePublicly={shareVisitPhotosPublicly}
+                    onSharePubliclyChange={setShareVisitPhotosPublicly}
                   />
 
                   <CoffeeRatingPicker
