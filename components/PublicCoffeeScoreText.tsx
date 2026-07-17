@@ -36,8 +36,21 @@ export function PublicCoffeeScoreText({
   variant = 'default',
   presentation = 'badge',
 }: Props) {
-  const publicCoffeeLabel = formatPublicCoffeeForCafe(cafe);
+  const publicCoffeeLabel = formatPublicCoffeeForCafe(cafe).trim();
   const size = VARIANT_TO_SIZE[variant];
+
+  if (!publicCoffeeLabel) {
+    if (presentation === 'text') {
+      return (
+        <CoffeeScoreBadge
+          scoreLabel="No Work Score yet"
+          variant="text"
+          accessibilityLabel="No Work Score yet"
+        />
+      );
+    }
+    return null;
+  }
 
   return (
     <CoffeeScoreBadge

@@ -5,7 +5,6 @@ import { isCafePubliclyVisible } from '@/lib/cafeCuration';
 import { CAFE_PLACEHOLDER_IMAGE_URL } from '@/lib/cafeLiveImages';
 import {
   rawPublicCoffeeToOutOf5,
-  UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE,
 } from '@/lib/publicCoffeeDisplay';
 import {
   fetchApprovedCafePhotoUrlsByCafeIds,
@@ -135,14 +134,14 @@ export async function fetchCuratedLandingCafes(pageSlug: string): Promise<Cafe[]
   return picks.map((pick) => pick.cafe);
 }
 
-/** Sort key for public landing lists — real `cafe_public_scores` average, else UI baseline 4.0. */
+/** Sort key for public landing lists — real `cafe_public_scores` average, else 0 (unrated). */
 export function publicLandingRatingSortKey(cafe: Cafe): number {
   const ratingCount = Math.max(0, Math.floor(cafe.coffeeRatingCount ?? 0));
   if (ratingCount > 0) {
     const normalized = rawPublicCoffeeToOutOf5(cafe.publicCoffeeScore);
     if (normalized != null) return normalized;
   }
-  return UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE;
+  return 0;
 }
 
 /**

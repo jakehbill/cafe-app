@@ -728,61 +728,67 @@ export default function HomeScreen() {
             )}
           </View>
 
-          {!showCatalogSkeleton && noticeBoardRows.length > 0 ? (
+          {!showCatalogSkeleton ? (
             <View style={styles.homeSection}>
               <View style={styles.homeSectionHeader}>
                 <Text style={styles.secondarySectionTitle}>Beaned Bulletin</Text>
                 <Text style={styles.secondarySectionSubtitle}>Recent notes from the community</Text>
               </View>
-              <View style={styles.noticeBoardList}>
-                {noticeBoardRows.map((row) => {
-                  const cafeTarget = row.cafeId ?? row.cafeSlug;
-                  return (
-                    <Pressable
-                      key={row.visitId ?? `${row.cafeId ?? 'pending'}-${row.createdAt}`}
-                      accessibilityRole={cafeTarget ? 'button' : undefined}
-                      accessibilityLabel={cafeTarget ? `Open ${row.cafeName}` : row.cafeName}
-                      onPress={cafeTarget ? () => router.push(`/cafe/${cafeTarget}`) : undefined}
-                      disabled={!cafeTarget}
-                      style={({ pressed }) => [styles.noticeCard, pressed && styles.noticeCardPressed]}
-                    >
-                      <CafeImage
-                        uri={row.thumbnailUrl}
-                        style={styles.noticeThumb}
-                        displayWidth={112}
-                        displayHeight={112}
-                        priority="low"
-                      />
-                      <View style={styles.noticeContent}>
-                        {canHideBulletin && row.visitId ? (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Hide from Bulletin"
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              const vid = row.visitId?.trim();
-                              if (vid) void hideBulletinItem(vid);
-                            }}
-                            hitSlop={10}
-                            style={styles.noticeHideButton}
-                          >
-                            <Text style={styles.noticeHideButtonText}>×</Text>
-                          </Pressable>
-                        ) : null}
-                        <Text style={styles.noticeQuote} numberOfLines={4}>
-                          {'\u201C'}
-                          {row.note}
-                          {'\u201D'}
-                        </Text>
-                        <Text style={styles.noticeCafeMeta} numberOfLines={1}>
-                          {row.cafeName}
-                          {row.cafeArea ? ` \u00B7 ${row.cafeArea}` : ''}
-                        </Text>
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              {noticeBoardRows.length > 0 ? (
+                <View style={styles.noticeBoardList}>
+                  {noticeBoardRows.map((row) => {
+                    const cafeTarget = row.cafeId ?? row.cafeSlug;
+                    return (
+                      <Pressable
+                        key={row.visitId ?? `${row.cafeId ?? 'pending'}-${row.createdAt}`}
+                        accessibilityRole={cafeTarget ? 'button' : undefined}
+                        accessibilityLabel={cafeTarget ? `Open ${row.cafeName}` : row.cafeName}
+                        onPress={cafeTarget ? () => router.push(`/cafe/${cafeTarget}`) : undefined}
+                        disabled={!cafeTarget}
+                        style={({ pressed }) => [styles.noticeCard, pressed && styles.noticeCardPressed]}
+                      >
+                        <CafeImage
+                          uri={row.thumbnailUrl}
+                          style={styles.noticeThumb}
+                          displayWidth={112}
+                          displayHeight={112}
+                          priority="low"
+                        />
+                        <View style={styles.noticeContent}>
+                          {canHideBulletin && row.visitId ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel="Hide from Bulletin"
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                const vid = row.visitId?.trim();
+                                if (vid) void hideBulletinItem(vid);
+                              }}
+                              hitSlop={10}
+                              style={styles.noticeHideButton}
+                            >
+                              <Text style={styles.noticeHideButtonText}>×</Text>
+                            </Pressable>
+                          ) : null}
+                          <Text style={styles.noticeQuote} numberOfLines={4}>
+                            {'\u201C'}
+                            {row.note}
+                            {'\u201D'}
+                          </Text>
+                          <Text style={styles.noticeCafeMeta} numberOfLines={1}>
+                            {row.cafeName}
+                            {row.cafeArea ? ` \u00B7 ${row.cafeArea}` : ''}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : (
+                <View style={styles.noticeEmptyCard} accessibilityRole="text">
+                  <Text style={styles.noticeEmptyText}>Be the first to share a tip</Text>
+                </View>
+              )}
             </View>
           ) : null}
         </View>
@@ -1077,6 +1083,21 @@ const styles = StyleSheet.create({
   },
   noticeBoardList: {
     gap: 10,
+  },
+  noticeEmptyCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    backgroundColor: COLORS.cardBackground,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+  },
+  noticeEmptyText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    letterSpacing: -0.1,
   },
   noticeCard: {
     borderRadius: 14,

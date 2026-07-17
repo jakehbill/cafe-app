@@ -19,13 +19,13 @@ type CafeCardProps = {
 export function CafeCard({
   cafeName = 'Moss & Co. Coffee',
   neighborhood = 'Downtown • Elm Street',
-  publicCoffeeScore = 4.3,
-  coffeeRatingCount = 1,
-  tags = ['Specialty', 'Fast Wi‑Fi', 'Quiet corners'],
+  publicCoffeeScore = null,
+  coffeeRatingCount = 0,
+  tags = [],
   summary = 'Cozy light-filled seating with consistently great pour-overs.',
   onPress,
 }: CafeCardProps) {
-  const coffeeLabel = formatPublicCoffeeOutOf5(publicCoffeeScore, coffeeRatingCount);
+  const coffeeLabel = formatPublicCoffeeOutOf5(publicCoffeeScore, coffeeRatingCount).trim();
 
   return (
     <TouchableOpacity activeOpacity={0.92} style={styles.featuredCard} onPress={onPress}>
@@ -37,7 +37,11 @@ export function CafeCard({
           <Text style={styles.neighborhoodText}>{neighborhood}</Text>
         </View>
 
-        <CoffeeScoreBadge scoreLabel={coffeeLabel} size="medium" />
+        {coffeeLabel ? (
+          <CoffeeScoreBadge scoreLabel={coffeeLabel} size="medium" />
+        ) : (
+          <Text style={styles.emptyScore}>No Work Score yet</Text>
+        )}
 
         <View style={styles.tagsRow}>
           {tags.slice(0, 5).map((tag) => (
@@ -86,6 +90,12 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     lineHeight: 28,
     letterSpacing: -0.3,
+  },
+  emptyScore: {
+    fontSize: 14,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+    letterSpacing: -0.1,
   },
   neighborhoodText: {
     fontSize: 13,

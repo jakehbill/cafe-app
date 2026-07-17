@@ -24,7 +24,7 @@ const BADGE_BORDER_WIDTH = 1.5;
 export type CoffeeScoreDisplayVariant = 'badge' | 'text';
 
 export type CoffeeScoreBadgeProps = {
-  /** Output of `formatPublicCoffeeOutOf5` / `formatPublicCoffeeForCafe` — one decimal (e.g. 4.0, 4.5). */
+  /** Output of `formatPublicCoffeeOutOf5` / `formatPublicCoffeeForCafe` — one decimal (e.g. 8.5, 9.0). */
   scoreLabel: string;
   /**
    * `badge` — outlined circle (default everywhere except cafe detail).
@@ -44,7 +44,7 @@ export function CoffeeScoreBadge({
   size = 'medium',
   accessibilityLabel: accessibilityLabelProp,
 }: CoffeeScoreBadgeProps) {
-  const hasScore = scoreLabel !== '—';
+  const hasScore = Boolean(scoreLabel.trim()) && scoreLabel !== '—';
 
   const accessibilityLabel =
     accessibilityLabelProp ??

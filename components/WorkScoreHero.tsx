@@ -4,6 +4,7 @@ import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-na
 import { COLORS, FONTS } from '@/components/theme';
 import type { Cafe } from '@/data/cafes';
 import {
+  cafeHasPublicWorkScore,
   formatPublicCoffeeForCafe,
   workScoreQualitativeLabelForCafe,
 } from '@/lib/publicCoffeeDisplay';
@@ -18,21 +19,38 @@ type Props = {
 };
 
 /**
- * Work Score figure + optional qualitative band inline: `9.4 · Excellent`.
- * Number stays bold; label is lighter hairline secondary text, vertically centered with the score.
+ * Work Score figure + optional qualitative band, or empty-state prompt when never reviewed.
  */
 export function WorkScoreHero({ cafe, tone = 'default', size = 'card', style }: Props) {
-  const score = formatPublicCoffeeForCafe(cafe).trim() || '—';
-  const qualitative = score === '—' ? null : workScoreQualitativeLabelForCafe(cafe);
+  const hasScore = cafeHasPublicWorkScore(cafe);
+  const score = hasScore ? formatPublicCoffeeForCafe(cafe).trim() : '';
+  const qualitative = hasScore ? workScoreQualitativeLabelForCafe(cafe) : null;
   const onDark = tone === 'onDark';
   const isHero = size === 'hero';
 
-  const a11y =
-    score === '—'
-      ? 'No public Work Score'
-      : qualitative
-        ? `Work Score ${score} out of 10, ${qualitative}`
-        : `Work Score ${score} out of 10`;
+  if (!hasScore || !score) {
+    return (
+      <View
+        accessibilityLabel="No Work Score yet"
+        accessibilityRole="text"
+        style={[styles.wrap, style]}
+      >
+        <Text
+          style={[
+            isHero ? styles.emptyHero : styles.emptyCard,
+            onDark && styles.emptyOnDark,
+          ]}
+          numberOfLines={1}
+        >
+          No Work Score yet
+        </Text>
+      </View>
+    );
+  }
+
+  const a11y = qualitative
+    ? `Work Score ${score} out of 10, ${qualitative}`
+    : `Work Score ${score} out of 10`;
 
   return (
     <View
@@ -100,6 +118,26 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 5,
   },
+  emptyHero: {
+    fontFamily: FONTS.sans.medium,
+    fontSize: 15,
+    lineHeight: 20,
+    letterSpacing: -0.15,
+    color: COLORS.muted,
+  },
+  emptyCard: {
+    fontFamily: FONTS.sans.medium,
+    fontSize: 13,
+    lineHeight: 17,
+    letterSpacing: -0.1,
+    color: COLORS.muted,
+  },
+  emptyOnDark: {
+    color: 'rgba(250,248,245,0.72)',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
   dotHero: {
     marginHorizontal: 6,
     fontFamily: FONTS.sans.regular,
@@ -114,7 +152,6 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     color: 'rgba(92,83,72,0.4)',
   },
-  /** Hairline secondary — regular Inter, quieter color + slight tracking (no light weight loaded). */
   labelHero: {
     fontFamily: FONTS.sans.regular,
     fontSize: 13,

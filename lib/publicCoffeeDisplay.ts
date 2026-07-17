@@ -2,8 +2,8 @@ import type { Cafe } from '@/data/cafes';
 
 /**
  * Normalize `public_coffee_score` from `cafe_public_scores` to a 0–10 Work Score average.
- * After Sprint 4, `ratings.coffee_rating` is 1–10 (legacy 1–5 rows should be migrated ×2).
- * Does not round to integers — public averages may be 8.5, 9.2, etc.
+ * After Sprint 4 / schema v2, `ratings.coffee_rating` is 1–10.
+ * Does not invent scores when a space has never been reviewed.
  */
 export function rawPublicCoffeeToOutOf5(raw: number | null | undefined): number | null {
   if (raw == null || !Number.isFinite(raw)) return null;
@@ -15,33 +15,41 @@ export function rawPublicCoffeeToOutOf5(raw: number | null | undefined): number 
 /** Alias — Work Score is stored/displayed on a 0–10 scale. */
 export const rawPublicWorkScoreToOutOf10 = rawPublicCoffeeToOutOf5;
 
-/** UI-only fallback when a café has no community ratings (`coffee_rating_count` is 0). */
-export const UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE = 8.0;
+/**
+ * @deprecated Removed in Sprint 6 — unrated spaces must not show a fake score.
+ * Kept as `null` so accidental imports fail closed.
+ */
+export const UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE: null = null;
 
 function normalizeCoffeeRatingCount(ratingCount?: number | null): number {
   if (ratingCount == null || !Number.isFinite(ratingCount)) return 0;
   return Math.max(0, Math.floor(ratingCount));
 }
 
+/** True when the café has at least one public Work Score contribution. */
+export function cafeHasPublicWorkScore(
+  cafe: Pick<Cafe, 'publicCoffeeScore' | 'coffeeRatingCount'>
+): boolean {
+  if (normalizeCoffeeRatingCount(cafe.coffeeRatingCount) <= 0) return false;
+  return rawPublicCoffeeToOutOf5(cafe.publicCoffeeScore) != null;
+}
+
 /**
  * Public Work Score for cards/detail — one decimal on a 0–10 scale (e.g. 8.5, 9.0).
- * When `ratingCount` is 0 and there is no stored average, shows {@link UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE}.
- * Does not modify Supabase data or averages.
+ * Empty string when never reviewed (no baseline / no legacy 5.0).
  */
 export function formatPublicCoffeeOutOf5(
   raw: number | null | undefined,
   ratingCount?: number | null
 ): string {
+  if (normalizeCoffeeRatingCount(ratingCount) <= 0) {
+    return '';
+  }
   const normalized = rawPublicCoffeeToOutOf5(raw);
   if (normalized != null) {
     return normalized.toFixed(1);
   }
-
-  if (normalizeCoffeeRatingCount(ratingCount) <= 0) {
-    return UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE.toFixed(1);
-  }
-
-  return '—';
+  return '';
 }
 
 /** Same as `formatPublicCoffeeOutOf5` using a café row’s score + count. */
@@ -52,18 +60,13 @@ export function formatPublicCoffeeForCafe(
 }
 
 /**
- * Numeric Work Score out of 10 for a café (same rules as {@link formatPublicCoffeeForCafe}).
- * `null` when there is nothing to show (including no baseline).
+ * Numeric Work Score out of 10, or `null` when never reviewed.
  */
 export function publicCoffeeOutOf5ForCafe(
   cafe: Pick<Cafe, 'publicCoffeeScore' | 'coffeeRatingCount'>
 ): number | null {
-  const normalized = rawPublicCoffeeToOutOf5(cafe.publicCoffeeScore);
-  if (normalized != null) return normalized;
-  if (normalizeCoffeeRatingCount(cafe.coffeeRatingCount) <= 0) {
-    return UNRATED_PUBLIC_COFFEE_DISPLAY_BASELINE;
-  }
-  return null;
+  if (!cafeHasPublicWorkScore(cafe)) return null;
+  return rawPublicCoffeeToOutOf5(cafe.publicCoffeeScore);
 }
 
 /**
@@ -97,7 +100,7 @@ export function workScoreQualitativeLabel(
   return null;
 }
 
-/** Qualitative label for a café’s displayed Work Score, or `null` below 7.0 / missing. */
+/** Qualitative label, or `null` when unrated / below 7.0. */
 export function workScoreQualitativeLabelForCafe(
   cafe: Pick<Cafe, 'publicCoffeeScore' | 'coffeeRatingCount'>
 ): WorkScoreQualitativeLabel | null {
@@ -105,13 +108,12 @@ export function workScoreQualitativeLabelForCafe(
 }
 
 /**
- * Card / detail meta — numeric Work Score only (caption lives in `WorkScoreHero`).
- * Calculation unchanged; presentation only.
+ * Card / detail meta — numeric Work Score, or empty when never reviewed.
  */
 export function formatWorkScoreCardLabel(
   cafe: Pick<Cafe, 'publicCoffeeScore' | 'coffeeRatingCount'>
 ): string {
-  return formatPublicCoffeeForCafe(cafe).trim() || '—';
+  return formatPublicCoffeeForCafe(cafe).trim();
 }
 
 /** User-entered Work Score (1–10) for detail “your rating” line. */

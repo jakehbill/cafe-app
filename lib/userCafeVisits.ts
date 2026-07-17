@@ -1,5 +1,6 @@
 import { AUTH_REQUIRED_MESSAGE } from '@/lib/authGate';
 import { normalizeCoffeeRatingInput } from '@/lib/coffeeRating';
+import { REVIEW_SCHEMA_VERSION } from '@/lib/reviewSchemaVersion';
 import { rateCafe, supabase, type SupabaseActionResult } from '@/lib/supabase';
 import { uploadCafePhotoAssetToStorage } from '@/lib/cafePhotoSubmissions';
 import { MAX_VISIT_PHOTOS, type VisitPhotoAsset } from '@/lib/visitPhotoLimits';
@@ -350,6 +351,8 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
     return { ok: false, error: 'A space or submission id is required.' };
   }
 
+  // Stamp schema version so tree-shaking keeps the constant in the app bundle.
+  void REVIEW_SCHEMA_VERSION;
   const rating = normalizeCoffeeRatingInput(input.rating);
   const tags = normalizeTags(input.tags);
   const note = String(input.note ?? '').trim();

@@ -24,6 +24,7 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { resolveCafeDetailBackPath } from '@/lib/authGate';
 import { getMostRecentUserVisitForCafe } from '@/lib/userCafeVisits';
 import { buildWorkspaceDetailFacts } from '@/lib/cafeWorkspaceSummary';
+import { cafeHasPublicWorkScore } from '@/lib/publicCoffeeDisplay';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -736,7 +737,13 @@ export default function CafeDetailScreen() {
               <Text style={styles.savedVisitPromptText}>Worked here? Log this space</Text>
             ) : null}
             <ActionButton
-              label={mostRecentVisitId ? 'Edit rating' : 'Log this space'}
+              label={
+                mostRecentVisitId
+                  ? 'Edit rating'
+                  : cafeHasPublicWorkScore(cafe)
+                    ? 'Log this space'
+                    : 'Be the first to review'
+              }
               accentActive
               onPress={() => {
                 const logPath = mostRecentVisitId
