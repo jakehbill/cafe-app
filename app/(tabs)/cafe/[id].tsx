@@ -2,7 +2,6 @@ import { CafeImage } from '@/components/CafeImage';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
-import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { WorkScoreMetaRow } from '@/components/WorkScoreMetaRow';
 import { COLORS, FONTS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
@@ -44,6 +43,8 @@ import {
   View,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type StyleProp,
+  type ViewStyle,
   type ViewToken,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -52,6 +53,7 @@ import { type Cafe } from '@/data/cafes';
 import {
   CAFE_DETAIL_ALSO_GOOD_FOR_MAX,
   CAFE_FEATURED_TAG_COUNT,
+  resolveCafeHighlightTags,
   resolveCafeTagDisplaySets,
 } from '@/lib/cafeFeaturedTags';
 
@@ -190,27 +192,39 @@ function CafeIdentityAddress({
   cafe,
   distanceText,
   onOpenMaps,
+  align = 'start',
 }: {
   cafe: Cafe;
   distanceText?: string | null;
   onOpenMaps: () => void;
+  align?: 'start' | 'end';
 }) {
   const mapsUrl = resolveCafeMapsUrl(cafe);
   const street = identityAddressPrimaryLabel(cafe);
   const distance = String(distanceText ?? '').trim();
+  const end = align === 'end';
 
   if (!mapsUrl) {
     const fallback = street || formatIdentityAddress(cafe);
     if (!fallback && !distance) return null;
     return (
-      <View style={styles.identityAddressBlock}>
+      <View style={[styles.identityAddressBlock, end && styles.identityAddressBlockEnd]}>
         {fallback ? (
-          <Text style={styles.identityAddressMuted} numberOfLines={1}>
+          <Text
+            style={[styles.identityAddressMuted, end && styles.identityAddressTextEnd]}
+            numberOfLines={2}
+          >
             {'\u{1F4CD} '}
             {fallback}
           </Text>
         ) : null}
-        {distance ? <Text style={styles.identityAddressDistanceMuted}>{distance}</Text> : null}
+        {distance ? (
+          <Text
+            style={[styles.identityAddressDistanceMuted, end && styles.identityAddressTextEnd]}
+          >
+            {distance}
+          </Text>
+        ) : null}
       </View>
     );
   }
@@ -224,15 +238,22 @@ function CafeIdentityAddress({
       onPress={onOpenMaps}
       style={({ pressed, hovered }) => [
         styles.identityAddressBlock,
+        end && styles.identityAddressBlockEnd,
         pressed && styles.identityAddressPressed,
         Platform.OS === 'web' && hovered && styles.identityAddressHovered,
       ]}
     >
-      <Text style={styles.identityAddressMuted} numberOfLines={1}>
+      <Text
+        style={[styles.identityAddressMuted, end && styles.identityAddressTextEnd]}
+        numberOfLines={2}
+      >
         {'\u{1F4CD} '}
         {label}
       </Text>
-      <Text style={styles.identityAddressDistanceMuted} numberOfLines={1}>
+      <Text
+        style={[styles.identityAddressDistanceMuted, end && styles.identityAddressTextEnd]}
+        numberOfLines={1}
+      >
         {distance ? `${distance} ` : ''}
         {'\u2197'}
       </Text>
@@ -242,33 +263,40 @@ function CafeIdentityAddress({
 
 function ActionButton({
   label,
-  accentActive = false,
-  variant = 'primary',
+  tone = 'rate',
+  style,
   onPress,
 }: {
   label: string;
-  accentActive?: boolean;
-  variant?: 'primary' | 'secondary';
+  /** Visual state — Save/Saved stay warm-muted; Rate/Edit stay black-led. */
+  tone?: 'save' | 'saved' | 'rate' | 'edit';
+  style?: StyleProp<ViewStyle>;
   onPress?: () => void;
 }) {
-  const secondary = variant === 'secondary';
+  const shell =
+    tone === 'save'
+      ? styles.actionSave
+      : tone === 'saved'
+        ? styles.actionSaved
+        : tone === 'edit'
+          ? styles.actionEdit
+          : styles.actionRate;
+  const labelStyle =
+    tone === 'save'
+      ? styles.actionSaveText
+      : tone === 'saved'
+        ? styles.actionSavedText
+        : tone === 'edit'
+          ? styles.actionEditText
+          : styles.actionRateText;
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
-      style={[
-        styles.actionButton,
-        accentActive && !secondary && styles.actionButtonAccent,
-        secondary && styles.actionButtonSecondary,
-      ]}
+      style={[styles.actionButton, shell, style]}
       onPress={onPress}
     >
-      <Text
-        style={[
-          styles.actionButtonText,
-          accentActive && !secondary && styles.actionButtonTextAccent,
-          secondary && styles.actionButtonTextSecondary,
-        ]}
-      >
+      <Text style={[styles.actionButtonText, labelStyle]} numberOfLines={1}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -290,7 +318,6 @@ function WorkspaceSnapshotRow({
     <View style={[styles.snapshotRow, !isLast && styles.snapshotRowBorder]}>
       <Text style={styles.snapshotIcon}>{icon}</Text>
       <Text style={styles.snapshotLabel}>{label}</Text>
-      <View style={styles.snapshotLeader} />
       <Text style={styles.snapshotValue} numberOfLines={2}>
         {value}
       </Text>
@@ -422,12 +449,13 @@ export default function CafeDetailScreen() {
     void (async () => {
       const c = cafe;
       if (!c) return;
-      const [tagSets, reviews] = await Promise.all([
+      const [tagSets, highlightTags, reviews] = await Promise.all([
         resolveCafeTagDisplaySets(c, CAFE_FEATURED_TAG_COUNT),
-        getRecentCafeReviews(c.id, 3),
+        resolveCafeHighlightTags(c, CAFE_FEATURED_TAG_COUNT),
+        getRecentCafeReviews(c.id, 5),
       ]);
       if (cancelled) return;
-      setFeatureTags(tagSets.featured);
+      setFeatureTags(highlightTags);
       setRemainingTags(tagSets.remaining.slice(0, CAFE_DETAIL_ALSO_GOOD_FOR_MAX));
       setRecentReviews(reviews);
     })();
@@ -736,18 +764,13 @@ export default function CafeDetailScreen() {
                   </Text>
                 ) : null}
               </View>
-              {cafe.isCertified ? (
-                <BeanedPickBadge
-                  size="inline"
-                  subtitle="One of our favourite workspaces."
-                />
-              ) : null}
+              <CafeIdentityAddress
+                cafe={cafe}
+                distanceText={detailDistanceText}
+                onOpenMaps={() => void handleOpenGoogleMaps()}
+                align="end"
+              />
             </View>
-            <CafeIdentityAddress
-              cafe={cafe}
-              distanceText={detailDistanceText}
-              onOpenMaps={() => void handleOpenGoogleMaps()}
-            />
             {(() => {
               const facts = buildWorkspaceDetailFacts(cafe);
               const rows: { icon: string; label: string; value: string }[] = [];
@@ -787,41 +810,16 @@ export default function CafeDetailScreen() {
             ) : null}
           </View>
 
-          {(() => {
-            const facts = buildWorkspaceDetailFacts(cafe);
-            const qualityCoffee = Boolean(facts.coffee);
-            const qualityFood = Boolean(facts.food);
-            const filteredTags = sortWorkspaceHighlights(
-              filterTagsOverlappingQuality(featureTags, {
-                coffee: qualityCoffee,
-                food: qualityFood,
-              })
-            );
-            const hasTags = filteredTags.length > 0 || qualityCoffee || qualityFood;
-            if (!hasTags) return null;
-            return (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionHeading}>Highlights</Text>
-                <View style={styles.featuresGrid}>
-                  {filteredTags.map((tag) => (
-                    <EditorialTag key={tag} tag={tag} variant="featured" />
-                  ))}
-                  {qualityCoffee ? (
-                    <View style={styles.qualityChip} accessibilityRole="text">
-                      <Ionicons name="cafe-outline" size={13} color={COLORS.text} />
-                      <Text style={styles.qualityChipText}>{facts.coffee} coffee</Text>
-                    </View>
-                  ) : null}
-                  {qualityFood ? (
-                    <View style={styles.qualityChip} accessibilityRole="text">
-                      <Ionicons name="restaurant-outline" size={13} color={COLORS.text} />
-                      <Text style={styles.qualityChipText}>{facts.food} food</Text>
-                    </View>
-                  ) : null}
-                </View>
+          {featureTags.length > 0 ? (
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Highlights</Text>
+              <View style={styles.featuresGrid}>
+                {featureTags.slice(0, CAFE_FEATURED_TAG_COUNT).map((tag) => (
+                  <EditorialTag key={tag} tag={tag} variant="featured" />
+                ))}
               </View>
-            );
-          })()}
+            </View>
+          ) : null}
 
           {recentReviews.length > 0 ? (
             <View style={styles.reviewsSection}>
@@ -896,34 +894,33 @@ export default function CafeDetailScreen() {
           })()}
 
           <View style={styles.actionsWrap}>
-            {isSaved(cafe.id) && !mostRecentVisitId ? (
-              <Text style={styles.savedVisitPromptText}>Worked here? Log this space</Text>
-            ) : null}
-            <ActionButton
-              label={
-                mostRecentVisitId
-                  ? 'Edit rating'
-                  : cafeHasPublicWorkScore(cafe)
-                    ? 'Log this space'
-                    : 'Be the first to review'
-              }
-              accentActive={!mostRecentVisitId}
-              variant={mostRecentVisitId ? 'secondary' : 'primary'}
-              onPress={() => {
-                const logPath = mostRecentVisitId
-                  ? `/log-visit/${cafe.id}?visitId=${encodeURIComponent(mostRecentVisitId)}`
-                  : `/log-visit/${cafe.id}`;
-                if (!requireAuth(logPath)) return;
-                router.push(
-                  mostRecentVisitId
-                    ? ({
-                        pathname: `/log-visit/${cafe.id}`,
-                        params: { visitId: mostRecentVisitId },
-                      } as never)
-                    : (`/log-visit/${cafe.id}` as never)
-                );
-              }}
-            />
+            <View style={styles.actionsRow}>
+              <ActionButton
+                label={isSaved(cafe.id) ? 'Saved' : 'Save'}
+                tone={isSaved(cafe.id) ? 'saved' : 'save'}
+                style={styles.actionButtonHalf}
+                onPress={() => void handleSavePress()}
+              />
+              <ActionButton
+                label={mostRecentVisitId ? 'Edit rating' : 'Rate'}
+                tone={mostRecentVisitId ? 'edit' : 'rate'}
+                style={styles.actionButtonHalf}
+                onPress={() => {
+                  const logPath = mostRecentVisitId
+                    ? `/log-visit/${cafe.id}?visitId=${encodeURIComponent(mostRecentVisitId)}`
+                    : `/log-visit/${cafe.id}`;
+                  if (!requireAuth(logPath)) return;
+                  router.push(
+                    mostRecentVisitId
+                      ? ({
+                          pathname: `/log-visit/${cafe.id}`,
+                          params: { visitId: mostRecentVisitId },
+                        } as never)
+                      : (`/log-visit/${cafe.id}` as never)
+                  );
+                }}
+              />
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -1130,19 +1127,8 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     letterSpacing: -0.1,
   },
-  snapshotLeader: {
-    flex: 1,
-    minWidth: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderStyle: 'dotted',
-    borderColor: 'rgba(0,0,0,0.22)',
-    marginHorizontal: 4,
-    marginBottom: 3,
-    alignSelf: 'flex-end',
-  },
   snapshotValue: {
-    flexShrink: 1,
-    maxWidth: '48%',
+    flex: 1,
     textAlign: 'right',
     fontSize: 14,
     lineHeight: 18,
@@ -1174,7 +1160,12 @@ const styles = StyleSheet.create({
   identityAddressBlock: {
     gap: 2,
     alignSelf: 'flex-start',
-    maxWidth: '100%',
+    maxWidth: '46%',
+    flexShrink: 1,
+  },
+  identityAddressBlockEnd: {
+    alignSelf: 'flex-start',
+    alignItems: 'flex-end',
   },
   identityAddressMuted: {
     fontSize: 13,
@@ -1189,7 +1180,9 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     color: 'rgba(103,94,83,0.62)',
     letterSpacing: -0.05,
-    paddingLeft: 2,
+  },
+  identityAddressTextEnd: {
+    textAlign: 'right',
   },
   identityAddressRow: {
     flexDirection: 'row',
@@ -1396,6 +1389,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     gap: 10,
   },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  actionButtonHalf: {
+    flex: 1,
+  },
   savedVisitPromptText: {
     fontSize: 13,
     color: COLORS.muted,
@@ -1405,33 +1406,46 @@ const styles = StyleSheet.create({
   actionButton: {
     borderRadius: 12,
     paddingVertical: 13,
-    paddingHorizontal: 16,
-    backgroundColor: COLORS.accent,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: COLORS.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actionButtonAccent: {
+  actionSave: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(0,0,0,0.2)',
+  },
+  actionSaved: {
+    backgroundColor: 'rgba(107, 94, 82, 0.16)',
+    borderColor: 'rgba(107, 94, 82, 0.42)',
+  },
+  actionRate: {
     backgroundColor: COLORS.accent,
     borderColor: COLORS.accent,
   },
-  actionButtonSecondary: {
-    backgroundColor: 'transparent',
-    borderColor: 'rgba(0,0,0,0.22)',
-    paddingVertical: 11,
+  actionEdit: {
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    borderColor: 'rgba(0,0,0,0.55)',
   },
   actionButtonText: {
-    color: COLORS.buttonLabelOnAccent,
-    fontSize: 15,
-    fontFamily: FONTS.sans.semibold,
+    fontSize: 14,
     textAlign: 'center',
     letterSpacing: -0.2,
   },
-  actionButtonTextAccent: {
-    color: COLORS.buttonLabelOnAccent,
-  },
-  actionButtonTextSecondary: {
+  actionSaveText: {
     color: COLORS.text,
-    fontSize: 14,
     fontFamily: FONTS.sans.medium,
+  },
+  actionSavedText: {
+    color: COLORS.roastedBrown,
+    fontFamily: FONTS.sans.semibold,
+  },
+  actionRateText: {
+    color: COLORS.buttonLabelOnAccent,
+    fontFamily: FONTS.sans.semibold,
+  },
+  actionEditText: {
+    color: COLORS.text,
+    fontFamily: FONTS.sans.semibold,
   },
 });

@@ -98,6 +98,19 @@ export function orderCafeTagsByPopularity(
   catalogTags: string[],
   communityTagsByPopularity: string[]
 ): string[] {
+  return prioritizeWorkTagsForCards(
+    orderCafeTagsByPopularityOnly(catalogTags, communityTagsByPopularity)
+  );
+}
+
+/**
+ * Same merge/sort as {@link orderCafeTagsByPopularity} but without work-tag promotion.
+ * Use for detail “Highlights” (most-chosen tags).
+ */
+export function orderCafeTagsByPopularityOnly(
+  catalogTags: string[],
+  communityTagsByPopularity: string[]
+): string[] {
   const communityIndex = new Map<string, number>();
   for (let i = 0; i < communityTagsByPopularity.length; i++) {
     const key = tagKey(communityTagsByPopularity[i]);
@@ -134,7 +147,7 @@ export function orderCafeTagsByPopularity(
     return a.key.localeCompare(b.key);
   });
 
-  return prioritizeWorkTagsForCards(entries.map((e) => e.display));
+  return entries.map((e) => e.display);
 }
 
 export type CafeTagDisplaySets = {
@@ -155,6 +168,19 @@ export async function resolveCafeTagDisplaySets(
     remaining: allOrdered.slice(featuredLimit),
     allOrdered,
   };
+}
+
+/**
+ * Top N most-chosen community tags for café detail Highlights (no work-priority reshuffle).
+ */
+export async function resolveCafeHighlightTags(
+  cafe: Cafe,
+  limit = CAFE_FEATURED_TAG_COUNT
+): Promise<string[]> {
+  const catalogTags = parseCafeTagsField(cafe.tags);
+  const communityOrdered = await getCafeTagPopularityOrdered(cafe.id);
+  const ordered = orderCafeTagsByPopularityOnly(catalogTags, communityOrdered);
+  return ordered.slice(0, Math.max(0, limit));
 }
 
 /** Top N featured tags for cards and detail header (same ranking as `resolveCafeTagDisplaySets`). */

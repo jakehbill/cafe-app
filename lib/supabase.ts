@@ -284,6 +284,7 @@ async function getCafeTagsFromCatalogRow(cafeId: string, limit: number): Promise
  * Community tag usage for a café (full list, most frequent first).
  * Prefers `get_cafes_tag_popularity` (visit tags, SECURITY DEFINER).
  * Falls back to `rating_tags` then editorial `cafes.tags`.
+ * Equal counts are shuffled (stable-enough random tie-break).
  */
 export async function getCafeTagPopularityOrdered(cafeId: string): Promise<string[]> {
   const cached = topTagsCache.get(cafeId);
@@ -296,14 +297,13 @@ export async function getCafeTagPopularityOrdered(cafeId: string): Promise<strin
     p_cafe_ids: [id],
   });
   if (!visitTagsRpc.error && Array.isArray(visitTagsRpc.data) && visitTagsRpc.data.length > 0) {
-    const sortedTags = (visitTagsRpc.data as { tag?: unknown; n?: unknown }[])
+    const rows = (visitTagsRpc.data as { tag?: unknown; n?: unknown }[])
       .map((row) => ({
         tag: typeof row.tag === 'string' ? row.tag.trim() : '',
         n: typeof row.n === 'number' && Number.isFinite(row.n) ? row.n : 0,
       }))
-      .filter((row) => row.tag.length > 0)
-      .sort((a, b) => (b.n !== a.n ? b.n - a.n : a.tag.localeCompare(b.tag)))
-      .map((row) => row.tag);
+      .filter((row) => row.tag.length > 0);
+    const sortedTags = orderTagsByCountWithRandomTies(rows);
     if (sortedTags.length > 0) {
       topTagsCache.set(id, sortedTags);
       return sortedTags;
@@ -354,9 +354,9 @@ export async function getCafeTagPopularityOrdered(cafeId: string): Promise<strin
     counts.set(tag, (counts.get(tag) ?? 0) + 1);
   }
 
-  const sortedTags = [...counts.entries()]
-    .sort((a, b) => (b[1] !== a[1] ? b[1] - a[1] : a[0].localeCompare(b[0])))
-    .map(([tag]) => tag);
+  const sortedTags = orderTagsByCountWithRandomTies(
+    [...counts.entries()].map(([tag, n]) => ({ tag, n }))
+  );
 
   if (sortedTags.length === 0) {
     const catalogTags = await getCafeTagsFromCatalogRow(id, 500);
@@ -366,6 +366,31 @@ export async function getCafeTagPopularityOrdered(cafeId: string): Promise<strin
 
   topTagsCache.set(id, sortedTags);
   return sortedTags;
+}
+
+/** Highest count first; equal counts shuffled. */
+function orderTagsByCountWithRandomTies(rows: { tag: string; n: number }[]): string[] {
+  const byCount = new Map<number, string[]>();
+  for (const row of rows) {
+    const tag = String(row.tag ?? '').trim();
+    if (!tag) continue;
+    const list = byCount.get(row.n) ?? [];
+    list.push(tag);
+    byCount.set(row.n, list);
+  }
+  const countsDesc = [...byCount.keys()].sort((a, b) => b - a);
+  const out: string[] = [];
+  for (const n of countsDesc) {
+    const group = byCount.get(n) ?? [];
+    for (let i = group.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const tmp = group[i]!;
+      group[i] = group[j]!;
+      group[j] = tmp;
+    }
+    out.push(...group);
+  }
+  return out;
 }
 
 export async function getTopCafeTags(cafeId: string, limit = 3): Promise<string[]> {
