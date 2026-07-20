@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,8 +13,6 @@ import {
   View,
 } from 'react-native';
 
-import { EditorialTag } from '@/components/EditorialTag';
-import { FilterChip } from '@/components/FilterChip';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import type { Cafe } from '@/data/cafes';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
@@ -23,7 +20,6 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { SUGGEST_CAFE_RETURN_SEARCH } from '@/lib/authGate';
 import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
-import { TAG_SECTIONS } from '@/lib/cafeTags';
 import { buildTasteProfileFromState, cafeMatchesSearchQuery, rankCafesForSearch } from '@/lib/cafeRanking';
 import { CafeCardGrid } from '@/components/layout/CafeCardGrid';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
@@ -34,10 +30,6 @@ import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useUserLocation } from '@/contexts/UserLocationContext';
 import { withCafeDistances } from '@/lib/cafeDistance';
 import { hasValidCafeCoordinates } from '@/lib/cafeMapsUrl';
-import {
-  cafeMatchesSelectedCanonicalTagsMeaningfully,
-  fetchMeaningfulCafeIdsByCanonicalTag,
-} from '@/lib/cafeTagSignal';
 import { VENUE_TYPE_OPTIONS, type VenueTypeValue } from '@/lib/venueTypes';
 type ViewMode = 'list' | 'map';
 type SearchSortMode = 'default' | 'nearest';
@@ -247,13 +239,7 @@ export default function SearchScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [sortMode, setSortMode] = useState<SearchSortMode>('default');
   const [radiusFilter, setRadiusFilter] = useState<RadiusFilter>('any');
-  const [expandedCategoryTitle, setExpandedCategoryTitle] = useState<string | null>(null);
-  const [selectedTagSlugs, setSelectedTagSlugs] = useState<string[]>([]);
   const [selectedVenueType, setSelectedVenueType] = useState<VenueTypeValue | null>(null);
-  const [tagSignalLoading, setTagSignalLoading] = useState(false);
-  const [meaningfulCafeIdsBySlug, setMeaningfulCafeIdsBySlug] = useState<Map<string, Set<string>>>(
-    () => new Map()
-  );
 
   useEffect(() => {
     const stale =
@@ -294,40 +280,8 @@ export default function SearchScreen() {
     );
   }, [debouncedSearchQuery, ratingsByCafeId, tasteProfile, onboardingPrefs, cafesWithDistance]);
 
-  // When tag filters change, fetch rating-derived “meaningful signal” sets (cached in memory here).
-  useEffect(() => {
-    let cancelled = false;
-
-    if (selectedTagSlugs.length === 0) {
-      setMeaningfulCafeIdsBySlug(new Map());
-      setTagSignalLoading(false);
-      return;
-    }
-
-    setTagSignalLoading(true);
-    setMeaningfulCafeIdsBySlug(new Map());
-    void (async () => {
-      const cafeIds = ranked.map((c) => c.id);
-      const map = await fetchMeaningfulCafeIdsByCanonicalTag(cafeIds, selectedTagSlugs);
-      if (cancelled) return;
-      setMeaningfulCafeIdsBySlug(map);
-      setTagSignalLoading(false);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedTagSlugs, ranked]);
-
   const filteredRankedResults = useMemo(() => {
     let next = ranked;
-    if (selectedTagSlugs.length > 0) {
-      // Wait for rating_tags-derived sets; do not use cafes.tags for filtering.
-      if (tagSignalLoading) return ranked;
-      next = ranked.filter((cafe) =>
-        cafeMatchesSelectedCanonicalTagsMeaningfully(cafe.id, selectedTagSlugs, meaningfulCafeIdsBySlug)
-      );
-    }
 
     if (selectedVenueType != null) {
       next = next.filter((cafe) => cafe.venueType === selectedVenueType);
@@ -347,16 +301,7 @@ export default function SearchScreen() {
     }
 
     return next;
-  }, [
-    ranked,
-    selectedTagSlugs,
-    selectedVenueType,
-    meaningfulCafeIdsBySlug,
-    tagSignalLoading,
-    userLocation,
-    radiusFilter,
-    sortMode,
-  ]);
+  }, [ranked, selectedVenueType, userLocation, radiusFilter, sortMode]);
   const listResults = useMemo(
     () => filteredRankedResults.slice(0, SEARCH_RESULT_LIMIT),
     [filteredRankedResults]
@@ -372,27 +317,10 @@ export default function SearchScreen() {
     return next.slice(0, MAP_RESULT_LIMIT);
   }, [filteredRankedResults, focusCafe]);
 
-  const toggleTagSlug = (slug: string) => {
-    setSelectedTagSlugs((prev) =>
-      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
-    );
-  };
-
-  const clearTagFilters = () => setSelectedTagSlugs([]);
-
-  const selectedCountForSection = (sectionTags: readonly string[]) =>
-    selectedTagSlugs.filter((s) => sectionTags.includes(s)).length;
-
   const activeResults = viewMode === 'map' ? mapResults : listResults;
   const showNoResults = !showCatalogSkeleton && activeResults.length === 0;
   const hasQuery = debouncedSearchQuery.trim().length > 0;
-  const resultsLabel =
-    selectedTagSlugs.length === 0
-      ? 'Top matches'
-      : tagSignalLoading
-        ? `Filtering · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}…`
-        : `Filtered · ${selectedTagSlugs.length} tag${selectedTagSlugs.length === 1 ? '' : 's'}`;
-
+  const resultsLabel = 'Top matches';
   const mapRegion = useMemo(() => focusRegion ?? regionForCafes(mapResults), [focusRegion, mapResults]);
   const isWeb = Platform.OS === 'web';
   const searchQueryTrimmed = debouncedSearchQuery.trim();
@@ -426,103 +354,60 @@ export default function SearchScreen() {
           onDebouncedChange={handleDebouncedSearchQuery}
         />
 
-        <View style={styles.categoryFiltersWrap}>
-          <View style={styles.categoryRow}>
-            {TAG_SECTIONS.map((section) => {
-              const n = selectedCountForSection(section.tags);
-              const open = expandedCategoryTitle === section.title;
+        <View style={styles.venueTypeFiltersWrap}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.venueTypeRow}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="All venue types"
+              accessibilityState={{ selected: selectedVenueType == null }}
+              onPress={() => setSelectedVenueType(null)}
+              style={({ pressed }) => [
+                styles.categoryPill,
+                selectedVenueType == null && styles.categoryPillActive,
+                pressed && styles.categoryPillPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.categoryPillText,
+                  selectedVenueType == null && styles.categoryPillTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                All
+              </Text>
+            </Pressable>
+            {VENUE_TYPE_OPTIONS.map((opt) => {
+              const selected = selectedVenueType === opt.value;
               return (
                 <Pressable
-                  key={section.title}
+                  key={opt.value}
                   accessibilityRole="button"
-                  accessibilityLabel={`${section.title} tags${n > 0 ? `, ${n} selected` : ''}`}
+                  accessibilityLabel={`${opt.label} venues`}
+                  accessibilityState={{ selected }}
                   onPress={() =>
-                    setExpandedCategoryTitle((prev) => (prev === section.title ? null : section.title))
+                    setSelectedVenueType((prev) => (prev === opt.value ? null : opt.value))
                   }
                   style={({ pressed }) => [
                     styles.categoryPill,
-                    open && styles.categoryPillOpen,
-                    n > 0 && styles.categoryPillHasTags,
+                    selected && styles.categoryPillActive,
                     pressed && styles.categoryPillPressed,
                   ]}
                 >
                   <Text
-                    style={[styles.categoryPillText, n > 0 && styles.categoryPillTextActive]}
+                    style={[styles.categoryPillText, selected && styles.categoryPillTextActive]}
                     numberOfLines={1}
                   >
-                    {section.title}
+                    {opt.emoji} {opt.label}
                   </Text>
-                  {n > 0 ? (
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryBadgeText}>{n}</Text>
-                    </View>
-                  ) : null}
-                  <Ionicons
-                    name={open ? 'chevron-up' : 'chevron-down'}
-                    size={14}
-                    color={n > 0 || open ? COLORS.accent : COLORS.muted}
-                  />
                 </Pressable>
               );
             })}
-          </View>
-
-          {expandedCategoryTitle ? (
-            <View style={styles.tagPanel}>
-              {TAG_SECTIONS.filter((s) => s.title === expandedCategoryTitle).map((section) => (
-                <View key={section.title} style={styles.tagPanelInner}>
-                  {section.tags.map((tag) => {
-                    const selected = selectedTagSlugs.includes(tag);
-                    return (
-                      <EditorialTag
-                        key={tag}
-                        tag={tag}
-                        variant="selectable"
-                        selected={selected}
-                        onPress={() => toggleTagSlug(tag)}
-                      />
-                    );
-                  })}
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          {selectedTagSlugs.length > 0 ? (
-            <TouchableOpacity
-              onPress={clearTagFilters}
-              accessibilityRole="button"
-              accessibilityLabel="Clear tag filters"
-              style={styles.clearTagsRow}
-              hitSlop={{ top: 8, bottom: 8 }}
-            >
-              <Text style={styles.clearTagsText}>Clear tags</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        <View style={styles.venueFilterWrap}>
-          <Text style={styles.venueFilterLabel}>Venue type</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.venueFilterRow}
-          >
-            <FilterChip
-              label="Any"
-              selected={selectedVenueType == null}
-              onPress={() => setSelectedVenueType(null)}
-            />
-            {VENUE_TYPE_OPTIONS.map((opt) => (
-              <FilterChip
-                key={opt.value}
-                label={`${opt.emoji} ${opt.label}`}
-                selected={selectedVenueType === opt.value}
-                onPress={() =>
-                  setSelectedVenueType((prev) => (prev === opt.value ? null : opt.value))
-                }
-              />
-            ))}
           </ScrollView>
         </View>
 
@@ -793,14 +678,14 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.sans.regular,
     marginTop: -4,
   },
-  categoryFiltersWrap: {
+  venueTypeFiltersWrap: {
     gap: 8,
   },
-  categoryRow: {
+  venueTypeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
     alignItems: 'center',
+    gap: 8,
+    paddingRight: 8,
   },
   categoryPill: {
     flexDirection: 'row',
@@ -812,14 +697,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
     backgroundColor: COLORS.inputBackground,
-    maxWidth: '48%',
   },
-  categoryPillOpen: {
+  categoryPillActive: {
     borderColor: COLORS.accentSubtleBorder,
     backgroundColor: COLORS.accentSubtleFill,
-  },
-  categoryPillHasTags: {
-    borderColor: COLORS.accentSubtleBorder,
   },
   categoryPillPressed: {
     opacity: 0.92,
@@ -832,57 +713,6 @@ const styles = StyleSheet.create({
   },
   categoryPillTextActive: {
     color: COLORS.accent,
-  },
-  categoryBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    paddingHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.accent,
-  },
-  categoryBadgeText: {
-    fontSize: 11,
-    fontFamily: FONTS.sans.bold,
-    color: '#ffffff',
-  },
-  tagPanel: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.cardBackground,
-    padding: 10,
-  },
-  tagPanelInner: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  clearTagsRow: {
-    alignSelf: 'flex-start',
-    paddingVertical: 2,
-  },
-  clearTagsText: {
-    fontSize: 13,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.accent,
-  },
-  venueFilterWrap: {
-    marginTop: 10,
-    gap: 8,
-  },
-  venueFilterLabel: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-    letterSpacing: 0.2,
-  },
-  venueFilterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingRight: 8,
   },
   viewToggleWrap: {
     flexDirection: 'row',
