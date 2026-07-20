@@ -45,7 +45,12 @@ function isPlaceholderImageUrl(url: string): boolean {
   const normalized = url.trim().toLowerCase();
   if (!normalized) return true;
   if (normalized === CAFE_PLACEHOLDER_IMAGE_URL.toLowerCase()) return true;
-  return normalized.includes('beaned image placeholder') || normalized.includes('beaned%20image%20placeholder');
+  return (
+    normalized.includes('beaned image placeholder') ||
+    normalized.includes('beaned%20image%20placeholder') ||
+    normalized.includes('image placeholder (1)') ||
+    normalized.includes('image%20placeholder%20(1)')
+  );
 }
 
 /**

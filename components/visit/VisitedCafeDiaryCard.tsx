@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BeanedPickBadge } from '@/components/BeanedPickBadge';
 import { CafeImage } from '@/components/CafeImage';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
@@ -234,7 +233,6 @@ export function VisitedCafeDiaryCard({
           <Text style={styles.name} numberOfLines={2}>
             {cafe.name}
           </Text>
-          {cafe.isCertified ? <BeanedPickBadge /> : null}
           <TrustSignal cafe={cafe} style={styles.trustSignal} />
           <WorkScoreMetaRow
             cafe={cafe}

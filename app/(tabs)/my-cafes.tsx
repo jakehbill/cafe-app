@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -11,6 +11,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import {
+  CollectionFilterBar,
+  CollectionFilterEmpty,
+} from '@/components/collection/CollectionFilterBar';
 import { CafeCardGrid } from '@/components/layout/CafeCardGrid';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { VisitedCafeDiaryCard } from '@/components/visit/VisitedCafeDiaryCard';
@@ -19,6 +23,12 @@ import { StackHeaderBackButton } from '@/components/navigation/StackHeaderBackBu
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
 import { useAuthRedirectIfNeeded } from '@/hooks/useAuthRedirectIfNeeded';
 import { CAFE_DETAIL_RETURN_VISITED } from '@/lib/authGate';
+import {
+  DEFAULT_COLLECTION_FILTERS,
+  filterCafesByCollectionFilters,
+  hasActiveCollectionFilters,
+  type CollectionFilterState,
+} from '@/lib/collectionFilters';
 import {
   getUserCafeVisitTimeline,
   type UserCafeVisit,
@@ -62,6 +72,7 @@ export default function MyCafesScreen() {
   const [cafesById, setCafesById] = useState<Record<string, Cafe>>({});
   const [visitsLoading, setVisitsLoading] = useState(true);
   const [showMovedToast, setShowMovedToast] = useState(false);
+  const [filters, setFilters] = useState<CollectionFilterState>(DEFAULT_COLLECTION_FILTERS);
 
   useEffect(() => {
     const movedValue = Array.isArray(movedFromSaved) ? movedFromSaved[0] : movedFromSaved;
@@ -142,7 +153,7 @@ export default function MyCafesScreen() {
       });
   }, [visitLogs, cafesById]);
 
-  const compactRows = React.useMemo(() => {
+  const compactRows = useMemo(() => {
     const rows: Array<{ cafe: Cafe; visit: UserCafeVisit }> = [];
     for (const row of latestVisitByCafe) {
       rows.push({ cafe: row.cafe, visit: row.visit });
@@ -150,7 +161,18 @@ export default function MyCafesScreen() {
     return rows;
   }, [latestVisitByCafe]);
 
+  const visitedCafes = useMemo(() => compactRows.map((row) => row.cafe), [compactRows]);
+
+  const filteredRows = useMemo(() => {
+    const allowedIds = new Set(
+      filterCafesByCollectionFilters(visitedCafes, filters).map((cafe) => cafe.id)
+    );
+    return compactRows.filter((row) => allowedIds.has(row.cafe.id));
+  }, [compactRows, visitedCafes, filters]);
+
   const hasVisits = compactRows.length > 0;
+  const showFilteredEmpty =
+    hasVisits && filteredRows.length === 0 && hasActiveCollectionFilters(filters);
   const showInitialVisitsLoading = visitsLoading && visitLogs.length === 0;
 
   if (authLoading || !authReady) {
@@ -216,23 +238,31 @@ export default function MyCafesScreen() {
           <Text style={styles.hint}>
             Your personal work diary — photos, ratings, and notes from spaces you&apos;ve used.
           </Text>
-          <CafeCardGrid style={styles.timelineList}>
-            {compactRows.map(({ cafe, visit }) => (
-              <VisitedCafeDiaryCard
-                key={`${cafe.id}-${visit.id}`}
-                cafe={cafe}
-                visit={visit}
-                visitedDateLabel={formatVisitedDateLabel(visit.createdAt)}
-                maxTags={3}
-                onPress={() =>
-                  router.push({
-                    pathname: '/cafe/[id]',
-                    params: { id: cafe.id, returnTo: CAFE_DETAIL_RETURN_VISITED },
-                  } as never)
-                }
-              />
-            ))}
-          </CafeCardGrid>
+          <CollectionFilterBar cafes={visitedCafes} filters={filters} onChange={setFilters} />
+          {showFilteredEmpty ? (
+            <CollectionFilterEmpty
+              collectionLabel="visited"
+              onClear={() => setFilters(DEFAULT_COLLECTION_FILTERS)}
+            />
+          ) : (
+            <CafeCardGrid style={styles.timelineList}>
+              {filteredRows.map(({ cafe, visit }) => (
+                <VisitedCafeDiaryCard
+                  key={`${cafe.id}-${visit.id}`}
+                  cafe={cafe}
+                  visit={visit}
+                  visitedDateLabel={formatVisitedDateLabel(visit.createdAt)}
+                  maxTags={3}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/cafe/[id]',
+                      params: { id: cafe.id, returnTo: CAFE_DETAIL_RETURN_VISITED },
+                    } as never)
+                  }
+                />
+              ))}
+            </CafeCardGrid>
+          )}
         </ScrollView>
       )}
       </DesktopWebPageContainer>

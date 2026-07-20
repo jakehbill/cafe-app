@@ -13,11 +13,20 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { buildLoginPath } from '@/lib/authGate';
 import { fetchCafesByIdsOrdered } from '@/lib/cafeCatalogSupabase';
+import {
+  DEFAULT_COLLECTION_FILTERS,
+  filterCafesByCollectionFilters,
+  hasActiveCollectionFilters,
+  type CollectionFilterState,
+} from '@/lib/collectionFilters';
 
+import {
+  CollectionFilterBar,
+  CollectionFilterEmpty,
+} from '@/components/collection/CollectionFilterBar';
 import { CafeCardGrid } from '@/components/layout/CafeCardGrid';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
 import { CompactCafeCard } from '@/components/CompactCafeCard';
-import { FilterChip } from '@/components/FilterChip';
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 
 /** Map Supabase `cafe_id` values to full cafe rows from `public.cafes` (same ids). */
@@ -34,24 +43,6 @@ export function cafesFromSavedIds(savedIds: string[], catalog: Cafe[]): Cafe[] {
   return result;
 }
 
-function uniqueSortedNeighborhoods(cafes: Cafe[]): string[] {
-  const set = new Set<string>();
-  for (const c of cafes) {
-    const n = (c.neighborhood ?? '').trim();
-    if (n.length > 0) set.add(n);
-  }
-  return Array.from(set).sort((a, b) => a.localeCompare(b));
-}
-
-function filterSavedCafes(cafes: Cafe[], locationKey: string | null): Cafe[] {
-  return cafes.filter((cafe) => {
-    if (locationKey != null) {
-      if ((cafe.neighborhood ?? '').trim() !== locationKey) return false;
-    }
-    return true;
-  });
-}
-
 type Props = {
   /** Tab shows a page title in the body; stack uses the native header instead */
   showPageTitle?: boolean;
@@ -66,7 +57,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
   const { user } = useAuth();
   const { savedCafeIds } = useCafeState();
   const [savedCafes, setSavedCafes] = useState<Cafe[]>([]);
-  const [locationFilter, setLocationFilter] = useState<string | null>(null);
+  const [filters, setFilters] = useState<CollectionFilterState>(DEFAULT_COLLECTION_FILTERS);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,17 +76,15 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
     };
   }, [savedCafeIds]);
 
-  const locationOptions = useMemo(() => uniqueSortedNeighborhoods(savedCafes), [savedCafes]);
+  const filteredSaved = useMemo(
+    () => filterCafesByCollectionFilters(savedCafes, filters),
+    [savedCafes, filters]
+  );
 
-  const filteredSaved = useMemo(() => filterSavedCafes(savedCafes, locationFilter), [savedCafes, locationFilter]);
-
-  const showFilterRows = savedCafes.length > 0;
-  const hasActiveFilters = locationFilter != null;
-  const showFilteredEmpty = savedCafes.length > 0 && filteredSaved.length === 0 && hasActiveFilters;
-
-  const clearFilters = () => {
-    setLocationFilter(null);
-  };
+  const showFilteredEmpty =
+    savedCafes.length > 0 &&
+    filteredSaved.length === 0 &&
+    hasActiveCollectionFilters(filters);
 
   return (
     <DesktopWebPageContainer variant="list" style={styles.pageContainer}>
@@ -136,50 +125,13 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
         </View>
       ) : (
         <>
-          {showFilterRows ? (
-            <View style={styles.filterBlock}>
-              {locationOptions.length > 0 ? (
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterLabel}>Location</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.chipsRow}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    <FilterChip
-                      label="All areas"
-                      selected={locationFilter === null}
-                      onPress={() => setLocationFilter(null)}
-                    />
-                    {locationOptions.map((loc) => (
-                      <FilterChip
-                        key={loc}
-                        label={loc}
-                        selected={locationFilter === loc}
-                        onPress={() =>
-                          setLocationFilter((prev) => (prev === loc ? null : loc))
-                        }
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
+          <CollectionFilterBar cafes={savedCafes} filters={filters} onChange={setFilters} />
 
           {showFilteredEmpty ? (
-            <View style={styles.emptyFilterWrap}>
-              <Text style={styles.emptyFilterTitle}>No saved spaces match</Text>
-              <Text style={styles.subtitle}>Try changing or clearing your filters.</Text>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.clearFiltersButton}
-                onPress={clearFilters}
-              >
-                <Text style={styles.clearFiltersText}>Clear filters</Text>
-              </TouchableOpacity>
-            </View>
+            <CollectionFilterEmpty
+              collectionLabel="saved"
+              onClear={() => setFilters(DEFAULT_COLLECTION_FILTERS)}
+            />
           ) : (
             <CafeCardGrid style={styles.listWrap}>
               {filteredSaved.map((cafe) => {
@@ -188,7 +140,7 @@ export function SavedCafesContent({ showPageTitle = true }: Props) {
                     key={cafe.id}
                     cafe={cafe}
                     scorePosition="cardTopRight"
-                    topRightActionLabel="Log workspace"
+                    topRightActionLabel="Log a visit"
                     onTopRightActionPress={() => router.push(`/log-visit/${cafe.id}` as never)}
                     onPress={() => router.push(`/cafe/${cafe.id}`)}
                   />
@@ -224,26 +176,6 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     lineHeight: 20,
   },
-  filterBlock: {
-    gap: 12,
-    marginBottom: 2,
-  },
-  filterSection: {
-    gap: 8,
-  },
-  filterLabel: {
-    fontSize: 12,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.muted,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  chipsRow: {
-    gap: 8,
-    paddingTop: 2,
-    paddingBottom: 2,
-    paddingRight: 8,
-  },
   emptyWrap: {
     marginTop: 20,
     backgroundColor: COLORS.cardBackground,
@@ -255,35 +187,6 @@ const styles = StyleSheet.create({
     gap: 10,
     alignItems: 'center',
     ...SHADOWS.card,
-  },
-  emptyFilterWrap: {
-    marginTop: 8,
-    backgroundColor: COLORS.cardBackground,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    paddingHorizontal: 18,
-    paddingVertical: 22,
-    gap: 8,
-    alignItems: 'center',
-    ...SHADOWS.card,
-  },
-  emptyFilterTitle: {
-    fontSize: 16,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    letterSpacing: -0.2,
-    textAlign: 'center',
-  },
-  clearFiltersButton: {
-    marginTop: 4,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  clearFiltersText: {
-    fontSize: 14,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.accent,
   },
   emptyIconWrap: {
     width: 48,

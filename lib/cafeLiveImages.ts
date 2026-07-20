@@ -2,7 +2,7 @@ import { getCafePhotoUrls, type Cafe } from '@/data/cafes';
 import { isUnusableCafePhotoImageUrl } from '@/lib/cafePhotoSubmissions';
 
 export const CAFE_PLACEHOLDER_IMAGE_URL =
-  'https://fhmtmibghmjuurzyncyh.supabase.co/storage/v1/object/public/cafe-images/Beaned%20Image%20Placeholder.png';
+  'https://fhmtmibghmjuurzyncyh.supabase.co/storage/v1/object/public/cafe-images/Image%20Placeholder%20(1).png';
 
 function normalizeImageUrl(url: unknown): string {
   return String(url ?? '').trim();
