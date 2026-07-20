@@ -2,9 +2,10 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { TabBarIcon } from '@/components/navigation/TabBarIcon';
+import { TabBarLabel } from '@/components/navigation/TabBarLabel';
 
-import { COLORS, FONTS } from '@/components/theme';
+import { COLORS } from '@/components/theme';
 
 export default function TabLayout() {
   return (
@@ -22,11 +23,11 @@ export default function TabLayout() {
           borderTopWidth: 1,
           paddingTop: 8,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontFamily: FONTS.sans.semibold,
-          marginTop: 2,
-        },
+        tabBarLabel: ({ focused, children }) => (
+          <TabBarLabel focused={focused}>
+            {typeof children === 'string' ? children : ''}
+          </TabBarLabel>
+        ),
       }}>
       <Tabs.Screen
         name="index"
@@ -34,8 +35,8 @@ export default function TabLayout() {
           title: 'Home',
           headerTitle: 'Home',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size ?? 24} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} outline="home-outline" filled="home" />
           ),
         }}
       />
@@ -45,8 +46,8 @@ export default function TabLayout() {
           title: 'Search',
           headerTitle: 'Search',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search-outline" size={size ?? 24} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} outline="search-outline" filled="search" />
           ),
         }}
       />
@@ -56,8 +57,8 @@ export default function TabLayout() {
           title: 'Saved',
           headerTitle: 'Saved',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="bookmark-outline" size={size ?? 24} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} outline="bookmark-outline" filled="bookmark" />
           ),
         }}
       />
@@ -67,8 +68,8 @@ export default function TabLayout() {
           title: 'Profile',
           headerTitle: 'Profile',
           headerShown: false,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size ?? 24} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} outline="person-outline" filled="person" />
           ),
         }}
       />
