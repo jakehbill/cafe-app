@@ -116,7 +116,6 @@ export async function createCafeSuggestionWithId(
     venue_type: venueType,
     status: 'pending' as const,
     moderation_status: 'pending' as const,
-    is_certified: false,
   };
 
   const res = await supabase
@@ -156,13 +155,12 @@ export type GooglePlacesCafeSubmissionInsertRow = {
   source: 'google_places';
   moderation_status: 'pending';
   status: CafeSubmissionStatus;
-  is_certified: false;
 };
 
 export type GooglePlacesCafeSubmissionExtras = {
   notes?: string | null;
   selectedTags?: string[];
-  /** User’s Beaned coffee rating (integer 1–5); persisted when `coffee_rating` column exists. */
+  /** User’s Beaned Work Score (1–10); persisted when `cafe_submissions.coffee_rating` exists. */
   coffeeRating?: number | null;
   venueType: VenueTypeValue;
 };
@@ -213,7 +211,6 @@ export function buildGooglePlacesCafeSubmissionPayload(
     source: 'google_places',
     moderation_status: 'pending',
     status: 'pending',
-    is_certified: false,
   };
 
   if (extras?.coffeeRating != null && Number.isFinite(extras.coffeeRating)) {

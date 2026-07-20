@@ -14,7 +14,7 @@ import { TrustSignal } from '@/components/TrustSignal';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { resolveCafeHighlightTags } from '@/lib/cafeFeaturedTags';
 import { CafeImage } from '@/components/CafeImage';
-import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
+import { resolveWorkspaceCardImageUrl } from '@/lib/cafeCardImages';
 import type { UserTasteProfile } from '@/lib/cafePersonalization';
 
 import { COLORS, FONTS, SHADOWS } from '@/components/theme';
@@ -118,11 +118,7 @@ export function CompactCafeCard({
   }, [showTagsUI, tags, topTags, effectiveMaxTags]);
   const showTagRow = showTagsUI && tagSlice.length > 0;
   const tagsSubtle = trailing != null && showTagsUI;
-  const primaryPhoto = resolveLiveCafePrimaryImageUrl({
-    cafe,
-    overrideImageUrl: thumbnailUri,
-  });
-  const scoreOnCardTopRight = scorePosition === 'cardTopRight';
+  const primaryPhoto = resolveWorkspaceCardImageUrl(cafe, thumbnailUri);  const scoreOnCardTopRight = scorePosition === 'cardTopRight';
   const scoreInContentColumn = scorePosition === 'contentColumn';
   const scoreOnThumbnail = !scoreOnCardTopRight && !scoreInContentColumn;
   const metadataLine = buildScoreLocationMeta(cafe);

@@ -7,8 +7,8 @@ import {
 } from '@/lib/cafePhotoSubmissions';
 
 /**
- * Refreshes approved `cafe_photos` URLs onto café rows for list/search/bulletin cards.
- * Detail pages still call `getApprovedCafePhotoUrls` directly; this keeps catalog cards in sync.
+ * Merges approved `cafe_photos` onto existing café rows (Home certified catalog, etc.).
+ * Bulletin thumbs use `useCafesByIdsWithCardImages` instead so they are not limited to Beaned Picks.
  */
 export function useCafesWithApprovedPhotos(cafes: Cafe[]): Cafe[] {
   const [photoMap, setPhotoMap] = useState<Map<string, string[]>>(new Map());

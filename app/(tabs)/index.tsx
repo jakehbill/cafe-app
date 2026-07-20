@@ -52,7 +52,10 @@ import { withCafeDistances } from '@/lib/cafeDistance';
 import { useUserLocation } from '@/contexts/UserLocationContext';
 import { HomeCafeCarouselSkeleton } from '@/components/skeleton/CafeSkeletons';
 import { resolveCafeHighlightTags } from '@/lib/cafeFeaturedTags';
-import { CAFE_PLACEHOLDER_IMAGE_URL, resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
+import {
+  resolveWorkspaceCardImageUrl,
+  useCafesByIdsWithCardImages,
+} from '@/lib/cafeCardImages';
 
 const MAX_VISIBLE_TAGS = 3;
 const HOME_ONBOARDING_BANNER_DISMISSED_KEY = 'home_onboarding_banner_dismissed_v1';
@@ -142,7 +145,7 @@ function HomeCafeCard({
   }, [cafe.id, cafe.tags]);
 
   const isCarousel = layout === 'carousel';
-  const primaryPhoto = resolveLiveCafePrimaryImageUrl({ cafe });
+  const primaryPhoto = resolveWorkspaceCardImageUrl(cafe);
   const heroDisplayWidth =
     heroGSize.w > 0 ? Math.min(800, Math.round(heroGSize.w * 1.5)) : 480;
   const heroDisplayHeight =
@@ -554,21 +557,30 @@ export default function HomeScreen() {
       : `Popular around you · ${radius}`;
   }, [trendingNearby.activeRadiusMiles, trendingNearby.prefersDiscovery, userLocation]);
 
+  const noticeBoardCafeIds = useMemo(
+    () =>
+      noticeBoardNotes
+        .map((row) => String(row.cafeId ?? '').trim())
+        .filter(Boolean),
+    [noticeBoardNotes]
+  );
+  const noticeBoardCafes = useCafesByIdsWithCardImages(noticeBoardCafeIds);
+
   const noticeBoardRows = useMemo(() => {
-    const cafeById = new Map(cafesWithApprovedPhotos.map((cafe) => [String(cafe.id).trim(), cafe]));
+    const cafeById = new Map(
+      noticeBoardCafes.map((cafe) => [String(cafe.id).trim(), cafe] as const)
+    );
     return noticeBoardNotes
       .filter((row) => row.hiddenFromBulletin !== true)
       .map((row) => {
-        const cafe = row.cafeId ? cafeById.get(String(row.cafeId).trim()) : null;
-        const thumbnailUrl = cafe
-          ? resolveLiveCafePrimaryImageUrl({ cafe })
-          : CAFE_PLACEHOLDER_IMAGE_URL;
+        const cafeId = row.cafeId ? String(row.cafeId).trim() : '';
+        const cafe = cafeId ? cafeById.get(cafeId) ?? null : null;
         return {
           ...row,
-          thumbnailUrl: thumbnailUrl || CAFE_PLACEHOLDER_IMAGE_URL,
+          thumbnailUrl: resolveWorkspaceCardImageUrl(cafe),
         };
       });
-  }, [noticeBoardNotes, cafesWithApprovedPhotos]);
+  }, [noticeBoardNotes, noticeBoardCafes]);
 
   const { layoutWidth } = useDesktopWebLayout('list');
   const picksCarousel = useMemo(() => {

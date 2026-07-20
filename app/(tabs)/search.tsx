@@ -328,8 +328,9 @@ export default function SearchScreen() {
     if (!searchQueryTrimmed) return false;
     return ranked.slice(0, 8).some((cafe) => cafeMatchesSearchQuery(cafe, searchQueryTrimmed));
   }, [searchQueryTrimmed, ranked]);
-  /** Partial matches: prompt Google Places suggest only (not manual log-missing flow). */
-  const showMissingCafeSuggestCta = hasQuery && !showNoResults && !hasCloseMatch;
+  /** Show suggest CTA for weak matches, or when few results turn up (< 3). */
+  const showMissingCafeSuggestCta =
+    hasQuery && !showNoResults && (listResults.length < 3 || !hasCloseMatch);
 
   function openSuggestCafeFlow() {
     const initialSearch = immediateQueryRef.current.trim();
@@ -553,6 +554,11 @@ export default function SearchScreen() {
           ) : (
             <>
               <Text style={styles.resultsLabel}>{resultsLabel}</Text>
+              <SearchResultCards
+                cafes={listResults}
+                tasteProfile={tasteProfile}
+                onPressCafe={handlePressCafe}
+              />
               {showMissingCafeSuggestCta ? (
                 <View style={styles.logMissingWrap}>
                   <Text style={styles.logMissingInlineText}>Can&apos;t find the space?</Text>
@@ -565,11 +571,6 @@ export default function SearchScreen() {
                   </TouchableOpacity>
                 </View>
               ) : null}
-              <SearchResultCards
-                cafes={listResults}
-                tasteProfile={tasteProfile}
-                onPressCafe={handlePressCafe}
-              />
             </>
           )}
         </ScrollView>

@@ -53,13 +53,34 @@ import {
 export default function LogVisitScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { id, visitId } = useLocalSearchParams<{ id?: string | string[]; visitId?: string | string[] }>();
-  const cafeId = Array.isArray(id) ? id[0] : id;
+  const {
+    id,
+    visitId,
+    submissionId: submissionIdParam,
+    name: nameParam,
+    area: areaParam,
+  } = useLocalSearchParams<{
+    id?: string | string[];
+    visitId?: string | string[];
+    submissionId?: string | string[];
+    name?: string | string[];
+    area?: string | string[];
+  }>();
+  const cafeIdRaw = Array.isArray(id) ? id[0] : id;
+  const cafeId = cafeIdRaw && cafeIdRaw !== 'pending' ? cafeIdRaw : undefined;
   const editingVisitId = Array.isArray(visitId) ? visitId[0] : visitId;
+  const pendingSubmissionId = String(
+    Array.isArray(submissionIdParam) ? submissionIdParam[0] : submissionIdParam ?? ''
+  ).trim();
+  const pendingCafeName = String(Array.isArray(nameParam) ? nameParam[0] : nameParam ?? '').trim();
+  const pendingCafeArea = String(Array.isArray(areaParam) ? areaParam[0] : areaParam ?? '').trim();
+  const isPendingSubmissionReview = pendingSubmissionId.length > 0 && !cafeId;
   const targetCafeId = cafeId ?? '';
   const visitReturnTo = editingVisitId
-    ? `/log-visit/${targetCafeId}?visitId=${encodeURIComponent(editingVisitId)}`
-    : `/log-visit/${targetCafeId}`;
+    ? `/log-visit/${targetCafeId || 'pending'}?visitId=${encodeURIComponent(editingVisitId)}`
+    : isPendingSubmissionReview
+      ? `/log-visit/pending?submissionId=${encodeURIComponent(pendingSubmissionId)}&name=${encodeURIComponent(pendingCafeName)}&area=${encodeURIComponent(pendingCafeArea)}`
+      : `/log-visit/${targetCafeId}`;
   const { authReady, authLoading } = useAuthRedirectIfNeeded(visitReturnTo);
   const { isSaved } = useCafeState();
   const guessedCafeName = decodeURIComponent(targetCafeId).replace(/[-_]+/g, ' ').trim();
@@ -86,6 +107,7 @@ export default function LogVisitScreen() {
     movedFromSaved: boolean;
     hadPhoto: boolean;
     sharedPublicly: boolean;
+    pendingSpace: boolean;
   } | null>(null);
 
   React.useEffect(() => {
@@ -188,7 +210,8 @@ export default function LogVisitScreen() {
   }
 
   async function handleSaveVisit() {
-    if ((!targetCafeId && !editingVisitId) || saving) return;
+    if (saving) return;
+    if (!editingVisitId && !targetCafeId && !pendingSubmissionId) return;
     const validationError = validateRequired();
     if (validationError) {
       setError(validationError);
@@ -217,7 +240,8 @@ export default function LogVisitScreen() {
       const res = editingVisitId
         ? await updateUserCafeVisit(editingVisitId, payload)
         : await saveUserCafeVisit({
-            cafeId: targetCafeId,
+            cafeId: targetCafeId || null,
+            submissionId: pendingSubmissionId || null,
             ...payload,
           });
       if (!res.ok) {
@@ -230,6 +254,7 @@ export default function LogVisitScreen() {
           movedFromSaved,
           hadPhoto: totalPhotoCount > 0,
           sharedPublicly: sharePublicly && totalPhotoCount > 0,
+          pendingSpace: isPendingSubmissionReview,
         });
       } else {
         router.replace('/my-cafes');
@@ -253,7 +278,6 @@ export default function LogVisitScreen() {
     ],
     [existingPhotoPreviews, newPhotoAssets]
   );
-  const canRenderVisitForm = Boolean(targetCafeId) || Boolean(cafe) || Boolean(editingVisitId);
   const workspaceTagOptions = useMemo(
     () => WORKSPACE_REVIEW_TAGS.map((t) => ({ value: t.slug, label: t.label })),
     []
@@ -263,26 +287,18 @@ export default function LogVisitScreen() {
     router.push({
       pathname: '/suggest-cafe',
       params: {
-        prefillName: guessedCafeName,
-        fromVisitLog: '1',
-        visitRating: rating != null ? String(rating) : '',
-        visitTags: selectedTags.join(','),
-        visitNote: note,
-        visitPhotoUri: newPhotoAssets[0]?.uri ?? '',
-        visitPhotoMimeType: newPhotoAssets[0]?.mimeType ?? '',
-        visitPhotoFileName: newPhotoAssets[0]?.fileName ?? '',
+        prefillName: guessedCafeName || pendingCafeName,
+        initialSearch: guessedCafeName || pendingCafeName,
       },
     });
   }
 
   React.useEffect(() => {
-    console.log('cafeId:', cafeId ?? '');
-    console.log('flow type:', cafeId ? 'existing' : 'new');
-    if (successState || editingVisitId) return;
+    if (successState || editingVisitId || isPendingSubmissionReview) return;
     if (cafeId) return;
     setRedirectingMissingCafe(true);
     openSuggestPrefilled();
-  }, [successState, editingVisitId, cafeId]);
+  }, [successState, editingVisitId, cafeId, isPendingSubmissionReview]);
 
   if (authLoading || !authReady) {
     return (
@@ -293,6 +309,14 @@ export default function LogVisitScreen() {
       </SafeAreaView>
     );
   }
+
+  const canRenderVisitForm =
+    Boolean(targetCafeId) || Boolean(cafe) || Boolean(editingVisitId) || isPendingSubmissionReview;
+  const headerName = cafe?.name || existingPendingName || pendingCafeName || 'Space';
+  const headerSubtitle =
+    cafe?.neighborhood ||
+    pendingCafeArea ||
+    (isPendingSubmissionReview ? 'Pending review' : 'Neighborhood');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
@@ -314,6 +338,11 @@ export default function LogVisitScreen() {
                     ? 'Moved from Saved Spaces to Spaces You\'ve Worked From.'
                     : "Added to Spaces You've Worked From."}
                 </Text>
+                {successState.pendingSpace ? (
+                  <Text style={styles.successHintText}>
+                    This space is pending review before it appears in Beaned.
+                  </Text>
+                ) : null}
                 <Text style={styles.successProgressText}>
                   Logged. Your Beaned progress has been updated.
                 </Text>
@@ -360,7 +389,7 @@ export default function LogVisitScreen() {
 
             {!successState ? (
               <View style={styles.titleBlock}>
-                <Text style={styles.pageTitle}>{editingVisitId ? 'Edit review' : 'Log workspace'}</Text>
+                <Text style={styles.pageTitle}>{editingVisitId ? 'Edit review' : 'Log a visit'}</Text>
                 <Text style={styles.pageSubtitle}>Help yourself, help others.</Text>
               </View>
             ) : null}
@@ -376,8 +405,8 @@ export default function LogVisitScreen() {
 
             {!successState && canRenderVisitForm ? (
               <CafeFlowHeaderCard
-                name={cafe?.name ?? existingPendingName ?? 'Space'}
-                subtitle={cafe?.neighborhood ?? 'Neighborhood'}
+                name={headerName}
+                subtitle={headerSubtitle}
                 imageUri={cafeListingImageUri}
               />
             ) : null}
