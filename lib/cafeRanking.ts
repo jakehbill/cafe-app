@@ -7,10 +7,6 @@ import {
   type UserTasteProfile,
 } from '@/lib/cafePersonalization';
 import {
-  computeOnboardingPreferenceBoost,
-  type OnboardingPreferenceRankInput,
-} from '@/lib/onboardingPreferenceRanking';
-import {
   cafeMatchesSearchQueryFromIndex,
   rankCafesBySearchQuery,
 } from '@/lib/cafeSearchIndex';
@@ -23,7 +19,6 @@ export type RankKey = 'work' | 'coffee' | 'atmosphere' | 'quick' | 'quiet';
 //
 // finalScore = computeBaseSearchRankScore(...)
 //   + personalizationBoost(...) * PERSONALIZE_RANK_SCALE   (ratings / visits / saves — dominant)
-//   + computeOnboardingPreferenceBoost(...)              (onboarding tags + tiny axis nudge; capped ~6)
 //
 // Base = balanced scores + tag coverage (no query/chip), or text + chip + quality when searching.
 // Personalization = visit-rank tiers + saved bump + axis alignment + tags + reference similarity −
@@ -70,7 +65,6 @@ const RANK = {
   searchDescriptionTokenMatch: 8,
   searchQualityWeight: 1.4,
   searchPersonalizationWeight: 3.2,
-  searchOnboardingWeight: 2,
   /**
    * Legacy constant — typed search uses tier gates in `lib/cafeSearchIndex.ts`
    * (`SEARCH_TIER` + `SEARCH_THRESHOLDS`), not this number.
@@ -207,15 +201,13 @@ export function computeSearchRankScore(
   queryTrimmedLower: string,
   selectedChip: RankKey | null,
   ratingsByCafeId: Record<string, CafeRating>,
-  tasteProfile: UserTasteProfile | null,
-  onboardingPrefs: OnboardingPreferenceRankInput | null = null
+  tasteProfile: UserTasteProfile | null
 ): number {
   const base = computeBaseSearchRankScore(cafe, queryTrimmedLower, selectedChip, ratingsByCafeId);
   const s = scoresForCafe(cafe, ratingsByCafeId);
   const behaviorBoost =
     tasteProfile === null ? 0 : personalizationBoost(cafe, tasteProfile, s) * PERSONALIZE_RANK_SCALE;
-  const onboardingBoost = computeOnboardingPreferenceBoost(cafe, onboardingPrefs);
-  return base + behaviorBoost + onboardingBoost;
+  return base + behaviorBoost;
 }
 
 export function rankCafesForSearch(
@@ -223,21 +215,20 @@ export function rankCafesForSearch(
   queryTrimmedLower: string,
   selectedChip: RankKey | null,
   ratingsByCafeId: Record<string, CafeRating>,
-  tasteProfile: UserTasteProfile | null,
-  onboardingPrefs: OnboardingPreferenceRankInput | null = null
+  tasteProfile: UserTasteProfile | null
 ): Cafe[] {
   const hasQuery = queryTrimmedLower.trim().length > 0;
 
   if (hasQuery) {
-    // Typed query: tiered precision ranking only — no personalization / onboarding boosts.
+    // Typed query: tiered precision ranking only — no personalization boosts.
     return rankCafesBySearchQuery(list, queryTrimmedLower).map((entry) => entry.cafe);
   }
 
   const copy = [...list];
   copy.sort(
     (a, b) =>
-      computeSearchRankScore(b, queryTrimmedLower, selectedChip, ratingsByCafeId, tasteProfile, onboardingPrefs) -
-      computeSearchRankScore(a, queryTrimmedLower, selectedChip, ratingsByCafeId, tasteProfile, onboardingPrefs)
+      computeSearchRankScore(b, queryTrimmedLower, selectedChip, ratingsByCafeId, tasteProfile) -
+      computeSearchRankScore(a, queryTrimmedLower, selectedChip, ratingsByCafeId, tasteProfile)
   );
   return copy;
 }
@@ -246,10 +237,9 @@ export function rankCafesForSearch(
 export function rankCafesForHome(
   list: Cafe[],
   ratingsByCafeId: Record<string, CafeRating>,
-  tasteProfile: UserTasteProfile | null,
-  onboardingPrefs: OnboardingPreferenceRankInput | null = null
+  tasteProfile: UserTasteProfile | null
 ): Cafe[] {
-  return rankCafesForSearch(list, '', null, ratingsByCafeId, tasteProfile, onboardingPrefs);
+  return rankCafesForSearch(list, '', null, ratingsByCafeId, tasteProfile);
 }
 
 export function buildTasteProfileFromState(

@@ -98,7 +98,7 @@ function RootNavigator() {
   }, [navigationReady, loading, session, router]);
 
   /**
-   * Route signed-in users through taste preferences until `onboarding_completed` is true.
+   * Route signed-in users through onboarding until `onboarding_completed` is true.
    * When complete, leave the preferences screen for the tab root.
    */
   useEffect(() => {

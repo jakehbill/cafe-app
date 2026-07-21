@@ -7,13 +7,18 @@ import {
   hydrateProfileIdentityFromAuth,
 } from '@/data/profile';
 
+export type ProfileGateRefreshResult = {
+  needsOnboarding: boolean;
+  error: string | null;
+};
+
 type ProfileGateContextValue = {
   /** True while resolving profile / onboarding for the signed-in user. */
   profileLoading: boolean;
   /** True when `onboarding_completed` is not strictly `true` (null counts as incomplete). */
   needsOnboarding: boolean;
   /** Re-fetch profile after updates (e.g. onboarding finished). */
-  refresh: () => Promise<void>;
+  refresh: () => Promise<ProfileGateRefreshResult>;
 };
 
 const ProfileGateContext = createContext<ProfileGateContextValue | undefined>(undefined);
@@ -23,11 +28,11 @@ export function ProfileGateProvider({ children }: { children: React.ReactNode })
   const [profileLoading, setProfileLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<ProfileGateRefreshResult> => {
     if (!user) {
       setProfileLoading(false);
       setNeedsOnboarding(false);
-      return;
+      return { needsOnboarding: false, error: null };
     }
 
     setProfileLoading(true);
@@ -36,20 +41,28 @@ export function ProfileGateProvider({ children }: { children: React.ReactNode })
       if (created.error) {
         console.warn('[ProfileGate] createProfileIfMissing:', created.error);
         setNeedsOnboarding(false);
-        return;
+        return { needsOnboarding: false, error: created.error };
       }
 
       const fresh = await getCurrentUserProfile();
+      if (fresh.error) {
+        setNeedsOnboarding(false);
+        return { needsOnboarding: false, error: fresh.error };
+      }
+
       const profile = fresh.data ?? created.data;
       if (!profile) {
         setNeedsOnboarding(false);
-        return;
+        return { needsOnboarding: false, error: 'Profile not found.' };
       }
 
       await hydrateProfileIdentityFromAuth(user, profile);
 
-      const completed = profile.onboarding_completed === true;
+      const afterHydrate = await getCurrentUserProfile();
+      const latest = afterHydrate.data ?? profile;
+      const completed = latest.onboarding_completed === true;
       setNeedsOnboarding(!completed);
+      return { needsOnboarding: !completed, error: afterHydrate.error };
     } finally {
       setProfileLoading(false);
     }
@@ -62,7 +75,7 @@ export function ProfileGateProvider({ children }: { children: React.ReactNode })
       setNeedsOnboarding(false);
       return;
     }
-    refresh();
+    void refresh();
   }, [authLoading, user, refresh]);
 
   const value = useMemo(

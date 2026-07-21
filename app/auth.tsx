@@ -1,11 +1,9 @@
 import { buildLoginPath, parseReturnToParam } from '@/lib/authGate';
 import {
-  COFFEE_PREFERENCE_OPTIONS,
-  INTENT_PREFERENCE_OPTIONS,
   normalizeSignupUsername,
+  updateProfilePreferences,
   upsertSignupProfileForUser,
   validateSignupUsernameFormat,
-  VIBE_PREFERENCE_OPTIONS,
 } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -18,10 +16,10 @@ import { COLORS, FONTS, SPACING } from '@/components/theme';
 import { useProfileGate } from '@/contexts/ProfileGateContext';
 import { FlowPrimaryButton } from '@/components/ui/FlowPrimaryButton';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 2;
 
-/** 0–2 taste questions, 3 account details, 4 username */
-type SignupStepIndex = 0 | 1 | 2 | 3 | 4;
+/** 0 account details, 1 username */
+type SignupStepIndex = 0 | 1;
 
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -31,12 +29,6 @@ function devLogSignup(message: string, detail?: unknown) {
   if (!__DEV__) return;
   if (detail !== undefined) console.log(`[signup] ${message}`, detail);
   else console.log(`[signup] ${message}`);
-}
-
-function toggleInMaxTwo(current: string[], value: string, max: number): string[] {
-  if (current.includes(value)) return current.filter((v) => v !== value);
-  if (current.length >= max) return [...current.slice(1), value];
-  return [...current, value];
 }
 
 function SignupProgress({ step }: { step: number }) {
@@ -54,64 +46,15 @@ function SignupProgress({ step }: { step: number }) {
   );
 }
 
-type PreferenceOptionsProps = {
-  options: string[];
-  mode: 'single' | 'multi';
-  singleValue?: string | null;
-  onToggleSingle?: (v: string) => void;
-  multiValue?: string[];
-  onToggleMulti?: (v: string) => void;
-};
-
-/** Options only — title/subtitle come from AuthScreenShell. */
-function PreferenceOptions({
-  options,
-  mode,
-  singleValue,
-  onToggleSingle,
-  multiValue,
-  onToggleMulti,
-}: PreferenceOptionsProps) {
-  return (
-    <View style={styles.optionList}>
-      {options.map((opt) => {
-        const selected =
-          mode === 'single' ? singleValue === opt : (multiValue?.includes(opt) ?? false);
-        return (
-          <Pressable
-            key={opt}
-            onPress={() => {
-              if (mode === 'single') onToggleSingle?.(opt);
-              else onToggleMulti?.(opt);
-            }}
-            accessibilityRole="button"
-            accessibilityState={{ selected }}
-            style={({ pressed }) => [
-              styles.optionRow,
-              selected && styles.optionRowSelected,
-              pressed && styles.optionRowPressed,
-            ]}
-          >
-            <Text style={[styles.optionLabel, selected && styles.optionLabelSelected]}>{opt}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 /**
  * Main auth entry: sign up (`/auth`).
- * Log in lives at `/login`.
+ * Taste / workspace onboarding runs post-signup via ProfileGate → `/onboarding-preferences`.
  */
 export default function AuthScreen() {
   const { returnTo: returnToParam } = useLocalSearchParams<{ returnTo?: string | string[] }>();
   const returnTo = parseReturnToParam(returnToParam);
   const { refresh: refreshProfileGate } = useProfileGate();
   const [step, setStep] = useState<SignupStepIndex>(0);
-  const [coffee, setCoffee] = useState<string | null>(null);
-  const [vibes, setVibes] = useState<string[]>([]);
-  const [intents, setIntents] = useState<string[]>([]);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -121,52 +64,17 @@ export default function AuthScreen() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const { shellTitle, shellSubtitle } = useMemo(() => {
-    switch (step) {
-      case 0:
-        return {
-          shellTitle: 'What are you usually ordering?',
-          shellSubtitle: 'Help us understand your coffee style.',
-        };
-      case 1:
-        return {
-          shellTitle: 'What kind of places do you gravitate toward?',
-          shellSubtitle: 'Pick one or two.',
-        };
-      case 2:
-        return {
-          shellTitle: 'What are you most often looking for?',
-          shellSubtitle: 'Pick one or two.',
-        };
-      case 3:
-        return {
-          shellTitle: 'Create your account',
-          shellSubtitle: 'Almost there — just your details to sign up.',
-        };
-      case 4:
-        return {
-          shellTitle: 'Choose your username',
-          shellSubtitle: 'This is how you’ll show up on Beaned.',
-        };
-      default:
-        return { shellTitle: 'Create your account', shellSubtitle: '' };
+    if (step === 0) {
+      return {
+        shellTitle: 'Create your account',
+        shellSubtitle: 'Sign up to discover and save workspaces.',
+      };
     }
+    return {
+      shellTitle: 'Choose your username',
+      shellSubtitle: 'This is how you’ll show up on Beaned.',
+    };
   }, [step]);
-
-  function validatePreferences(): boolean {
-    if (!coffee) {
-      setFormError('Please pick what you usually order.');
-      return false;
-    }
-    if (vibes.length === 0) {
-      setFormError('Please pick at least one vibe.');
-      return false;
-    }
-    if (intents.length === 0) {
-      setFormError('Please pick at least one intent.');
-      return false;
-    }
-    return true;
-  }
 
   function validateAccount(): {
     first: string;
@@ -203,27 +111,6 @@ export default function AuthScreen() {
   function validateCurrentStep(): boolean {
     setFormError(null);
     if (step === 0) {
-      if (!coffee) {
-        setFormError('Please pick what you usually order.');
-        return false;
-      }
-      return true;
-    }
-    if (step === 1) {
-      if (vibes.length === 0) {
-        setFormError('Please pick at least one vibe.');
-        return false;
-      }
-      return true;
-    }
-    if (step === 2) {
-      if (intents.length === 0) {
-        setFormError('Please pick at least one intent.');
-        return false;
-      }
-      return true;
-    }
-    if (step === 3) {
       return validateAccount() != null;
     }
     return true;
@@ -231,16 +118,15 @@ export default function AuthScreen() {
 
   function handleContinue() {
     if (!validateCurrentStep()) return;
-    if (step < 4) setStep((s) => (s + 1) as SignupStepIndex);
+    if (step < 1) setStep(1);
   }
 
   async function handleCreateAccount() {
     setFormError(null);
 
-    if (!validatePreferences()) return;
     const account = validateAccount();
     if (!account) {
-      setStep(3);
+      setStep(0);
       return;
     }
 
@@ -306,10 +192,7 @@ export default function AuthScreen() {
         last_name: account.last,
         username: handle,
         email: mail,
-        coffee_preference: coffee,
-        vibe_preferences: vibes,
-        intent_preferences: intents,
-        onboarding_completed: true,
+        onboarding_completed: false,
       });
 
       if (!profileRes.ok) {
@@ -323,9 +206,15 @@ export default function AuthScreen() {
         devLogSignup('profile client fallback success', { userId });
       }
 
+      // Ensure ProfileGate sends new users through workspace onboarding (trigger may default to true).
+      const onboardingFlagRes = await updateProfilePreferences({ onboarding_completed: false });
+      if (!onboardingFlagRes.ok && __DEV__) {
+        console.warn('[signup] could not reset onboarding_completed', onboardingFlagRes.error);
+      }
+
       await refreshProfileGate();
-      devLogSignup('navigation start', { route: '/(tabs)' });
-      router.replace('/(tabs)');
+      devLogSignup('navigation start', { route: '/onboarding-preferences' });
+      router.replace('/onboarding-preferences');
     } catch (e) {
       devLogSignup('signUp error', e);
       setFormError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
@@ -337,7 +226,7 @@ export default function AuthScreen() {
   function handleShellBack() {
     setFormError(null);
     if (step > 0) {
-      setStep((s) => (s - 1) as SignupStepIndex);
+      setStep(0);
       return;
     }
     if (router.canGoBack()) {
@@ -348,7 +237,7 @@ export default function AuthScreen() {
   }
 
   const primaryLabel =
-    step === 4 ? (loading ? 'Creating account...' : 'Create account') : 'Continue';
+    step === 1 ? (loading ? 'Creating account...' : 'Create account') : 'Continue';
 
   return (
     <AuthScreenShell
@@ -377,33 +266,6 @@ export default function AuthScreen() {
       ) : null}
 
       {step === 0 ? (
-        <PreferenceOptions
-          options={[...COFFEE_PREFERENCE_OPTIONS]}
-          mode="single"
-          singleValue={coffee}
-          onToggleSingle={setCoffee}
-        />
-      ) : null}
-
-      {step === 1 ? (
-        <PreferenceOptions
-          options={[...VIBE_PREFERENCE_OPTIONS]}
-          mode="multi"
-          multiValue={vibes}
-          onToggleMulti={(v) => setVibes((prev) => toggleInMaxTwo(prev, v, 2))}
-        />
-      ) : null}
-
-      {step === 2 ? (
-        <PreferenceOptions
-          options={[...INTENT_PREFERENCE_OPTIONS]}
-          mode="multi"
-          multiValue={intents}
-          onToggleMulti={(v) => setIntents((prev) => toggleInMaxTwo(prev, v, 2))}
-        />
-      ) : null}
-
-      {step === 3 ? (
         <>
           <View style={authStyles.fieldWrap}>
             <Text style={authStyles.fieldLabel}>First name</Text>
@@ -467,7 +329,7 @@ export default function AuthScreen() {
         </>
       ) : null}
 
-      {step === 4 ? (
+      {step === 1 ? (
         <View style={authStyles.fieldWrap}>
           <Text style={authStyles.fieldLabel}>Username</Text>
           <View style={authStyles.inputWrap}>
@@ -488,14 +350,14 @@ export default function AuthScreen() {
       <View style={authStyles.primaryButtonSlot}>
         <FlowPrimaryButton
           label={primaryLabel}
-          onPress={() => (step === 4 ? void handleCreateAccount() : handleContinue())}
+          onPress={() => (step === 1 ? void handleCreateAccount() : handleContinue())}
           disabled={loading}
         />
       </View>
 
-      {step > 0 && step < 4 ? (
+      {step === 1 ? (
         <Pressable
-          onPress={() => setStep((s) => (s - 1) as SignupStepIndex)}
+          onPress={() => setStep(0)}
           disabled={loading}
           accessibilityRole="button"
           accessibilityLabel="Back"
@@ -534,32 +396,5 @@ const styles = StyleSheet.create({
   },
   dotActive: {
     backgroundColor: COLORS.accent,
-  },
-  optionList: {
-    gap: 12,
-  },
-  optionRow: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.cardBorder,
-    backgroundColor: COLORS.inputBackground,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-  },
-  optionRowSelected: {
-    borderColor: COLORS.accentSubtleBorder,
-    backgroundColor: COLORS.accentSubtleFill,
-  },
-  optionRowPressed: {
-    opacity: 0.92,
-  },
-  optionLabel: {
-    fontSize: 16,
-    lineHeight: 22,
-    color: COLORS.text,
-    fontFamily: FONTS.sans.regular,
-  },
-  optionLabelSelected: {
-    fontFamily: FONTS.sans.semibold,
   },
 });

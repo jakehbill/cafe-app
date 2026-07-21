@@ -1,16 +1,6 @@
--- Run in Supabase SQL editor.
--- Creates public.profiles automatically when a new auth.users row is inserted.
--- Client signup should pass metadata via auth.signUp options.data:
---   display_name, username, first_name, last_name
--- Email comes from auth.users.email (not only metadata).
-
-alter table public.profiles
-  add column if not exists first_name text,
-  add column if not exists last_name text,
-  add column if not exists username text,
-  add column if not exists email text;
-
-create unique index if not exists profiles_user_id_key on public.profiles (user_id);
+-- Ensure new auth users must complete onboarding (run after 04_profiles_onboarding_v2.sql).
+-- Without this, the handle_new_user_profile trigger may insert onboarding_completed = true
+-- and skip the post-signup questionnaire.
 
 create or replace function public.handle_new_user_profile()
 returns trigger
@@ -62,10 +52,3 @@ begin
   return new;
 end;
 $$;
-
-drop trigger if exists on_auth_user_created_profile on auth.users;
-
-create trigger on_auth_user_created_profile
-  after insert on auth.users
-  for each row
-  execute function public.handle_new_user_profile();

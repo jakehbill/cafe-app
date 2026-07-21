@@ -19,7 +19,6 @@ import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { SUGGEST_CAFE_RETURN_SEARCH } from '@/lib/authGate';
-import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { buildTasteProfileFromState, cafeMatchesSearchQuery, rankCafesForSearch } from '@/lib/cafeRanking';
 import { CafeCardGrid } from '@/components/layout/CafeCardGrid';
 import { DesktopWebPageContainer } from '@/components/layout/DesktopWebPageContainer';
@@ -146,7 +145,6 @@ export default function SearchScreen() {
     },
     [router]
   );
-  const onboardingPrefs = useOnboardingPreferencesForRanking();
   const {
     focusCafeId: focusCafeIdRaw,
     focusLat: focusLatRaw,
@@ -275,10 +273,9 @@ export default function SearchScreen() {
       q,
       null,
       ratingsByCafeId,
-      tasteProfile,
-      onboardingPrefs
+      tasteProfile
     );
-  }, [debouncedSearchQuery, ratingsByCafeId, tasteProfile, onboardingPrefs, cafesWithDistance]);
+  }, [debouncedSearchQuery, ratingsByCafeId, tasteProfile, cafesWithDistance]);
 
   const filteredRankedResults = useMemo(() => {
     let next = ranked;

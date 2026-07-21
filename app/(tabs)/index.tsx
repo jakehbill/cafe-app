@@ -25,7 +25,6 @@ import { COLORS, FONTS, SHADOWS } from '@/components/theme';
 import { useCafeState } from '@/contexts/CafeStateContext';
 import { useCafeCatalog } from '@/hooks/useCafeCatalog';
 import { useCafesWithApprovedPhotos } from '@/hooks/useCafesWithApprovedPhotos';
-import { useOnboardingPreferencesForRanking } from '@/hooks/useOnboardingPreferencesForRanking';
 import { EditorialTag } from '@/components/EditorialTag';
 import { VenueTypeBadge } from '@/components/VenueTypeBadge';
 import { BeanedPickBadge } from '@/components/BeanedPickBadge';
@@ -311,7 +310,6 @@ export default function HomeScreen() {
   const showCatalogSkeleton = catalogLoading && cafeCatalog.length === 0;
   const cafesWithApprovedPhotos = useCafesWithApprovedPhotos(cafeCatalog);
   const { coords: userLocation, refreshLocation } = useUserLocation();
-  const onboardingPrefs = useOnboardingPreferencesForRanking();
   const [homeBannerVisible, setHomeBannerVisible] = useState(false);
   const [homeBannerPrefLoaded, setHomeBannerPrefLoaded] = useState(false);
   const [noticeBoardNotes, setNoticeBoardNotes] = useState<PublicVisitNote[]>([]);
@@ -445,7 +443,7 @@ export default function HomeScreen() {
    * Distance adds only a small modifier so nearby options get a modest nudge, not a takeover.
    */
   const topPicksForYou = useMemo(() => {
-    const base = rankCafesForHome([...cafesWithDistance], ratingsByCafeId, tasteProfile, onboardingPrefs);
+    const base = rankCafesForHome([...cafesWithDistance], ratingsByCafeId, tasteProfile);
     const baseRank = new Map(base.map((cafe, index) => [cafe.id, index]));
     const rescored = [...base].sort((a, b) => {
       const aBase = baseRank.get(a.id) ?? Number.MAX_SAFE_INTEGER;
@@ -460,7 +458,7 @@ export default function HomeScreen() {
     }
     const unvisited = rescored.filter((cafe) => !visitedFromVisitLogs.has(String(cafe.id).trim()));
     return unvisited.slice(0, 5);
-  }, [cafesWithDistance, ratingsByCafeId, tasteProfile, onboardingPrefs, visitedFromVisitLogs]);
+  }, [cafesWithDistance, ratingsByCafeId, tasteProfile, visitedFromVisitLogs]);
 
   const fallbackHighRatedCafes = useMemo(() => {
     const copy = [...cafesWithDistance];

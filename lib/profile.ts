@@ -1,8 +1,9 @@
 import type { User } from '@supabase/supabase-js';
 
+import type { ProfileRow } from '@/types/database.types';
 import { supabase } from '@/lib/supabase';
 
-/** Row shape for `public.profiles` (identity, taste preferences, onboarding). */
+/** Row shape for `public.profiles` (identity, onboarding, legacy taste for ranking). */
 export type UserProfile = {
   user_id: string;
   /** Main user-facing name (editable; email stays in Supabase Auth only). */
@@ -11,14 +12,50 @@ export type UserProfile = {
   last_name: string | null;
   username: string | null;
   avatar_url: string | null;
-  city: string | null;
-  coffee_preference: string | null;
-  vibe_preferences: string[] | null;
-  intent_preferences: string[] | null;
+  email: string | null;
+  current_city: string | null;
+  is_digital_nomad: boolean | null;
+  workspace_type_preferences: string[] | null;
+  work_style: string | null;
+  workspace_frustration: string | null;
   onboarding_completed: boolean | null;
   created_at: string;
   updated_at: string;
 };
+
+export type ProfileUpdateResult =
+  | { ok: true; profile: UserProfile }
+  | { ok: false; error: string };
+
+export type OnboardingAnswersInput = {
+  current_city: string | null;
+  is_digital_nomad: boolean;
+  workspace_type_preferences: string[] | null;
+  work_style: string | null;
+  workspace_frustration: string | null;
+};
+
+function mapProfileRow(row: ProfileRow | Record<string, unknown>): UserProfile {
+  const r = row as Record<string, unknown>;
+  return {
+    user_id: String(r.user_id ?? ''),
+    display_name: (r.display_name as string | null) ?? null,
+    first_name: (r.first_name as string | null) ?? null,
+    last_name: (r.last_name as string | null) ?? null,
+    username: (r.username as string | null) ?? null,
+    avatar_url: (r.avatar_url as string | null) ?? null,
+    email: (r.email as string | null) ?? null,
+    current_city: ((r.current_city ?? r.city) as string | null) ?? null,
+    is_digital_nomad: (r.is_digital_nomad as boolean | null) ?? null,
+    workspace_type_preferences: (r.workspace_type_preferences as string[] | null) ?? null,
+    work_style: (r.work_style as string | null) ?? null,
+    workspace_frustration:
+      ((r.workspace_frustration ?? r.onboarding_biggest_frustration) as string | null) ?? null,
+    onboarding_completed: (r.onboarding_completed as boolean | null) ?? null,
+    created_at: String(r.created_at ?? ''),
+    updated_at: String(r.updated_at ?? ''),
+  };
+}
 
 export type ProfileResult<T> =
   | { data: T; error: null }
@@ -43,7 +80,11 @@ export async function getCurrentUserProfile(): Promise<ProfileResult<UserProfile
     return { data: null, error: res.error.message };
   }
 
-  return { data: (res.data as UserProfile | null) ?? null, error: null };
+  if (!res.data) {
+    return { data: null, error: null };
+  }
+
+  return { data: mapProfileRow(res.data as ProfileRow), error: null };
 }
 
 /**
@@ -86,7 +127,7 @@ export async function createProfileIfMissing(): Promise<ProfileResult<UserProfil
     return { data: null, error: 'Insert returned no row' };
   }
 
-  return { data: insertRes.data as UserProfile, error: null };
+  return { data: mapProfileRow(insertRes.data as ProfileRow), error: null };
 }
 
 function normalizeNameField(raw: string | null | undefined): string | null {
@@ -180,9 +221,6 @@ export type SignupProfileInput = {
   /** Saved when `public.profiles.email` exists; otherwise omitted. */
   email?: string;
   onboarding_completed?: boolean;
-  coffee_preference?: string | null;
-  vibe_preferences?: string[] | null;
-  intent_preferences?: string[] | null;
 };
 
 /**
@@ -217,9 +255,6 @@ export async function upsertSignupProfileForUser(
   };
 
   if (email) row.email = email;
-  if (patch.coffee_preference != null) row.coffee_preference = patch.coffee_preference;
-  if (patch.vibe_preferences != null) row.vibe_preferences = patch.vibe_preferences;
-  if (patch.intent_preferences != null) row.intent_preferences = patch.intent_preferences;
 
   if (__DEV__) {
     devWarnSignup('profile upsert payload', row);
@@ -281,10 +316,12 @@ export type UpdateProfileInput = {
   last_name?: string | null;
   username?: string | null;
   avatar_url?: string | null;
-  city?: string | null;
-  coffee_preference?: string | null;
-  vibe_preferences?: string[] | null;
-  intent_preferences?: string[] | null;
+  email?: string | null;
+  current_city?: string | null;
+  is_digital_nomad?: boolean | null;
+  workspace_type_preferences?: string[] | null;
+  work_style?: string | null;
+  workspace_frustration?: string | null;
   onboarding_completed?: boolean;
 };
 
@@ -297,22 +334,7 @@ function normalizeDisplayName(raw: string | null | undefined): string | null {
   return t.length > 0 ? t : null;
 }
 
-/**
- * Updates columns on `public.profiles` for the current user.
- * Only sends fields that are defined (undefined keys are omitted). Never touches columns you omit.
- */
-export async function updateProfile(
-  patch: UpdateProfileInput
-): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError) {
-    return { ok: false, error: authError.message };
-  }
-  const userId = authData.user?.id;
-  if (!userId) {
-    return { ok: false, error: 'Not authenticated' };
-  }
-
+function buildProfileUpdateRow(patch: UpdateProfileInput): Record<string, unknown> {
   const row: Record<string, unknown> = {};
   if (patch.display_name !== undefined) {
     row.display_name = normalizeDisplayName(patch.display_name ?? null);
@@ -327,53 +349,134 @@ export async function updateProfile(
     row.username = normalizeUsername(patch.username ?? null);
   }
   if (patch.avatar_url !== undefined) row.avatar_url = patch.avatar_url;
-  if (patch.city !== undefined) row.city = patch.city;
-  if (patch.coffee_preference !== undefined) row.coffee_preference = patch.coffee_preference;
-  if (patch.vibe_preferences !== undefined) row.vibe_preferences = patch.vibe_preferences;
-  if (patch.intent_preferences !== undefined) row.intent_preferences = patch.intent_preferences;
+  if (patch.email !== undefined) row.email = patch.email;
+  if (patch.current_city !== undefined) row.current_city = patch.current_city;
+  if (patch.is_digital_nomad !== undefined) row.is_digital_nomad = patch.is_digital_nomad;
+  if (patch.workspace_type_preferences !== undefined) {
+    row.workspace_type_preferences = patch.workspace_type_preferences;
+  }
+  if (patch.work_style !== undefined) row.work_style = patch.work_style;
+  if (patch.workspace_frustration !== undefined) {
+    row.workspace_frustration = patch.workspace_frustration;
+  }
   if (patch.onboarding_completed !== undefined) row.onboarding_completed = patch.onboarding_completed;
+  return row;
+}
 
+async function updateProfileRow(
+  userId: string,
+  row: Record<string, unknown>
+): Promise<ProfileUpdateResult> {
   if (Object.keys(row).length === 0) {
-    return { ok: true };
+    const current = await getCurrentUserProfile();
+    if (current.error || !current.data) {
+      return { ok: false, error: current.error ?? 'Profile not found after update.' };
+    }
+    return { ok: true, profile: current.data };
   }
 
-  const res = await supabase.from('profiles').update(row).eq('user_id', userId);
+  let res = await supabase.from('profiles').update(row).eq('user_id', userId).select('*').maybeSingle();
+
+  // Pre-migration-06 fallback: write legacy column names if canonical names are missing.
+  if (res.error && /column .* does not exist/i.test(res.error.message)) {
+    const legacy: Record<string, unknown> = { ...row };
+    if ('current_city' in legacy) {
+      legacy.city = legacy.current_city;
+      delete legacy.current_city;
+    }
+    if ('workspace_frustration' in legacy) {
+      legacy.onboarding_biggest_frustration = legacy.workspace_frustration;
+      delete legacy.workspace_frustration;
+    }
+    res = await supabase
+      .from('profiles')
+      .update(legacy)
+      .eq('user_id', userId)
+      .select('*')
+      .maybeSingle();
+  }
 
   if (res.error) {
     return { ok: false, error: res.error.message };
   }
+  if (!res.data) {
+    return {
+      ok: false,
+      error: 'Profile update did not apply. Check RLS policies or run onboarding migrations.',
+    };
+  }
 
-  return { ok: true };
+  return { ok: true, profile: mapProfileRow(res.data as ProfileRow) };
+}
+
+/**
+ * Updates columns on `public.profiles` for the current user.
+ * Returns the updated row so callers can verify persisted values.
+ */
+export async function updateProfile(patch: UpdateProfileInput): Promise<ProfileUpdateResult> {
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError) {
+    return { ok: false, error: authError.message };
+  }
+  const userId = authData.user?.id;
+  if (!userId) {
+    return { ok: false, error: 'Not authenticated' };
+  }
+
+  return updateProfileRow(userId, buildProfileUpdateRow(patch));
 }
 
 /** Same as `updateProfile` — preferences-only name kept for call sites. */
 export async function updateProfilePreferences(
   patch: UpdateProfileInput
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<ProfileUpdateResult> {
   return updateProfile(patch);
 }
 
-/** Step 1 — stored in `coffee_preference`. */
-export const COFFEE_PREFERENCE_OPTIONS = [
-  'Espresso-based (latte, cappuccino, flat white)',
-  'Filter / pour-over',
-  'Iced drinks',
-  'I care more about the space',
-] as const;
+/**
+ * Persists onboarding answers, then marks onboarding complete in a second write.
+ * Does not navigate — caller must refresh ProfileGate and route only after success.
+ */
+export async function saveOnboardingAndComplete(
+  answers: OnboardingAnswersInput
+): Promise<ProfileUpdateResult> {
+  const answersRes = await updateProfile({
+    current_city: answers.current_city,
+    is_digital_nomad: answers.is_digital_nomad,
+    workspace_type_preferences: answers.workspace_type_preferences,
+    work_style: answers.work_style,
+    workspace_frustration: answers.workspace_frustration,
+  });
+  if (!answersRes.ok) {
+    return answersRes;
+  }
 
-/** Step 2 — stored in `vibe_preferences`. */
-export const VIBE_PREFERENCE_OPTIONS = [
-  'Minimal / clean',
-  'Cosy / warm',
-  'Busy / buzzy',
-  'Quiet / calm',
-] as const;
+  const completeRes = await updateProfile({ onboarding_completed: true });
+  if (!completeRes.ok) {
+    return completeRes;
+  }
 
-/** Step 3 — stored in `intent_preferences`. */
-export const INTENT_PREFERENCE_OPTIONS = [
-  'A good place to work',
-  'Great coffee first',
-  'Catching up with friends',
-  'Quiet solo time',
-  'A bit of everything',
-] as const;
+  if (completeRes.profile.onboarding_completed !== true) {
+    return {
+      ok: false,
+      error: 'Onboarding completion was not saved. Please try again.',
+    };
+  }
+
+  return completeRes;
+}
+
+/** Marks onboarding complete without answers (skip path). */
+export async function markOnboardingComplete(): Promise<ProfileUpdateResult> {
+  const res = await updateProfile({ onboarding_completed: true });
+  if (!res.ok) {
+    return res;
+  }
+  if (res.profile.onboarding_completed !== true) {
+    return {
+      ok: false,
+      error: 'Could not mark onboarding complete. Please try again.',
+    };
+  }
+  return res;
+}
