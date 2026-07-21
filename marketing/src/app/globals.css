@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  /* Paper & ink — cool stone, not cream */
+  --paper: #f4f3f0;
+  --ink: #141414;
+  --ink-soft: #2a2a2a;
+  --mist: rgba(244, 243, 240, 0.72);
+  --mist-strong: rgba(244, 243, 240, 0.92);
+  --hairline: rgba(244, 243, 240, 0.28);
+  --forest: #1f3d32;
+
+  --background: var(--ink);
+  --foreground: var(--paper);
+
+  --ease-out-premium: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-mist: var(--mist);
+  --color-mist-strong: var(--mist-strong);
+  --color-hairline: var(--hairline);
+  --color-forest: var(--forest);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--forest) 70%, black);
+  color: var(--paper);
+}
