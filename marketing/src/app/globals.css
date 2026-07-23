@@ -1,33 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  /* Paper & ink — cool stone, not cream */
-  --paper: #f4f3f0;
-  --ink: #141414;
-  --ink-soft: #2a2a2a;
-  --mist: rgba(244, 243, 240, 0.72);
-  --mist-strong: rgba(244, 243, 240, 0.92);
-  --hairline: rgba(244, 243, 240, 0.28);
-  --forest: #1f3d32;
+  /* Beaned app palette — warm editorial cream */
+  --paper: #fffbf0;
+  --paper-deep: #fff5e0;
+  --paper-mute: #ede6da;
+  --ink: #000000;
+  --ink-soft: #1a1a1a;
+  --muted: #5c5348;
+  --brown: #6b5e52;
+  --sage: #8a9a7e;
+  --border: #e8e0d4;
+  --hairline: rgba(0, 0, 0, 0.12);
+  --hairline-light: rgba(255, 251, 240, 0.28);
 
-  --background: var(--ink);
-  --foreground: var(--paper);
+  --background: var(--paper);
+  --foreground: var(--ink);
 
   --ease-out-premium: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
   --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-paper-mute: var(--paper-mute);
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
-  --color-mist: var(--mist);
-  --color-mist-strong: var(--mist-strong);
+  --color-muted: var(--muted);
+  --color-brown: var(--brown);
+  --color-sage: var(--sage);
+  --color-border: var(--border);
   --color-hairline: var(--hairline);
-  --color-forest: var(--forest);
+  --color-hairline-light: var(--hairline-light);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-display: var(--font-display);
+  --font-hand: var(--font-hand);
 }
 
 html {
@@ -41,14 +50,43 @@ html {
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--forest) 70%, black);
-  color: var(--paper);
+  background: color-mix(in srgb, var(--sage) 45%, var(--paper));
+  color: var(--ink);
+}
+
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes note-float {
+  0%,
+  100% {
+    transform: rotate(-1.5deg) translateY(0);
+  }
+  50% {
+    transform: rotate(-1.5deg) translateY(-2px);
+  }
+}
+
+.note-float {
+  animation: note-float 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-float {
+    animation: none;
+  }
 }

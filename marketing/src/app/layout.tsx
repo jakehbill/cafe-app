@@ -1,24 +1,31 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, Manrope } from "next/font/google";
+import { Caveat, Inter, Playfair_Display } from "next/font/google";
 import "./globals.css";
 
-const manrope = Manrope({
+const inter = Inter({
   variable: "--font-sans",
   subsets: ["latin"],
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
+const playfair = Playfair_Display({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: "400",
+  weight: ["600", "700"],
+  display: "swap",
+});
+
+const caveat = Caveat({
+  variable: "--font-hand",
+  subsets: ["latin"],
+  weight: ["400", "500"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Beaned — Work from anywhere worth working from",
+  title: "Beaned: Work from anywhere worth working from",
   description:
-    "Discover inspiring places to work — with great Wi-Fi, coffee, atmosphere, and community — wherever life takes you.",
+    "Beaned helps remote workers discover inspiring places to work, starting in London.",
 };
 
 export default function RootLayout({
@@ -29,9 +36,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${manrope.variable} ${instrumentSerif.variable} h-full antialiased`}
+      className={`${inter.variable} ${playfair.variable} ${caveat.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-ink text-paper">{children}</body>
+      <body className="min-h-full bg-paper font-sans text-ink">{children}</body>
     </html>
   );
 }
