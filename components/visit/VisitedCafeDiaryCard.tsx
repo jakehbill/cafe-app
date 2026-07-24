@@ -1,5 +1,13 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { CafeImage } from '@/components/CafeImage';
 import { TagWithOptionalIcon } from '@/components/TagWithOptionalIcon';
@@ -13,12 +21,17 @@ import type { Cafe } from '@/data/cafes';
 import { prioritizeWorkTagsForCards } from '@/lib/cafeFeaturedTags';
 import { formatCoffeeRatingValue } from '@/lib/coffeeRating';
 import { resolveLiveCafePrimaryImageUrl } from '@/lib/cafeLiveImages';
+import { cafeHasPublicWorkScore } from '@/lib/publicCoffeeDisplay';
 import type { UserCafeVisit } from '@/lib/userCafeVisits';
 import type { CafeWorkspaceSummary } from '@/lib/cafeWorkspaceSummary';
+import { buildWorkspaceCardFactParts } from '@/lib/cafeWorkspaceSummary';
+import { useDesktopWeb } from '@/hooks/use-desktop-web';
 
-const MAIN_W = 96;
-const MAIN_H = 118;
-const OVERLAY_SIZE = 38;
+const MAIN_W = 76;
+const MAIN_H = 92;
+const MAIN_W_DESKTOP = 88;
+const MAIN_H_DESKTOP = 104;
+const OVERLAY_SIZE = 32;
 
 export type VisitedCafeDiaryCardProps = {
   cafe: Cafe;
@@ -29,7 +42,7 @@ export type VisitedCafeDiaryCardProps = {
 };
 
 /**
- * Visited-cafés list row: visit photo forward, café listing image as secondary overlay.
+ * Compact visited-space diary row: essentials collapsed, details on expand, review in modal.
  */
 export function VisitedCafeDiaryCard({
   cafe,
@@ -38,6 +51,12 @@ export function VisitedCafeDiaryCard({
   onPress,
   maxTags = 3,
 }: VisitedCafeDiaryCardProps) {
+  const { isDesktopWeb } = useDesktopWeb();
+  const mediaW = isDesktopWeb ? MAIN_W_DESKTOP : MAIN_W;
+  const mediaH = isDesktopWeb ? MAIN_H_DESKTOP : MAIN_H;
+
+  const [expanded, setExpanded] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
@@ -59,12 +78,14 @@ export function VisitedCafeDiaryCard({
   const area =
     String((cafe as unknown as { area?: unknown }).area ?? '').trim() ||
     String(cafe.neighborhood ?? '').trim();
-  const userRatingText =
-    visit.rating != null ? `Your rating ${formatCoffeeRatingValue(visit.rating)} ★` : null;
 
-  const notePreview = visit.note.trim().length > 0 ? visit.note.trim() : null;
+  const noteText = visit.note.trim().length > 0 ? visit.note.trim() : null;
+  const hasRating = visit.rating != null && Number.isFinite(visit.rating);
+  const ratingLabel = hasRating ? formatCoffeeRatingValue(visit.rating) : null;
+
   const tagSlice = useMemo(
-    () => prioritizeWorkTagsForCards(visit.tags.length > 0 ? visit.tags : cafe.tags).slice(0, maxTags),
+    () =>
+      prioritizeWorkTagsForCards(visit.tags.length > 0 ? visit.tags : cafe.tags).slice(0, maxTags),
     [visit.tags, cafe.tags, maxTags]
   );
 
@@ -87,6 +108,16 @@ export function VisitedCafeDiaryCard({
     return { ...cafe, workspaceSummary: fromVisit };
   }, [cafe, visit]);
 
+  const hasMultiVisitPhotos = hasVisitPhotos && visitPhotoUris.length > 1;
+  const hasWorkspaceFacts = buildWorkspaceCardFactParts(cafeForFacts).length > 0;
+  const hasPublicWorkScore = cafeHasPublicWorkScore(cafe);
+  const hasExpandableDetails =
+    hasMultiVisitPhotos ||
+    tagSlice.length > 0 ||
+    hasWorkspaceFacts ||
+    hasPublicWorkScore ||
+    Boolean(cafe.isCertified);
+
   function openLightboxAt(index: number) {
     setLightboxIndex(index);
     setLightboxOpen(true);
@@ -103,100 +134,13 @@ export function VisitedCafeDiaryCard({
           onPress={hasVisitPhotos ? () => openLightboxAt(0) : onPress}
           style={({ pressed }) => [styles.mediaColumn, pressed && styles.mediaPressed]}
         >
-          <View style={styles.mainImageWrap}>
-            {hasVisitPhotos && visitPhotoUris.length > 1 ? (
-              <View style={styles.visitGallery}>
-                {visitPhotoUris.length === 2 ? (
-                  <>
-                    <Pressable
-                      style={styles.galleryHalf}
-                      onPress={(event) => {
-                        event.stopPropagation();
-                        openLightboxAt(0);
-                      }}
-                    >
-                      <CafeImage
-                        uri={visitPhotoUris[0]}
-                        style={styles.galleryImage}
-                        displayWidth={MAIN_W}
-                        displayHeight={MAIN_H}
-                        priority="low"
-                      />
-                    </Pressable>
-                    <Pressable
-                      style={styles.galleryHalf}
-                      onPress={(event) => {
-                        event.stopPropagation();
-                        openLightboxAt(1);
-                      }}
-                    >
-                      <CafeImage
-                        uri={visitPhotoUris[1]}
-                        style={styles.galleryImage}
-                        displayWidth={MAIN_W}
-                        displayHeight={MAIN_H}
-                        priority="low"
-                      />
-                    </Pressable>
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.galleryTopRow}>
-                      <Pressable
-                        style={styles.galleryTopCell}
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          openLightboxAt(0);
-                        }}
-                      >
-                        <CafeImage
-                          uri={visitPhotoUris[0]}
-                          style={styles.galleryImage}
-                          displayWidth={MAIN_W}
-                          displayHeight={MAIN_H / 2}
-                          priority="low"
-                        />
-                      </Pressable>
-                      <Pressable
-                        style={styles.galleryTopCell}
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          openLightboxAt(1);
-                        }}
-                      >
-                        <CafeImage
-                          uri={visitPhotoUris[1]}
-                          style={styles.galleryImage}
-                          displayWidth={MAIN_W}
-                          displayHeight={MAIN_H / 2}
-                          priority="low"
-                        />
-                      </Pressable>
-                    </View>
-                    <Pressable
-                      style={styles.galleryBottomCell}
-                      onPress={(event) => {
-                        event.stopPropagation();
-                        openLightboxAt(2);
-                      }}
-                    >
-                      <CafeImage
-                        uri={visitPhotoUris[2]}
-                        style={styles.galleryImage}
-                        displayWidth={MAIN_W}
-                        displayHeight={MAIN_H / 2}
-                        priority="low"
-                      />
-                    </Pressable>
-                  </>
-                )}
-              </View>
-            ) : mainImageUri ? (
+          <View style={[styles.mainImageWrap, { width: mediaW, height: mediaH }]}>
+            {mainImageUri ? (
               <CafeImage
                 uri={mainImageUri}
                 style={styles.mainImage}
-                displayWidth={MAIN_W * 2}
-                displayHeight={MAIN_H * 2}
+                displayWidth={mediaW * 2}
+                displayHeight={mediaH * 2}
                 priority="low"
               />
             ) : (
@@ -205,7 +149,7 @@ export function VisitedCafeDiaryCard({
             {hasVisitPhotos ? (
               <View style={styles.memoryBadge} pointerEvents="none">
                 <Text style={styles.memoryBadgeText}>
-                  Your visit{visitPhotoUris.length > 1 ? ` · ${visitPhotoUris.length}` : ''}
+                  {visitPhotoUris.length > 1 ? `${visitPhotoUris.length} photos` : 'Visit'}
                 </Text>
               </View>
             ) : null}
@@ -223,55 +167,175 @@ export function VisitedCafeDiaryCard({
           </View>
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Open ${cafe.name}`}
-          onPress={onPress}
-          style={({ pressed }) => [styles.body, pressed && styles.bodyPressed]}
-        >
-          <VenueTypeBadge venueType={cafe.venueType} />
-          <Text style={styles.name} numberOfLines={2}>
-            {cafe.name}
-          </Text>
-          <TrustSignal cafe={cafe} style={styles.trustSignal} />
-          <WorkScoreMetaRow
-            cafe={cafe}
-            area={area || null}
-            style={styles.metaRow}
-          />
-          <WorkspaceCardFacts cafe={cafeForFacts} style={styles.workspaceFacts} />
-          {tagSlice.length > 0 ? (
-            <View style={styles.tagsRow}>
-              {tagSlice.map((tag) => (
-                <View key={tag} style={styles.tagChip}>
-                  <TagWithOptionalIcon
-                    tag={tag}
-                    iconSize={11}
-                    color={COLORS.muted}
-                    textStyle={styles.tagChipText}
-                    gap={4}
-                  />
+        <View style={styles.body}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${cafe.name}`}
+            onPress={onPress}
+            style={({ pressed }) => [styles.bodyMain, pressed && styles.bodyPressed]}
+          >
+            <VenueTypeBadge venueType={cafe.venueType} />
+            <Text style={styles.name} numberOfLines={2}>
+              {cafe.name}
+            </Text>
+            {area ? (
+              <Text style={styles.areaLine} numberOfLines={1}>
+                {area}
+              </Text>
+            ) : null}
+
+            <View style={styles.metaChipRow}>
+              {visitedDateLabel ? (
+                <View style={styles.visitedChip}>
+                  <Ionicons name="calendar-outline" size={12} color={COLORS.sage} />
+                  <Text style={styles.visitedChipText} numberOfLines={1}>
+                    {visitedDateLabel}
+                  </Text>
                 </View>
-              ))}
+              ) : null}
+              {ratingLabel ? (
+                <View style={styles.ratingChip}>
+                  <Ionicons name="star" size={11} color="#5B6E58" />
+                  <Text style={styles.ratingChipText}>{ratingLabel}</Text>
+                </View>
+              ) : null}
+            </View>
+          </Pressable>
+
+          <View style={styles.actionRow}>
+            {noteText ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="View review"
+                onPress={() => setReviewOpen(true)}
+                style={({ pressed }) => [styles.reviewButton, pressed && styles.actionPressed]}
+                hitSlop={6}
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={14} color={COLORS.roastedBrown} />
+                <Text style={styles.reviewButtonText}>View review</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.actionSpacer} />
+            )}
+
+            {hasExpandableDetails ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ expanded }}
+                accessibilityLabel={expanded ? 'Hide visit details' : 'Show more visit details'}
+                onPress={() => setExpanded((prev) => !prev)}
+                style={({ pressed }) => [styles.moreButton, pressed && styles.actionPressed]}
+                hitSlop={8}
+              >
+                <Text style={styles.moreButtonText}>{expanded ? 'Less' : 'More'}</Text>
+                <Ionicons
+                  name={expanded ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={COLORS.muted}
+                />
+              </Pressable>
+            ) : null}
+          </View>
+
+          {expanded ? (
+            <View style={styles.expandedBlock}>
+              {hasMultiVisitPhotos ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.photoStrip}
+                >
+                  {visitPhotoUris.map((uri, index) => (
+                    <Pressable
+                      key={`${uri}-${index}`}
+                      onPress={() => openLightboxAt(index)}
+                      style={styles.photoThumbWrap}
+                      accessibilityRole="imagebutton"
+                      accessibilityLabel={`Visit photo ${index + 1}`}
+                    >
+                      <CafeImage
+                        uri={uri}
+                        style={styles.photoThumb}
+                        displayWidth={112}
+                        displayHeight={84}
+                        priority="low"
+                      />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              ) : null}
+
+              <TrustSignal cafe={cafe} style={styles.trustSignal} />
+              {hasPublicWorkScore ? (
+                <WorkScoreMetaRow cafe={cafe} area={area || null} style={styles.metaRow} />
+              ) : null}
+              <WorkspaceCardFacts cafe={cafeForFacts} style={styles.workspaceFacts} />
+
+              {tagSlice.length > 0 ? (
+                <View style={styles.tagsRow}>
+                  {tagSlice.map((tag) => (
+                    <View key={tag} style={styles.tagChip}>
+                      <TagWithOptionalIcon
+                        tag={tag}
+                        iconSize={11}
+                        color={COLORS.muted}
+                        textStyle={styles.tagChipText}
+                        gap={4}
+                      />
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </View>
           ) : null}
-          {userRatingText ? (
-            <Text style={styles.secondaryMeta} numberOfLines={1}>
-              {userRatingText}
-            </Text>
-          ) : null}
-          {visitedDateLabel ? (
-            <Text style={styles.dateLine} numberOfLines={1}>
-              {visitedDateLabel}
-            </Text>
-          ) : null}
-          {notePreview ? (
-            <Text style={styles.notePreview} numberOfLines={2}>
-              {notePreview}
-            </Text>
-          ) : null}
-        </Pressable>
+        </View>
       </View>
+
+      <Modal
+        visible={reviewOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReviewOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setReviewOpen(false)}>
+          <Pressable
+            style={styles.modalCard}
+            onPress={(event) => event.stopPropagation()}
+            accessibilityRole="summary"
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalEyebrow}>Your review</Text>
+              <Pressable
+                onPress={() => setReviewOpen(false)}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Close review"
+              >
+                <Ionicons name="close" size={20} color={COLORS.muted} />
+              </Pressable>
+            </View>
+            <Text style={styles.modalCafeName} numberOfLines={2}>
+              {cafe.name}
+            </Text>
+            {visitedDateLabel || ratingLabel ? (
+              <View style={styles.modalMetaRow}>
+                {visitedDateLabel ? (
+                  <Text style={styles.modalMetaText}>{visitedDateLabel}</Text>
+                ) : null}
+                {ratingLabel ? (
+                  <View style={styles.ratingChip}>
+                    <Ionicons name="star" size={11} color="#5B6E58" />
+                    <Text style={styles.ratingChipText}>{ratingLabel}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalBody}>{noteText}</Text>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {hasVisitPhotos ? (
         <VisitPhotoLightbox
@@ -290,13 +354,13 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 14,
-    borderRadius: 18,
+    gap: 12,
+    borderRadius: 16,
     backgroundColor: COLORS.cardBackground,
     borderWidth: 1,
     borderColor: COLORS.cardBorder,
-    padding: 12,
-    paddingRight: 14,
+    padding: 10,
+    paddingRight: 12,
     ...SHADOWS.card,
   },
   mediaColumn: {
@@ -309,9 +373,7 @@ const styles = StyleSheet.create({
     opacity: 0.96,
   },
   mainImageWrap: {
-    width: MAIN_W,
-    height: MAIN_H,
-    borderRadius: 14,
+    borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: COLORS.imagePlaceholder,
   },
@@ -322,58 +384,30 @@ const styles = StyleSheet.create({
   mainImagePlaceholder: {
     backgroundColor: COLORS.imagePlaceholder,
   },
-  visitGallery: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  galleryHalf: {
-    width: '50%',
-    height: '100%',
-  },
-  galleryTopRow: {
-    width: '100%',
-    height: '50%',
-    flexDirection: 'row',
-  },
-  galleryTopCell: {
-    width: '50%',
-    height: '100%',
-  },
-  galleryBottomCell: {
-    width: '100%',
-    height: '50%',
-  },
-  galleryImage: {
-    width: '100%',
-    height: '100%',
-  },
   memoryBadge: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 5,
+    left: 5,
     borderRadius: 6,
     paddingHorizontal: 6,
-    paddingVertical: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingVertical: 2,
+    backgroundColor: 'rgba(255, 251, 240, 0.94)',
     borderWidth: 1,
-    borderColor: 'rgba(26, 26, 26, 0.08)',
+    borderColor: 'rgba(138, 154, 126, 0.35)',
   },
   memoryBadgeText: {
     fontSize: 9,
     fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-    letterSpacing: 0.2,
+    color: '#5B6E58',
+    letterSpacing: 0.15,
   },
   listingOverlayWrap: {
     position: 'absolute',
-    left: 6,
-    bottom: 6,
+    left: 5,
+    bottom: 5,
     width: OVERLAY_SIZE,
     height: OVERLAY_SIZE,
-    borderRadius: 10,
+    borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: COLORS.background,
@@ -387,65 +421,147 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
-    paddingTop: 2,
+    gap: 8,
+    paddingTop: 1,
+  },
+  bodyMain: {
+    gap: 3,
   },
   name: {
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 20,
     fontFamily: FONTS.sans.semibold,
     color: COLORS.text,
     letterSpacing: -0.2,
   },
-  curationRow: {
+  areaLine: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.muted,
+  },
+  metaChipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  visitedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: '100%',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: COLORS.workPillBackground,
+    borderWidth: 1,
+    borderColor: COLORS.workPillBorder,
+  },
+  visitedChipText: {
+    flexShrink: 1,
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONTS.sans.medium,
+    color: '#5B6E58',
+  },
+  ratingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(138, 154, 126, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(138, 154, 126, 0.4)',
+  },
+  ratingChipText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontFamily: FONTS.sans.semibold,
+    color: '#5B6E58',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
-  },
-  workScore: {
     marginTop: 2,
   },
-  metaRow: {
-    marginTop: 2,
+  actionSpacer: {
+    flex: 1,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: 'rgba(107, 94, 82, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 94, 82, 0.22)',
+  },
+  reviewButtonText: {
+    fontSize: 12,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.roastedBrown,
+  },
+  moreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginLeft: 'auto',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  moreButtonText: {
+    fontSize: 12,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+  },
+  actionPressed: {
+    opacity: 0.75,
+  },
+  expandedBlock: {
+    gap: 6,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.cardBorder,
+  },
+  photoStrip: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  photoThumbWrap: {
+    width: 72,
+    height: 54,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: COLORS.imagePlaceholder,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+  },
+  photoThumb: {
+    width: '100%',
+    height: '100%',
   },
   trustSignal: {
     marginTop: 2,
   },
+  metaRow: {
+    marginTop: 0,
+  },
   workspaceFacts: {
-    marginTop: 2,
-  },
-  metaLine: {
-    fontSize: 14,
-    lineHeight: 19,
-    fontFamily: FONTS.sans.semibold,
-    color: COLORS.text,
-  },
-  secondaryMeta: {
-    fontSize: 12,
-    lineHeight: 17,
-    fontFamily: FONTS.sans.regular,
-    color: COLORS.muted,
-  },
-  dateLine: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontFamily: FONTS.sans.regular,
-    color: COLORS.muted,
-  },
-  notePreview: {
-    marginTop: 2,
-    fontSize: 13,
-    lineHeight: 19,
-    fontFamily: FONTS.sans.regular,
-    color: COLORS.muted,
-    fontStyle: 'italic',
+    marginTop: 0,
   },
   tagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 4,
+    marginTop: 2,
   },
   tagChip: {
     borderRadius: 999,
@@ -459,5 +575,64 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: FONTS.sans.medium,
     color: COLORS.muted,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 20, 20, 0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  modalCard: {
+    maxHeight: '70%',
+    borderRadius: 18,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.cardBorder,
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 18,
+    ...SHADOWS.card,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  modalEyebrow: {
+    fontSize: 11,
+    fontFamily: FONTS.sans.semibold,
+    color: COLORS.sage,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  modalCafeName: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontFamily: FONTS.display.semibold,
+    color: COLORS.text,
+    letterSpacing: -0.2,
+  },
+  modalMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  modalMetaText: {
+    fontSize: 13,
+    fontFamily: FONTS.sans.medium,
+    color: COLORS.muted,
+  },
+  modalScroll: {
+    maxHeight: 280,
+  },
+  modalBody: {
+    fontSize: 15,
+    lineHeight: 23,
+    fontFamily: FONTS.sans.regular,
+    color: COLORS.text,
   },
 });

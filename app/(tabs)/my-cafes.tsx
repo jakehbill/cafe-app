@@ -55,9 +55,9 @@ function formatVisitedDateLabel(createdAtIso: string): string | null {
   yesterday.setDate(now.getDate() - 1);
   if (isSameLocalDay(d, yesterday)) return 'Visited yesterday';
 
-  const dateText = d.toLocaleDateString('en-GB', {
-    day: '2-digit',
+  const dateText = d.toLocaleDateString('en-US', {
     month: 'short',
+    day: 'numeric',
     year: 'numeric',
   });
   return `Visited ${dateText}`;
@@ -343,8 +343,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   timelineList: {
-    gap: 12,
-    marginTop: 6,
+    gap: 10,
+    marginTop: 4,
   },
   emptyWrap: {
     marginTop: 20,
