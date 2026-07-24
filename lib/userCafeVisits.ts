@@ -430,29 +430,32 @@ export async function saveUserCafeVisit(input: SaveVisitInput): Promise<Supabase
         assets: photoAssets,
       });
     }
-
-    if (rating != null && cafeId) {
-      const rateRes = await rateCafe(cafeId, {
-        coffee: rating,
-        tags,
-      });
-      if (!rateRes.ok) {
-        return {
-          ok: false,
-          error: `Visit saved, but rating sync failed: ${rateRes.error}`,
-        };
-      }
-    }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Moderation routing failed.';
-    console.error('[saveUserCafeVisit] moderation routing failed', {
+    const message = error instanceof Error ? error.message : 'Photo upload failed.';
+    console.error('[saveUserCafeVisit] photo upload / queue failed', {
       visitId,
       cafeId: cafeId || null,
       submissionId: submissionId || null,
       photoCount: photoAssets.length,
       message,
     });
-    return { ok: false, error: `Visit saved, but moderation routing failed: ${message}` };
+    return {
+      ok: false,
+      error: `Visit saved, but photo upload failed: ${message}`,
+    };
+  }
+
+  if (rating != null && cafeId) {
+    const rateRes = await rateCafe(cafeId, {
+      coffee: rating,
+      tags,
+    });
+    if (!rateRes.ok) {
+      return {
+        ok: false,
+        error: `Visit saved, but rating sync failed: ${rateRes.error}`,
+      };
+    }
   }
 
   notifyCafeCatalogChanged();
@@ -621,15 +624,15 @@ export async function updateUserCafeVisit(
       });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Moderation routing failed.';
-    console.error('[updateUserCafeVisit] moderation routing failed', {
+    const message = error instanceof Error ? error.message : 'Photo upload failed.';
+    console.error('[updateUserCafeVisit] photo upload / queue failed', {
       visitId,
       cafeId: existing.cafeId,
       submissionId: existing.submissionId,
       newPhotoCount: newPhotoAssets.length,
       message,
     });
-    return { ok: false, error: `Visit updated, but moderation routing failed: ${message}` };
+    return { ok: false, error: `Visit updated, but photo upload failed: ${message}` };
   }
 
   if (existing.cafeId && nextRating != null) {

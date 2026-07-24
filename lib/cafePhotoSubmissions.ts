@@ -67,73 +67,112 @@ export async function uploadImageAssetToStorageBucket(params: {
   const logTag = params.logTag ?? 'uploadImageAssetToStorageBucket';
 
   try {
-    let uploadResult:
-      | { error: null }
-      | {
-          error: { message: string };
-        };
-    if (Platform.OS === 'web') {
-      let blob: Blob;
-      try {
-        const response = await fetch(params.asset.uri);
-        blob = await response.blob();
-      } catch (error) {
-        console.error(`[${logTag}] web blob conversion failed:`, error);
-        throw new Error(
-          `Failed to read selected image on web: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-      }
-      if (!blob || blob.size === 0) {
-        throw new Error('Selected image is empty (0 bytes). Please choose another image.');
-      }
-      uploadResult = await supabase.storage
-        .from(CAFE_USER_PHOTO_BUCKET)
-        .upload(params.storagePath, blob, {
-          contentType,
-          upsert: false,
-        });
-    } else {
-      let base64 = '';
-      try {
-        base64 = await FileSystem.readAsStringAsync(params.asset.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-      } catch (error) {
-        throw new Error(
-          `Failed to read selected image: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-      }
-
-      if (!base64 || base64.length === 0) {
-        throw new Error('Selected image could not be read.');
-      }
-
-      let arrayBuffer: ArrayBuffer;
-      try {
-        arrayBuffer = decode(base64);
-      } catch (error) {
-        throw new Error(
-          `Failed to decode image data: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-      }
-
-      uploadResult = await supabase.storage
-        .from(CAFE_USER_PHOTO_BUCKET)
-        .upload(params.storagePath, arrayBuffer, {
-          contentType,
-          upsert: false,
-        });
+    const blob = await readUploadableAssetAsBlob(params.asset, contentType, logTag);
+    if (!blob || blob.size === 0) {
+      throw new Error('Selected image is empty (0 bytes). Please choose another image.');
     }
+
+    /**
+     * Prefer Blob uploads on every platform. ArrayBuffer uploads via supabase-js /
+     * XMLHttpRequest often fail on Expo with a cryptic "Load failed".
+     */
+    const uploadResult = await supabase.storage
+      .from(CAFE_USER_PHOTO_BUCKET)
+      .upload(params.storagePath, blob, {
+        contentType: blob.type || contentType,
+        upsert: false,
+      });
 
     if (uploadResult.error) {
-      throw new Error(`Upload failed: ${uploadResult.error.message}`);
+      const raw = uploadResult.error.message || 'Unknown storage error';
+      const hint =
+        /row-level security|unauthorized|not allowed|403/i.test(raw)
+          ? ' Check that authenticated users can INSERT into the cafe-user-photos storage bucket.'
+          : /load failed|network|failed to fetch/i.test(raw)
+            ? ' Check your connection and try another photo.'
+            : '';
+      throw new Error(`Upload failed: ${raw}.${hint}`.replace(/\.\./g, '.'));
     }
 
-    return { ok: true, contentType };
+    return { ok: true, contentType: blob.type || contentType };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Photo upload failed.';
-    console.error(`[${logTag}]`, message, error);
+    console.error(`[${logTag}]`, message, {
+      uriScheme: String(params.asset.uri ?? '').split(':')[0] || 'unknown',
+      storagePath: params.storagePath,
+      platform: Platform.OS,
+      error,
+    });
     return { ok: false, error: message };
+  }
+}
+
+/**
+ * Read a picker URI into a Blob. Tries fetch first (file://, blob:, content:, https:),
+ * then falls back to FileSystem base64 on native.
+ */
+async function readUploadableAssetAsBlob(
+  asset: UploadableImageAsset,
+  contentType: string,
+  logTag: string
+): Promise<Blob> {
+  const uri = String(asset.uri ?? '').trim();
+  if (!uri) {
+    throw new Error('Selected image is missing a file URI.');
+  }
+
+  try {
+    const response = await fetch(uri);
+    if (!response.ok) {
+      throw new Error(`Could not read image (HTTP ${response.status}).`);
+    }
+    const blob = await response.blob();
+    if (blob.size > 0) {
+      if (!blob.type && contentType) {
+        return new Blob([blob], { type: contentType });
+      }
+      return blob;
+    }
+  } catch (error) {
+    console.warn(`[${logTag}] fetch→blob failed, trying fallback:`, error);
+    if (Platform.OS === 'web') {
+      throw new Error(
+        `Failed to read selected image on web: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      );
+    }
+  }
+
+  let base64 = '';
+  try {
+    base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  } catch (error) {
+    throw new Error(
+      `Failed to read selected image: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+
+  if (!base64 || base64.length === 0) {
+    throw new Error('Selected image could not be read.');
+  }
+
+  try {
+    const dataUrl = `data:${contentType};base64,${base64}`;
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    if (!blob || blob.size === 0) {
+      // Last resort: ArrayBuffer → Blob (avoids supabase ArrayBuffer XHR path)
+      const arrayBuffer = decode(base64);
+      return new Blob([new Uint8Array(arrayBuffer)], { type: contentType });
+    }
+    return blob.type ? blob : new Blob([blob], { type: contentType });
+  } catch (error) {
+    throw new Error(
+      `Failed to prepare image for upload: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
